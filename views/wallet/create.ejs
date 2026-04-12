@@ -15,9 +15,13 @@
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bip39@3.1.0/dist/bip39.min.js"></script>
-<script>
+<script type="module">
+  import * as bip39 from 'https://esm.sh/bip39@3.1.0';
+  import { HDKey } from 'https://esm.sh/@scure/bip32@1.4.0';
+  import { bech32 } from 'https://esm.sh/@scure/base@1.1.9';
+  import { sha256 } from 'https://esm.sh/@noble/hashes@1.5.0/sha256';
+  import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.5.0/ripemd160';
+
   function setLoading(on) {
     var btn = document.getElementById('submitBtn');
     if (on) {
@@ -36,10 +40,15 @@
   }
 
   function deriveScashAddress(mnemonic) {
-    var seed = bitcoinjs.bip39.mnemonicToSeed(mnemonic);
-    var root = bitcoinjs.bip32.fromSeed(seed);
-    var child = root.derivePath("m/84'/0'/0'/0/0");
-    return bitcoinjs.payments.p2wpkh({ pubkey: child.publicKey, network: bitcoinjs.networks.bitcoin }).address;
+    console.log(mnemonic,'mnemonic')
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var root = HDKey.fromMasterSeed(seed);
+    var child = root.derive("m/84'/0'/0'/0/0");
+    var pubkeyHash = ripemd160(sha256(child.publicKey));
+    var words = bech32.toWords(pubkeyHash);
+    words.unshift(0);
+    var network = (window.SCASH && window.SCASH.NETWORK) || { bech32: 'bcrt' };
+    return bech32.encode(network.bech32, words);
   }
 
   async function encryptMnemonic(mnemonic, password) {
@@ -61,7 +70,7 @@
     if (pw !== cw) { showError('两次密码输入不一致'); return; }
     setLoading(true);
     try {
-      var mnemonic = bitcoinjs.bip39.generateMnemonic(128);
+      var mnemonic = bip39.generateMnemonic(128);
       var address = deriveScashAddress(mnemonic);
       var enc = await encryptMnemonic(mnemonic, pw);
       await window.SCASH.request('/api/wallet/create', {
@@ -74,7 +83,7 @@
           authTag: enc.ciphertext.slice(0, 32),
         }),
       });
-      if (window.SCASH.TG) window.SCASH.TG.close();
+      // location.href = '/wallet';
     } catch (e) {
       showError(e.message);
       setLoading(false);

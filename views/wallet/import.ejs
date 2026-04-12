@@ -12,9 +12,13 @@
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bip39@3.1.0/dist/bip39.min.js"></script>
-<script>
+<script type="module">
+  import * as bip39 from 'https://esm.sh/bip39@3.1.0';
+  import { HDKey } from 'https://esm.sh/@scure/bip32@1.4.0';
+  import { bech32 } from 'https://esm.sh/@scure/base@1.1.9';
+  import { sha256 } from 'https://esm.sh/@noble/hashes@1.5.0/sha256';
+  import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.5.0/ripemd160';
+
   function setLoading(on) {
     var btn = document.getElementById('submitBtn');
     if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>导入中…'; }
@@ -27,10 +31,14 @@
   }
 
   function deriveScashAddress(mnemonic) {
-    var seed = bitcoinjs.bip39.mnemonicToSeed(mnemonic);
-    var root = bitcoinjs.bip32.fromSeed(seed);
-    var child = root.derivePath("m/84'/0'/0'/0/0");
-    return bitcoinjs.payments.p2wpkh({ pubkey: child.publicKey, network: bitcoinjs.networks.bitcoin }).address;
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var root = HDKey.fromMasterSeed(seed);
+    var child = root.derive("m/84'/0'/0'/0/0");
+    var pubkeyHash = ripemd160(sha256(child.publicKey));
+    var words = bech32.toWords(pubkeyHash);
+    words.unshift(0);
+    var network = (window.SCASH && window.SCASH.NETWORK) || { bech32: 'bcrt' };
+    return bech32.encode(network.bech32, words);
   }
 
   async function encryptMnemonic(mnemonic, password) {
@@ -49,7 +57,7 @@
     var pw = document.getElementById('password').value.trim();
     var cw = document.getElementById('confirm').value.trim();
     showError('');
-    if (!bitcoinjs.bip39.validateMnemonic(mn)) { showError('助记词格式不正确，请检查'); return; }
+    if (!bip39.validateMnemonic(mn)) { showError('助记词格式不正确，请检查'); return; }
     if (pw.length < 8) { showError('密码长度不能少于8位'); return; }
     if (pw !== cw) { showError('两次密码输入不一致'); return; }
     setLoading(true);
@@ -60,7 +68,7 @@
         method: 'POST',
         body: JSON.stringify({ address: address, encryptedMnemonic: enc.ciphertext, salt: enc.salt, iv: enc.iv, authTag: enc.ciphertext.slice(0, 32) }),
       });
-      if (window.SCASH.TG) window.SCASH.TG.close();
+      location.href = '/wallet';
     } catch (e) {
       showError(e.message);
       setLoading(false);

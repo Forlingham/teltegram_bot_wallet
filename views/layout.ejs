@@ -56,6 +56,12 @@
       window.SCASH = {
         SESSION_KEY: 'SCASH_SESSION_TOKEN',
         TG: window.Telegram && window.Telegram.WebApp,
+      ENV: '<%= appEnv || "development" %>',
+      NETWORK: {
+        bech32: '<%= (scashNetwork && scashNetwork.bech32) || "bcrt" %>',
+        pubKeyHash: <%= (scashNetwork && scashNetwork.pubKeyHash) || 60 %>,
+        scriptHash: <%= (scashNetwork && scashNetwork.scriptHash) || 125 %>,
+      },
       getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
       readInitData: function () {
         var tg = this.TG;
