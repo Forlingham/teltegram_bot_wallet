@@ -1,104 +1,83 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle %></title>
-    <style>
-      body { margin: 0; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f8f3; color: #1f2a1f; }
-      .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
-      .card { background: #fff; border: 1px solid #d9e3d7; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-      h1 { margin: 0 0 10px; }
-      .sub { color: #5b665c; margin: 0 0 14px; }
-      .row { margin-bottom: 12px; }
-      label { display: block; margin-bottom: 6px; font-size: 13px; color: #586258; }
-      input { width: 100%; padding: 10px; border: 1px solid #cad7c8; border-radius: 10px; }
-      button { border: 0; background: #2f7a42; color: white; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
-      .hint { color: #b85f07; font-size: 13px; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <h1>创建钱包</h1>
-        <p class="sub">助记词生成、加密、签名均在前端完成。后端仅保存加密密文。</p>
-        <p class="hint">提示：创建完成后不会强制你当场确认助记词，首页会持续提醒你备份。</p>
-      </div>
+<div class="card">
+  <div class="info">
+    只需设置一个密码，系统会自动生成助记词并创建钱包。助记词加密后仅保存在你的账号下，换设备可恢复。
+  </div>
 
-      <div class="card">
-        <div class="row">
-          <label>钱包地址（前端派生）</label>
-          <input id="address" placeholder="scash1..." />
-        </div>
-        <div class="row">
-          <label>加密助记词（前端加密后）</label>
-          <input id="encryptedMnemonic" class="mono" placeholder="ciphertext" />
-        </div>
-        <div class="row">
-          <label>Salt</label>
-          <input id="salt" placeholder="salt" />
-        </div>
-        <div class="row">
-          <label>IV</label>
-          <input id="iv" placeholder="iv" />
-        </div>
-        <div class="row">
-          <label>AuthTag</label>
-          <input id="authTag" placeholder="authTag" />
-        </div>
-        <button id="submitBtn">提交创建</button>
-      </div>
-    </div>
+  <div class="label">设置钱包密码</div>
+  <div class="input-wrap" style="margin-bottom: 12px;">
+    <input id="password" type="password" placeholder="请输入密码（不少于8位）" autocomplete="off" />
+  </div>
+  <div class="input-wrap" style="margin-bottom: 16px;">
+    <input id="confirm" type="password" placeholder="再次输入密码确认" autocomplete="off" />
+  </div>
 
-    <script>
-      (function () {
-        const enabled = new URL(window.location.href).searchParams.get('debug') === '1' ||
-          localStorage.getItem('DEBUG_CONSOLE') === '1';
-        if (!enabled) return;
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-        script.onload = function () { window.eruda && window.eruda.init(); };
-        document.head.appendChild(script);
-      })();
-    </script>
-    <script>
-      const SESSION_KEY = 'SCASH_SESSION_TOKEN';
-      function token() { return localStorage.getItem(SESSION_KEY) || ''; }
-      function val(id) { return document.getElementById(id).value.trim(); }
+  <button id="submitBtn" class="btn btn-brand">创建钱包</button>
+  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+</div>
 
-      async function request(path, options = {}) {
-        const res = await fetch(path, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-token': token(),
-            ...(options.headers || {}),
-          },
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
-        return json.data;
-      }
+<script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bip39@3.1.0/dist/bip39.min.js"></script>
+<script>
+  function setLoading(on) {
+    var btn = document.getElementById('submitBtn');
+    if (on) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>生成中…';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '创建钱包';
+    }
+  }
 
-      document.getElementById('submitBtn').addEventListener('click', async () => {
-        try {
-          await request('/api/wallet/create', {
-            method: 'POST',
-            body: JSON.stringify({
-              address: val('address'),
-              encryptedMnemonic: val('encryptedMnemonic'),
-              salt: val('salt'),
-              iv: val('iv'),
-              authTag: val('authTag'),
-            }),
-          });
-          alert('钱包创建成功');
-          location.href = '/wallet';
-        } catch (e) {
-          alert(e.message);
-        }
+  function showError(msg) {
+    var el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function deriveScashAddress(mnemonic) {
+    var seed = bitcoinjs.bip39.mnemonicToSeed(mnemonic);
+    var root = bitcoinjs.bip32.fromSeed(seed);
+    var child = root.derivePath("m/84'/0'/0'/0/0");
+    return bitcoinjs.payments.p2wpkh({ pubkey: child.publicKey, network: bitcoinjs.networks.bitcoin }).address;
+  }
+
+  async function encryptMnemonic(mnemonic, password) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var key = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['encrypt']);
+    var ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, aesKey, new TextEncoder().encode(mnemonic));
+    function toHex(arr) { return Array.from(new Uint8Array(arr)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+    return { salt: toHex(salt), iv: toHex(iv), ciphertext: toHex(ciphertext) };
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', async function () {
+    var pw = document.getElementById('password').value.trim();
+    var cw = document.getElementById('confirm').value.trim();
+    showError('');
+    if (pw.length < 8) { showError('密码长度不能少于8位'); return; }
+    if (pw !== cw) { showError('两次密码输入不一致'); return; }
+    setLoading(true);
+    try {
+      var mnemonic = bitcoinjs.bip39.generateMnemonic(128);
+      var address = deriveScashAddress(mnemonic);
+      var enc = await encryptMnemonic(mnemonic, pw);
+      await window.SCASH.request('/api/wallet/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          address: address,
+          encryptedMnemonic: enc.ciphertext,
+          salt: enc.salt,
+          iv: enc.iv,
+          authTag: enc.ciphertext.slice(0, 32),
+        }),
       });
-    </script>
-  </body>
-  </html>
+      if (window.SCASH.TG) window.SCASH.TG.close();
+    } catch (e) {
+      showError(e.message);
+      setLoading(false);
+    }
+  });
+</script>

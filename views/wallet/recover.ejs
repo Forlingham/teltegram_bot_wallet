@@ -1,70 +1,54 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle %></title>
-    <style>
-      body { margin: 0; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f6f8f4; color: #1f2a1f; }
-      .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
-      .card { background: #fff; border: 1px solid #d9e3d7; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-      h1 { margin: 0 0 10px; }
-      .sub { color: #5b665c; margin: 0 0 14px; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; background: #f4f7f2; border-radius: 10px; padding: 10px; }
-      button { border: 0; background: #2f7a42; color: white; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <h1>恢复钱包</h1>
-        <p class="sub">后端仅返回密文备份，解密恢复助记词必须在前端本地完成。</p>
-      </div>
+<div class="card">
+  <div class="info">从云端下载加密备份后，在本地输入密码解密恢复助记词。后端不接触明文助记词。</div>
+  <button id="loadBtn" class="btn btn-brand">读取云端备份</button>
 
-      <div class="card">
-        <button id="loadBtn">读取云端备份</button>
-        <h3>备份数据</h3>
-        <pre id="result" class="mono">尚未读取</pre>
-      </div>
-    </div>
+  <div id="backupSection" style="display:none; margin-top:16px;">
+    <div class="label">备份数据（密文）</div>
+    <pre id="backupData">-</pre>
+    <div class="label" style="margin-top:12px;">输入密码解密</div>
+    <input id="password" type="password" placeholder="输入密码解密" autocomplete="off" />
+    <button id="decryptBtn" class="btn btn-brand" style="margin-top:8px;">解密并显示</button>
+    <div id="mnemonicResult" style="margin-top:12px; font-size:13px; color:var(--brand); word-break:break-all; font-family:ui-monospace;"></div>
+  </div>
 
-    <script>
-      (function () {
-        const enabled = new URL(window.location.href).searchParams.get('debug') === '1' ||
-          localStorage.getItem('DEBUG_CONSOLE') === '1';
-        if (!enabled) return;
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-        script.onload = function () { window.eruda && window.eruda.init(); };
-        document.head.appendChild(script);
-      })();
-    </script>
-    <script>
-      const SESSION_KEY = 'SCASH_SESSION_TOKEN';
-      function token() { return localStorage.getItem(SESSION_KEY) || ''; }
+  <div id="errorMsg" style="color:#c0392b;font-size:13px;margin-top:10px;display:none;"></div>
+</div>
 
-      async function request(path, options = {}) {
-        const res = await fetch(path, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-token': token(),
-            ...(options.headers || {}),
-          },
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
-        return json.data;
-      }
+<script>
+  function showError(msg) {
+    var el = document.getElementById('errorMsg');
+    el.textContent = msg; el.style.display = 'block';
+  }
 
-      document.getElementById('loadBtn').addEventListener('click', async () => {
-        try {
-          const data = await request('/api/wallet/recover', { method: 'POST', body: '{}' });
-          document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-        } catch (e) {
-          alert(e.message);
-        }
-      });
-    </script>
-  </body>
-  </html>
+  async function decryptMnemonic(salt, iv, ciphertext, password) {
+    function fromHex(str) { return new Uint8Array(str.match(/.{2}/g).map(function (b) { return parseInt(b, 16); })); }
+    var saltBytes = fromHex(salt);
+    var ivBytes = fromHex(iv);
+    var ctBytes = fromHex(ciphertext);
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var key = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt']);
+    var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes, tagLength: 128 }, aesKey, ctBytes);
+    return new TextDecoder().decode(pt);
+  }
+
+  document.getElementById('loadBtn').addEventListener('click', async function () {
+    try {
+      var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
+      if (!data.backup) { showError('未找到云端备份，请先创建或备份钱包'); return; }
+      document.getElementById('backupData').textContent = JSON.stringify(data.backup, null, 2);
+      document.getElementById('backupSection').style.display = 'block';
+    } catch (e) { showError(e.message); }
+  });
+
+  document.getElementById('decryptBtn').addEventListener('click', async function () {
+    var pw = document.getElementById('password').value.trim();
+    if (!pw) { showError('请输入密码'); return; }
+    try {
+      var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
+      if (!data.backup) { showError('未找到云端备份'); return; }
+      var mnemonic = await decryptMnemonic(data.backup.salt, data.backup.iv, data.backup.ciphertext, pw);
+      document.getElementById('mnemonicResult').textContent = mnemonic;
+    } catch (e) { showError('解密失败：' + e.message); }
+  });
+</script>

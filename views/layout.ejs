@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= pageTitle %></title>
+  <style>
+    :root {
+      --bg: #f4f8f1;
+      --panel: #ffffff;
+      --text: #1e2a1e;
+      --muted: #5e695e;
+      --line: #d6e1d2;
+      --brand: #2f7a42;
+      --warn-bg: #fff1df;
+      --warn-text: #a95a08;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .app { max-width: 860px; margin: 0 auto; padding: 16px 16px 88px; }
+    .app-header { padding: 14px 4px 12px; }
+    .brand { font-size: 24px; font-weight: 700; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .value { font-size: 18px; font-weight: 700; margin-top: 6px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break: break-all; font-size: 13px; }
+    .warn { background: var(--warn-bg); border-color: #f1ce9c; }
+    .warn-title { margin: 0 0 8px; color: var(--warn-text); font-weight: 700; }
+    .warn-desc { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .btn { border: none; border-radius: 10px; padding: 10px 12px; font-weight: 600; cursor: pointer; }
+    .btn-brand { background: var(--brand); color: #fff; }
+    .btn-soft { background: #e6f3ea; color: var(--brand); }
+    .btn-brand:disabled { opacity: 0.6; cursor: not-allowed; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .quick-link { display: block; text-align: center; text-decoration: none; color: var(--brand); background: #edf7ef; border: 1px solid #d7eadb; border-radius: 10px; padding: 10px 8px; font-weight: 600; font-size: 14px; }
+    .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: #ffffff; border-top: 1px solid var(--line); }
+    .nav-item { padding: 12px 8px 14px; text-align: center; text-decoration: none; color: #5f695f; font-size: 13px; }
+    .nav-item.active { color: var(--brand); font-weight: 700; }
+    input, textarea, .input-wrap { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; background: #fafefa; margin-bottom: 12px; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand); }
+    .info { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .error { color: #c0392b; font-size: 13px; margin-top: 6px; }
+    pre { background: #f4f7f2; border-radius: 10px; padding: 12px; font-size: 12px; overflow-x: auto; word-break: break-all; margin: 0; font-family: ui-monospace, monospace; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <%- include('partials/header') %>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      window.SCASH = {
+        SESSION_KEY: 'SCASH_SESSION_TOKEN',
+        TG: window.Telegram && window.Telegram.WebApp,
+      getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
+      readInitData: function () {
+        var tg = this.TG;
+        if (tg) { tg.ready(); if (tg.initData) return tg.initData; }
+        var params = new URL(location.href).searchParams;
+        return params.get('tgWebAppData') || '';
+      },
+      ensureSession: async function () {
+        var existing = this.getToken();
+        if (existing) return existing;
+        var initData = this.readInitData();
+        if (!initData) throw new Error('未检测到 Telegram 会话，请从机器人 Mini App 打开');
+        var res = await fetch('/api/auth/telegram/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData: initData }),
+        });
+        var json = await res.json();
+        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '登录失败');
+        localStorage.setItem(this.SESSION_KEY, json.data.sessionToken);
+        return json.data.sessionToken;
+      },
+      request: async function (path, options) {
+        var token = await this.ensureSession();
+        var mergedOptions = Object.assign({}, options || {}, {
+          headers: Object.assign({ 'Content-Type': 'application/json', 'x-session-token': token }, (options || {}).headers || {}),
+        });
+        var res = await fetch(path, mergedOptions);
+        var json = await res.json();
+        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
+        return json.data;
+      }
+    };
+
+    // Telegram back button
+    if (window.SCASH.TG) {
+      window.SCASH.TG.BackButton.show();
+      window.SCASH.TG.onEvent('backButtonClicked', function () { history.back(); });
+    }
+  </script>
+    <%- body %>
+  </main>
+  <%- include('partials/bottom-nav') %>
+  <script>
+    (function () {
+      var params = new URL(location.href).searchParams;
+      var debugParam = params.get('debug');
+      if (debugParam === '1') localStorage.setItem('DEBUG_CONSOLE', '1');
+      if (debugParam === '0') localStorage.removeItem('DEBUG_CONSOLE');
+
+      var enabled = localStorage.getItem('DEBUG_CONSOLE') === '1';
+      if (!enabled) return;
+
+      document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+        try {
+          var u = new URL(a.href, location.origin);
+          u.searchParams.set('debug', '1');
+          a.href = u.pathname + u.search + u.hash;
+        } catch (_) {}
+      });
+
+      if (window.eruda) {
+        window.eruda.show();
+        return;
+      }
+
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      s.onload = function () { if (window.eruda) window.eruda.init(); };
+      document.head.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

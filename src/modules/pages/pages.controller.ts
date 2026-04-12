@@ -1,54 +1,68 @@
-import { Controller, Get, Render } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import * as ejs from 'ejs';
+
+const VIEWS_DIR = join(process.cwd(), 'views');
+
+function renderPage(res: Response, template: string, data: Record<string, unknown>) {
+  const layoutPath = join(VIEWS_DIR, 'layout.ejs');
+  const layoutContent = readFileSync(layoutPath, 'utf-8');
+
+  const childPath = join(VIEWS_DIR, template);
+  const childContent = readFileSync(childPath, 'utf-8');
+
+  const bodyContent = ejs.render(childContent, data, { filename: childPath });
+  const html = ejs.render(layoutContent, { ...data, body: bodyContent }, { filename: layoutPath });
+
+  return res.type('html').send(html);
+}
 
 @Controller()
 export class PagesController {
   @Get('wallet')
-  @Render('wallet/index')
-  walletPage(): { pageTitle: string; pageSubtitle: string; activeNav: string } {
-    return {
+  walletPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/index.ejs', {
       pageTitle: 'SCASH 钱包',
       pageSubtitle: '钱包总览',
       activeNav: 'wallet',
-    };
+    });
   }
 
   @Get('wallet/create')
-  @Render('wallet/create')
-  walletCreatePage(): { pageTitle: string; pageSubtitle: string; activeNav: string } {
-    return {
+  walletCreatePage(@Res() res: Response) {
+    return renderPage(res, 'wallet/create.ejs', {
       pageTitle: '创建钱包',
       pageSubtitle: '前端生成助记词并加密上传',
       activeNav: 'create',
-    };
+    });
   }
 
   @Get('wallet/import')
-  @Render('wallet/import')
-  walletImportPage(): { pageTitle: string; pageSubtitle: string; activeNav: string } {
-    return {
+  walletImportPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/import.ejs', {
       pageTitle: '导入钱包',
       pageSubtitle: '前端加密后提交密文',
       activeNav: 'import',
-    };
+    });
   }
 
   @Get('wallet/recover')
-  @Render('wallet/recover')
-  walletRecoverPage(): { pageTitle: string; pageSubtitle: string; activeNav: string } {
-    return {
+  walletRecoverPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/recover.ejs', {
       pageTitle: '恢复钱包',
       pageSubtitle: '下载密文后在前端本地解密',
       activeNav: 'recover',
-    };
+    });
   }
 
   @Get('wallet/bind')
-  @Render('wallet/bind')
-  walletBindPage(): { pageTitle: string; pageSubtitle: string; activeNav: string } {
-    return {
+  walletBindPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/bind.ejs', {
       pageTitle: '绑定观察钱包',
       pageSubtitle: '仅接收，无法签名发送',
       activeNav: 'wallet',
-    };
+    });
   }
 }

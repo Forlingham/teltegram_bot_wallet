@@ -1,75 +1,39 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle %></title>
-    <style>
-      body { margin: 0; font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f6f8f4; color: #1f2a1f; }
-      .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
-      .card { background: #fff; border: 1px solid #d9e3d7; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-      h1 { margin: 0 0 10px; }
-      .sub { color: #5b665c; margin: 0 0 14px; }
-      label { display: block; margin-bottom: 6px; font-size: 13px; color: #586258; }
-      input { width: 100%; padding: 10px; border: 1px solid #cad7c8; border-radius: 10px; margin-bottom: 12px; }
-      button { border: 0; background: #2f7a42; color: white; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <h1>绑定观察钱包</h1>
-        <p class="sub">观察钱包仅可接收，无法发起签名和转账。</p>
-      </div>
+<div class="card">
+  <div class="info">绑定一个已有的 Scash 地址作为观察钱包。观察钱包只能接收，无法签名发送，适合只收不发的场景。</div>
 
-      <div class="card">
-        <label>钱包地址</label>
-        <input id="address" placeholder="scash1..." />
-        <button id="submitBtn">提交绑定</button>
-      </div>
-    </div>
+  <div class="label">Scash 地址</div>
+  <input id="address" type="text" placeholder="scash1..." autocomplete="off" />
 
-    <script>
-      (function () {
-        const enabled = new URL(window.location.href).searchParams.get('debug') === '1' ||
-          localStorage.getItem('DEBUG_CONSOLE') === '1';
-        if (!enabled) return;
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-        script.onload = function () { window.eruda && window.eruda.init(); };
-        document.head.appendChild(script);
-      })();
-    </script>
-    <script>
-      const SESSION_KEY = 'SCASH_SESSION_TOKEN';
-      function token() { return localStorage.getItem(SESSION_KEY) || ''; }
+  <button id="submitBtn" class="btn btn-brand" style="margin-top:16px;">绑定观察钱包</button>
+  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+</div>
 
-      async function request(path, options = {}) {
-        const res = await fetch(path, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-token': token(),
-            ...(options.headers || {}),
-          },
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
-        return json.data;
-      }
+<script>
+  function setLoading(on) {
+    var btn = document.getElementById('submitBtn');
+    if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>绑定中…'; }
+    else { btn.disabled = false; btn.textContent = '绑定观察钱包'; }
+  }
 
-      document.getElementById('submitBtn').addEventListener('click', async () => {
-        try {
-          await request('/api/wallet/bind', {
-            method: 'POST',
-            body: JSON.stringify({ address: document.getElementById('address').value.trim() }),
-          });
-          alert('观察钱包绑定成功');
-          location.href = '/wallet';
-        } catch (e) {
-          alert(e.message);
-        }
+  function showError(msg) {
+    var el = document.getElementById('errorMsg');
+    el.textContent = msg; el.style.display = 'block';
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', async function () {
+    var addr = document.getElementById('address').value.trim();
+    showError('');
+    if (!addr || addr.length < 10) { showError('请输入有效的 Scash 地址'); return; }
+    setLoading(true);
+    try {
+      await window.SCASH.request('/api/wallet/bind', {
+        method: 'POST',
+        body: JSON.stringify({ address: addr }),
       });
-    </script>
-  </body>
-  </html>
+      if (window.SCASH.TG) window.SCASH.TG.close();
+    } catch (e) {
+      showError(e.message);
+      setLoading(false);
+    }
+  });
+</script>
