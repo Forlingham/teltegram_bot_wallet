@@ -14,6 +14,7 @@ async function bootstrap(): Promise<void> {
 
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
+  app.useStaticAssets(join(process.cwd(), 'public'));
 
   app.useGlobalPipes(
     new ValidationPipe({

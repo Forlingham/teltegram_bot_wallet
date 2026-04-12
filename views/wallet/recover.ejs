@@ -47,7 +47,8 @@
     try {
       var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
       if (!data.backup) { showError('未找到云端备份'); return; }
-      var mnemonic = await decryptMnemonic(data.backup.salt, data.backup.iv, data.backup.ciphertext, pw);
+      var cipherHex = data.backup.encryptedMnemonic || data.backup.ciphertext;
+      var mnemonic = await decryptMnemonic(data.backup.salt, data.backup.iv, cipherHex, pw);
       document.getElementById('mnemonicResult').textContent = mnemonic;
     } catch (e) { showError('解密失败：' + e.message); }
   });

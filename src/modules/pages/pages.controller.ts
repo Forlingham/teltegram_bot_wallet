@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as ejs from 'ejs';
 import { getScashNetwork } from '../../config/scash.networks';
+import { deriveAddressFromMnemonic } from '../../common/utils/wallet-crypto.util';
 
 const VIEWS_DIR = join(process.cwd(), 'views');
 
@@ -28,6 +29,8 @@ export class PagesController {
   private buildViewData(data: Record<string, unknown>) {
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
     const network = getScashNetwork(nodeEnv);
+    const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
+    const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
     return {
       ...data,
       appEnv: nodeEnv,
@@ -36,6 +39,7 @@ export class PagesController {
         pubKeyHash: network.pubKeyHash,
         scriptHash: network.scriptHash,
       },
+      poolAddress,
     };
   }
 

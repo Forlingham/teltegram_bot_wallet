@@ -28,6 +28,18 @@ export class RedpacketCreateDto {
   @IsString()
   txid!: string;
 
+  @IsOptional()
+  @IsString()
+  dapTxid?: string;
+
+  @IsOptional()
+  @IsString()
+  packetHash?: string;
+
+  @IsOptional()
+  @IsString()
+  senderAddress?: string;
+
   @IsString()
   feeReserve!: string;
 }

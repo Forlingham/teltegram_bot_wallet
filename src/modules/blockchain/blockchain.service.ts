@@ -43,4 +43,8 @@ export class BlockchainService {
 
     return response.data.result;
   }
+
+  async broadcastTransaction(hex: string): Promise<string> {
+    return this.call<string>('sendrawtransaction', [hex]);
+  }
 }

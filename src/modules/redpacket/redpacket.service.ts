@@ -33,7 +33,7 @@ export class RedpacketService {
       throw new AppException('Fee reserve invalid', 'REDPACKET_FEE_RESERVE_INVALID', HttpStatus.BAD_REQUEST);
     }
 
-    const packetHash = this.buildPacketHash(userId, payload.txid);
+    const packetHash = payload.packetHash || this.buildPacketHash(userId, payload.txid);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const sender = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!sender) {
@@ -64,6 +64,7 @@ export class RedpacketService {
         packetHash,
         senderTelegramId: sender.telegramId,
         senderTelegramUsername: sender.username,
+        senderAddress: payload.senderAddress || null,
         fundingTxid: payload.txid,
         amount: payload.totalAmount,
         count: payload.count,

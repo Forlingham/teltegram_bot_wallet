@@ -18,7 +18,7 @@
 <script type="module">
   import * as bip39 from 'https://esm.sh/bip39@3.1.0';
   import { HDKey } from 'https://esm.sh/@scure/bip32@1.4.0';
-  import { bech32 } from 'https://esm.sh/@scure/base@1.1.9';
+  import { bech32 } from 'https://esm.sh/bech32@2.0.0';
   import { sha256 } from 'https://esm.sh/@noble/hashes@1.5.0/sha256';
   import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.5.0/ripemd160';
 
@@ -40,12 +40,13 @@
   }
 
   function deriveScashAddress(mnemonic) {
-    console.log(mnemonic,'mnemonic')
     var seed = bip39.mnemonicToSeedSync(mnemonic);
     var root = HDKey.fromMasterSeed(seed);
     var child = root.derive("m/84'/0'/0'/0/0");
-    var pubkeyHash = ripemd160(sha256(child.publicKey));
-    var words = bech32.toWords(pubkeyHash);
+    var pubKey = child.publicKey;
+    if (!pubKey) throw new Error('Cannot derive public key');
+    var hash = ripemd160(sha256(pubKey));
+    var words = bech32.toWords(hash);
     words.unshift(0);
     var network = (window.SCASH && window.SCASH.NETWORK) || { bech32: 'bcrt' };
     return bech32.encode(network.bech32, words);
@@ -83,7 +84,7 @@
           authTag: enc.ciphertext.slice(0, 32),
         }),
       });
-      // location.href = '/wallet';
+      location.href = '/wallet';
     } catch (e) {
       showError(e.message);
       setLoading(false);

@@ -1,39 +1,310 @@
 <div class="card">
+  <div class="label">红包类型</div>
+  <div class="row" style="margin-bottom:12px; gap:8px;">
+    <button id="typeRandom" class="btn btn-brand type-btn" data-type="RANDOM" style="flex:1;">&#x1F3B2; 拼手气</button>
+    <button id="typeEqual" class="btn btn-soft type-btn" data-type="EQUAL" style="flex:1;">&#x2694; 均分</button>
+  </div>
+
   <div class="label">红包总金额 (SCASH)</div>
-  <input id="totalAmount" type="text" placeholder="例如：10.5" autocomplete="off" style="margin-bottom:12px;" />
+  <input id="totalAmount" type="text" placeholder="例如：10" autocomplete="off" style="margin-bottom:12px;" />
 
   <div class="label">红包个数</div>
   <input id="count" type="number" placeholder="例如：5" autocomplete="off" min="1" style="margin-bottom:12px;" />
 
   <div class="label">祝福语（选填）</div>
-  <input id="message" type="text" placeholder="恭喜发财，大吉大利" autocomplete="off" style="margin-bottom:16px;" />
+  <input id="message" type="text" placeholder="恭喜发财，大吉大利" autocomplete="off" style="margin-bottom:12px;" />
 
-  <div class="row" style="margin-bottom:16px;">
+  <div class="label">选择封面</div>
+  <div id="coverList" style="margin-bottom:12px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
+    <div style="color:var(--muted); font-size:12px; padding:8px 0;">加载中…</div>
+  </div>
+
+  <div class="row" style="margin-bottom:8px;">
     <span class="label" style="margin:0;">可用余额：</span>
     <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
   </div>
 
-  <button id="submitBtn" class="btn btn-brand" style="width:100%;">塞钱进红包</button>
+  <div class="card warn" style="margin-bottom:16px;">
+    <div class="label" style="margin-bottom:4px;">统筹地址</div>
+    <div id="poolAddress" class="mono" style="font-size:11px; word-break:break-all; color:var(--brand);">-</div>
+  </div>
+
+  <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x1F4E5; 确认创建</button>
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
 </div>
 
-<script>
-  async function loadBalance() {
-    try {
-      var bal = await window.SCASH.request('/api/wallet/balance');
-      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
-    } catch (e) {}
+<script type="module">
+  import * as bitcoin from 'https://esm.sh/bitcoinjs-lib@6.1.5';
+  import * as bip39 from 'https://esm.sh/bip39@3.1.0';
+  import { HDKey } from 'https://esm.sh/@scure/bip32@1.4.0';
+  import { bech32 } from 'https://esm.sh/bech32@2.0.0';
+  import { hmac } from 'https://esm.sh/@noble/hashes@1.5.0/hmac';
+  import { sha256 } from 'https://esm.sh/@noble/hashes@1.5.0/sha256';
+  import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.5.0/ripemd160';
+  import * as secp from 'https://esm.sh/@noble/secp256k1@2.1.0';
+  import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+  
+  if (typeof window.Buffer === 'undefined') window.Buffer = Buffer;
+
+  function concatBytes() {
+    var total = 0;
+    for (var i = 0; i < arguments.length; i++) total += arguments[i].length;
+    var out = new Uint8Array(total);
+    var offset = 0;
+    for (var j = 0; j < arguments.length; j++) {
+      out.set(arguments[j], offset);
+      offset += arguments[j].length;
+    }
+    return out;
   }
 
-  function setLoading(on) {
+  secp.etc.hmacSha256Sync = function (key) {
+    var msgs = [];
+    for (var i = 1; i < arguments.length; i++) msgs.push(arguments[i]);
+    return hmac(sha256, key, concatBytes.apply(null, msgs));
+  };
+
+  secp.etc.hmacSha256Async = async function (key) {
+    var msgs = [];
+    for (var i = 1; i < arguments.length; i++) msgs.push(arguments[i]);
+    return hmac(sha256, key, concatBytes.apply(null, msgs));
+  };
+
+  function toBytes(input) {
+    if (!input) throw new Error('签名结果为空');
+    if (input instanceof Uint8Array) return input;
+    if (Array.isArray(input)) return new Uint8Array(input);
+    if (typeof input === 'string') {
+      if (/^[0-9a-fA-F]+$/.test(input) && input.length % 2 === 0) {
+        var parts = input.match(/.{2}/g) || [];
+        return new Uint8Array(parts.map(function (b) { return parseInt(b, 16); }));
+      }
+      return new TextEncoder().encode(input);
+    }
+    if (typeof input.toCompactRawBytes === 'function') return input.toCompactRawBytes();
+    if (typeof input.toRawBytes === 'function') return input.toRawBytes();
+    if (input.buffer instanceof ArrayBuffer) return new Uint8Array(input.buffer, input.byteOffset || 0, input.byteLength || input.length || 0);
+    throw new Error('不支持的字节类型: ' + Object.prototype.toString.call(input));
+  }
+
+
+  let selectedType = 'RANDOM';
+  let selectedCoverId = null;
+
+  function scashNetwork() {
+    var net = (window.SCASH && window.SCASH.NETWORK) || {};
+    return {
+      messagePrefix: '\x18Scash Signed Message:\n',
+      bech32: net.bech32 || 'bcrt',
+      bip32: { public: 0x0488b21e, private: 0x0488ade4 },
+      pubKeyHash: net.pubKeyHash || 60,
+      scriptHash: net.scriptHash || 125,
+      wif: 0x80,
+    };
+  }
+
+  function setLoading(on, text) {
     var btn = document.getElementById('submitBtn');
-    if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>发送中…'; }
-    else { btn.disabled = false; btn.textContent = '塞钱进红包'; }
+    if (on) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>' + (text || '处理中…');
+    } else {
+      btn.disabled = false;
+      btn.textContent = '确认创建';
+    }
   }
 
   function showError(msg) {
     var el = document.getElementById('errorMsg');
     el.textContent = msg; el.style.display = 'block';
+  }
+
+  function normalizeError(err) {
+    if (!err) return '未知错误';
+    if (typeof err === 'string') return err;
+    if (err && err.name && err.message) return err.name + ': ' + err.message;
+    if (err && err.stack) return String(err.stack);
+    if (err.message) return err.message;
+    try { return JSON.stringify(err); } catch (_) { return String(err); }
+  }
+
+  function bytesToHex(arr) {
+    return Array.from(new Uint8Array(arr)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function deriveScashAddress(mnemonic) {
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var root = HDKey.fromMasterSeed(seed);
+    var child = root.derive("m/84'/0'/0'/0/0");
+    var pubKey = child.publicKey;
+    if (!pubKey) throw new Error('Cannot derive public key');
+    var hash = ripemd160(sha256(pubKey));
+    var words = bech32.toWords(hash);
+    words.unshift(0);
+    return bech32.encode(scashNetwork().bech32, words);
+  }
+
+  async function decryptMnemonic(password) {
+    var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
+    if (!data.backup) throw new Error('未找到钱包备份，无法发送');
+
+    function hexToBytes(hex) {
+      if (!hex || typeof hex !== 'string') throw new Error('备份数据格式错误');
+      var parts = hex.match(/.{2}/g);
+      if (!parts) throw new Error('备份数据格式错误');
+      return new Uint8Array(parts.map(function (b) { return parseInt(b, 16); }));
+    }
+
+    function concatBytes(a, b) {
+      var out = new Uint8Array(a.length + b.length);
+      out.set(a, 0);
+      out.set(b, a.length);
+      return out;
+    }
+
+    var saltBytes = hexToBytes(data.backup.salt);
+    var ivBytes = hexToBytes(data.backup.iv);
+    var cipherHex = data.backup.encryptedMnemonic || data.backup.ciphertext;
+    var ctBytes = hexToBytes(cipherHex);
+    var tagBytes = null;
+    try {
+      if (data.backup.authTag) tagBytes = hexToBytes(data.backup.authTag);
+    } catch (_) {}
+
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var keyBits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['decrypt']);
+
+    var candidates = [ctBytes];
+    if (tagBytes && tagBytes.length > 0) {
+      candidates.push(concatBytes(ctBytes, tagBytes));
+      candidates.push(concatBytes(tagBytes, ctBytes));
+    }
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes, tagLength: 128 }, aesKey, candidates[i]);
+        return new TextDecoder().decode(pt);
+      } catch (_) {}
+    }
+
+    throw new Error('钱包密码错误，或备份密文格式不兼容');
+  }
+
+  async function broadcast(hex) {
+    var res = await window.SCASH.request('/api/wallet/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ hex: hex }),
+    });
+    return res.txid;
+  }
+
+  async function buildSingleTx(mnemonic, utxos, outputs, feeSat, network) {
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var rootKey = HDKey.fromMasterSeed(seed);
+    var childKey = rootKey.derive("m/84'/0'/0'/0/0");
+    var myAddress = deriveScashAddress(mnemonic);
+
+    var privKey = childKey.privateKey;
+    var pubKey = childKey.publicKey;
+    if (!privKey || !pubKey) throw new Error('无法派生签名密钥');
+
+    var psbt = new bitcoin.Psbt({ network: network });
+    var totalInputSat = 0n;
+    var selectedUtxos = [];
+    var outputsTotalSat = outputs.reduce(function (s, o) { return s + BigInt(o.value || 0); }, 0n);
+
+    for (var i = 0; i < utxos.length; i++) {
+      var u = utxos[i];
+      if (!u || !u.txid || typeof u.vout !== 'number' || !u.amount) continue;
+      var uSat = BigInt(Math.round(parseFloat(u.amount) * 1e8));
+      var script = bitcoin.address.toOutputScript(myAddress, network);
+      psbt.addInput({
+        hash: u.txid,
+        index: u.vout,
+        witnessUtxo: {
+          script: script,
+          value: Number(uSat),
+        },
+      });
+      selectedUtxos.push(uSat);
+      totalInputSat += uSat;
+      if (totalInputSat >= outputsTotalSat + feeSat) break;
+    }
+
+    if (totalInputSat < outputsTotalSat + feeSat) {
+      throw new Error('UTXO 余额不足（含手续费）');
+    }
+
+    for (var j = 0; j < outputs.length; j++) {
+      psbt.addOutput({ address: outputs[j].address, value: Number(outputs[j].value) });
+    }
+
+    var changeSat = totalInputSat - outputsTotalSat - feeSat;
+    if (changeSat > 0n) {
+      psbt.addOutput({ address: myAddress, value: Number(changeSat) });
+    }
+
+    var signer = {
+      publicKey: Buffer.from(pubKey),
+      sign: async function (hash) {
+        var sig = await secp.sign(new Uint8Array(hash), privKey);
+        return Buffer.from(toBytes(sig));
+      },
+    };
+
+    for (var k = 0; k < selectedUtxos.length; k++) {
+      await psbt.signInputAsync(k, signer);
+    }
+
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
+  }
+
+  document.querySelectorAll('.type-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.type-btn').forEach(function (b) { b.classList.remove('btn-brand'); b.classList.add('btn-soft'); });
+      btn.classList.remove('btn-soft'); btn.classList.add('btn-brand');
+      selectedType = btn.dataset.type;
+    });
+  });
+
+  async function loadBalance() {
+    try {
+      var bal = await window.SCASH.request('/api/wallet/balance');
+      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
+      return bal;
+    } catch (e) {
+      showError('获取余额失败：' + e.message);
+      return null;
+    }
+  }
+
+  async function loadCovers() {
+    try {
+      var covers = await window.SCASH.request('/api/cover/list');
+      var el = document.getElementById('coverList');
+      if (!covers || covers.length === 0) {
+        el.innerHTML = '<div style="color:var(--muted); font-size:12px;">暂无可用封面</div>';
+        return;
+      }
+      el.innerHTML = covers.map(function (c) {
+        return '<div class="cover-item" data-id="' + c.id + '" style="min-width:64px; text-align:center; cursor:pointer; border:2px solid transparent; border-radius:8px; padding:4px;">' +
+          '<img src="' + c.imageUrl + '" style="width:56px; height:56px; object-fit:cover; border-radius:6px;" />' +
+          '<div style="font-size:10px; margin-top:2px; color:var(--muted);">' + c.name + '</div>' +
+        '</div>';
+      }).join('');
+      el.querySelectorAll('.cover-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          el.querySelectorAll('.cover-item').forEach(function (i) { i.style.borderColor = 'transparent'; });
+          item.style.borderColor = 'var(--brand)';
+          selectedCoverId = parseInt(item.dataset.id);
+        });
+      });
+      if (covers.length > 0) el.querySelector('.cover-item').click();
+    } catch (e) {
+      document.getElementById('coverList').innerHTML = '<div style="color:var(--muted); font-size:12px;">加载封面失败</div>';
+    }
   }
 
   document.getElementById('submitBtn').addEventListener('click', async function () {
@@ -43,23 +314,103 @@
     showError('');
     if (!total || isNaN(parseFloat(total)) || parseFloat(total) <= 0) { showError('请输入有效金额'); return; }
     if (!count || isNaN(parseInt(count)) || parseInt(count) <= 0) { showError('请输入有效个数'); return; }
-    setLoading(true);
+
+    var pw = prompt('请输入钱包密码以签署交易：');
+    if (!pw) return;
+
+    setLoading(true, '创建中…');
     try {
-      var res = await window.SCASH.request('/api/redpacket/create', {
+      var network = scashNetwork();
+      var poolAddr = (window.SCASH && window.SCASH.POOL_ADDRESS) || '';
+      if (!poolAddr) throw new Error('未配置统筹地址');
+
+      var mnemonic = await decryptMnemonic(pw);
+      var myAddress = deriveScashAddress(mnemonic);
+
+      var bal = await loadBalance();
+      if (!bal) throw new Error('获取余额失败');
+
+      var confirmedUtxos = bal.utxos.filter(function (u) { return !u.isUnconfirmed; });
+      if (confirmedUtxos.length === 0) throw new Error('没有可用的 UTXO');
+
+      var totalSat = BigInt(Math.round(parseFloat(total) * 1e8));
+      var feeSat = BigInt(Math.round(0.0001 * 1e8));
+
+      var seed = myAddress + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
+      var pkgHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed));
+      var packetHash = bytesToHex(new Uint8Array(pkgHash)).slice(0, 32);
+
+      var dapMessage = {
+        type: 'RED_PACKET',
+        data: {
+          action: 'CREATE',
+          packetHash: packetHash,
+          senderAddress: myAddress,
+          amount: total,
+          count: parseInt(count),
+          strategy: selectedType,
+          expiredAt: Math.floor(Date.now() / 1000) + 86400,
+          timestamp: Math.floor(Date.now() / 1000),
+        },
+      };
+
+      var dapRes = await window.SCASH.request('/api/redpacket/dap/outputs', {
+        method: 'POST',
+        body: JSON.stringify({ message: JSON.stringify(dapMessage) }),
+      });
+      var dapOutputs = dapRes.outputs || [];
+      var dapCostSat = BigInt(dapRes.totalSats || 0);
+
+      var allOutputs = [{ address: poolAddr, value: Number(totalSat) }].concat(
+        dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
+      );
+
+      var neededSat = totalSat + feeSat + dapCostSat;
+      var availableSat = confirmedUtxos.reduce(function (s, u) { return s + BigInt(Math.round(parseFloat(u.amount) * 1e8)); }, 0n);
+      if (availableSat < neededSat) {
+        throw new Error('余额不足（需要 ' + (neededSat / 100000000n).toString() + ' SCASH，包含红包金额 + 手续费 + DAP 上链费用）');
+      }
+
+      var hex = await buildSingleTx(mnemonic, confirmedUtxos, allOutputs, feeSat, network);
+      var txid = await broadcast(hex);
+
+      await window.SCASH.request('/api/redpacket/create', {
         method: 'POST',
         body: JSON.stringify({
+          type: selectedType,
           totalAmount: total,
           count: parseInt(count),
           message: message || '恭喜发财，大吉大利',
+          coverId: selectedCoverId,
+          txid: txid,
+          packetHash: packetHash,
+          senderAddress: myAddress,
+          feeReserve: '0.0001',
         }),
       });
+
       alert('红包已发出！');
       location.href = '/wallet/redpacket';
     } catch (e) {
-      showError(e.message);
+      console.error('[redpacket/create] submit failed:', e);
+      showError(normalizeError(e));
       setLoading(false);
     }
   });
 
+  window.addEventListener('unhandledrejection', function (event) {
+    console.error('[redpacket/create] unhandledrejection:', event.reason);
+    showError(normalizeError(event.reason));
+    setLoading(false);
+  });
+
+  window.addEventListener('error', function (event) {
+    console.error('[redpacket/create] error:', event.error || event.message);
+    showError(normalizeError(event.error || event.message));
+    setLoading(false);
+  });
+
+  document.getElementById('poolAddress').textContent = (window.SCASH && window.SCASH.POOL_ADDRESS) || '-';
   loadBalance();
+  loadCovers();
 </script>

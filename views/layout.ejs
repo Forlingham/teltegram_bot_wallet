@@ -62,6 +62,7 @@
         pubKeyHash: <%= (scashNetwork && scashNetwork.pubKeyHash) || 60 %>,
         scriptHash: <%= (scashNetwork && scashNetwork.scriptHash) || 125 %>,
       },
+      POOL_ADDRESS: '<%= poolAddress || "" %>',
       getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
       readInitData: function () {
         var tg = this.TG;
