@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  telegramId String   @unique
+  username   String?
+  firstName  String?
+  lastName   String?
+  photoUrl   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  wallet           Wallet?
+  utxos            Utxo[]
+  sentPackets      RedPacket[]      @relation("RedPacketSender")
+  claims           RedPacketClaim[]
+  pendingTransfers PendingTransfer[]
+  userCovers       UserCover[]
+  sessions         Session[]
+}
+
+model Wallet {
+  id                Int      @id @default(autoincrement())
+  userId            Int      @unique
+  address           String   @unique
+  encryptedMnemonic String?
+  salt              String?
+  iv                String?
+  authTag           String?
+  isWatchOnly       Boolean  @default(false)
+  isMnemonicBackedUp Boolean @default(false)
+  backupCompletedAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Utxo {
+  id            Int      @id @default(autoincrement())
+  txid          String
+  vout          Int
+  address       String
+  scriptPubKey  String
+  amount        Decimal  @db.Decimal(20, 8)
+  blockHeight   Int      @default(0)
+  isSpent       Boolean  @default(false)
+  spentByTxid   String?
+  isUnconfirmed Boolean  @default(false)
+  isCoinbase    Boolean  @default(false)
+  userId        Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([txid, vout])
+  @@index([address, isSpent, isUnconfirmed])
+}
+
+model RedPacket {
+  id              Int              @id @default(autoincrement())
+  packetHash      String           @unique
+  senderId        Int
+  type            RedPacketType
+  totalAmount     Decimal          @db.Decimal(20, 8)
+  remainingAmount Decimal          @db.Decimal(20, 8)
+  count           Int
+  remainingCount  Int
+  message         String?
+  coverId         Int?
+  chatId          String
+  fundingTxid     String
+  status          RedPacketStatus  @default(ACTIVE)
+  expiredAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  sender User             @relation("RedPacketSender", fields: [senderId], references: [id], onDelete: Cascade)
+  cover  Cover?           @relation(fields: [coverId], references: [id], onDelete: SetNull)
+  claims RedPacketClaim[]
+  pendingTransfers PendingTransfer[]
+
+  @@index([senderId, createdAt])
+  @@index([status, expiredAt])
+}
+
+model RedPacketClaim {
+  id          Int            @id @default(autoincrement())
+  redPacketId Int
+  userId      Int
+  amount      Decimal        @db.Decimal(20, 8)
+  txid        String?
+  status      ClaimStatus    @default(PENDING)
+  claimedAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  redPacket RedPacket @relation(fields: [redPacketId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([redPacketId, userId])
+  @@index([status, claimedAt])
+}
+
+model PendingTransfer {
+  id           Int                   @id @default(autoincrement())
+  userId       Int
+  type         PendingTransferType
+  amount       Decimal               @db.Decimal(20, 8)
+  redPacketId  Int?
+  claimId      Int?
+  targetAddress String?
+  txid         String?
+  status       PendingTransferStatus @default(PENDING)
+  errorMessage String?
+  retryCount   Int                   @default(0)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  processedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redPacket RedPacket? @relation(fields: [redPacketId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+model DapEvent {
+  id          Int      @id @default(autoincrement())
+  action      String
+  packetHash  String
+  payload     String
+  txid        String?
+  status      String   @default("PENDING")
+  errorMessage String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([packetHash, action])
+}
+
+model Cover {
+  id        Int       @id @default(autoincrement())
+  name      String
+  imageUrl  String
+  price     Decimal   @db.Decimal(20, 8)
+  quantity  Int
+  sold      Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userCovers UserCover[]
+  packets    RedPacket[]
+}
+
+model UserCover {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  coverId     Int
+  purchasedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cover Cover @relation(fields: [coverId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coverId])
+}
+
+model BlockSync {
+  id              Int      @id @default(autoincrement())
+  lastBlockHeight Int      @default(0)
+  lastBlockHash   String   @default("")
+  updatedAt       DateTime @updatedAt
+}
+
+model AuthNonce {
+  id        Int      @id @default(autoincrement())
+  nonce     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model Session {
+  id         Int      @id @default(autoincrement())
+  tokenHash  String   @unique
+  userId     Int
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt, revokedAt])
+}
+
+enum RedPacketType {
+  EQUAL
+  RANDOM
+}
+
+enum RedPacketStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  REFUNDED
+}
+
+enum ClaimStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PendingTransferType {
+  REDPACKET_CLAIM
+  REFUND
+}
+
+enum PendingTransferStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
