@@ -1,0 +1,52 @@
+<div class="card">
+  <div class="label">我的收款地址</div>
+  <div id="myAddress" class="mono" style="font-size:13px; word-break:break-all; color:var(--brand); margin-bottom:16px;">-</div>
+  <div class="row">
+    <button id="btnCopy" class="btn btn-brand" style="flex:1;">复制地址</button>
+    <button id="btnRefresh" class="btn btn-soft" style="flex:1;">刷新</button>
+  </div>
+  <div id="copyTip" style="text-align:center; color:var(--brand); font-size:13px; margin-top:8px; display:none;">已复制到剪贴板</div>
+</div>
+
+<div class="card">
+  <div class="label">扫码收款</div>
+  <div id="qrcode" style="text-align:center; padding:16px; background:#fff; border-radius:10px; display:inline-block;">
+    <div style="color:var(--muted); font-size:13px;">加载中…</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  async function loadAddress() {
+    try {
+      var home = await window.SCASH.request('/api/wallet/home');
+      var addr = home.address || '-';
+      document.getElementById('myAddress').textContent = addr;
+      var qrEl = document.getElementById('qrcode');
+      if (addr && addr !== '-') {
+        qrEl.innerHTML = '';
+        QRCode.toCanvas(addr, { width: 180 }, function (err, canvas) {
+          if (!err) qrEl.appendChild(canvas);
+        });
+      }
+    } catch (e) {
+      document.getElementById('myAddress').textContent = '获取失败';
+    }
+  }
+
+  document.getElementById('btnCopy').addEventListener('click', function () {
+    var addr = document.getElementById('myAddress').textContent;
+    if (!addr || addr === '-') return;
+    navigator.clipboard.writeText(addr).then(function () {
+      var tip = document.getElementById('copyTip');
+      tip.style.display = 'block';
+      setTimeout(function () { tip.style.display = 'none'; }, 2000);
+    });
+  });
+
+  document.getElementById('btnRefresh').addEventListener('click', function () {
+    loadAddress();
+  });
+
+  loadAddress();
+</script>

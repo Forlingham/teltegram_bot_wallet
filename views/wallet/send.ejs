@@ -1,0 +1,56 @@
+<div class="card">
+  <div class="label">收款地址</div>
+  <input id="address" type="text" placeholder="粘贴收款方地址" autocomplete="off" style="margin-bottom:12px;" />
+  <div class="label">发送数量</div>
+  <div class="input-wrap" style="margin-bottom:8px;">
+    <input id="amount" type="text" placeholder="0.00000000" autocomplete="off" />
+  </div>
+  <div class="row" style="margin-bottom:16px;">
+    <span class="label" style="margin:0;">可用余额：</span>
+    <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
+  </div>
+  <button id="submitBtn" class="btn btn-brand" style="width:100%;">确认发送</button>
+  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+</div>
+
+<script>
+  async function loadBalance() {
+    try {
+      var bal = await window.SCASH.request('/api/wallet/balance');
+      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
+    } catch (e) {}
+  }
+
+  function setLoading(on) {
+    var btn = document.getElementById('submitBtn');
+    if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>发送中…'; }
+    else { btn.disabled = false; btn.textContent = '确认发送'; }
+  }
+
+  function showError(msg) {
+    var el = document.getElementById('errorMsg');
+    el.textContent = msg; el.style.display = 'block';
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', async function () {
+    var addr = document.getElementById('address').value.trim();
+    var amount = document.getElementById('amount').value.trim();
+    showError('');
+    if (!addr) { showError('请输入收款地址'); return; }
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) { showError('请输入有效金额'); return; }
+    setLoading(true);
+    try {
+      await window.SCASH.request('/api/wallet/send', {
+        method: 'POST',
+        body: JSON.stringify({ address: addr, amount: amount }),
+      });
+      alert('发送成功');
+      location.href = '/wallet';
+    } catch (e) {
+      showError(e.message);
+      setLoading(false);
+    }
+  });
+
+  loadBalance();
+</script>

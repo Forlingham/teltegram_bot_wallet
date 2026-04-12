@@ -1,0 +1,42 @@
+<div class="card">
+  <div class="label">交易记录</div>
+</div>
+
+<div id="txList">
+  <div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">加载中…</div>
+</div>
+
+<script>
+  async function loadHistory() {
+    try {
+      var home = await window.SCASH.request('/api/wallet/home');
+      if (!home.hasWallet) {
+        document.getElementById('txList').innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">请先创建钱包</div>';
+        return;
+      }
+      var data = await window.SCASH.request('/api/wallet/history');
+      var el = document.getElementById('txList');
+      if (!data.transactions || data.transactions.length === 0) {
+        el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">暂无交易记录</div>';
+        return;
+      }
+      el.innerHTML = data.transactions.map(function (tx) {
+        var dir = tx.direction || 'unknown';
+        var dirLabel = dir === 'in' ? '转入' : (dir === 'out' ? '转出' : '未知');
+        var dirColor = dir === 'in' ? 'var(--brand)' : (dir === 'out' ? '#c0392b' : 'var(--muted)');
+        return '<div class="card" style="margin-bottom:8px;">' +
+          '<div class="row">' +
+            '<div style="font-weight:700; color:' + dirColor + ';">' + dirLabel + '</div>' +
+            '<div style="font-weight:700;">' + tx.amount + ' SCASH</div>' +
+          '</div>' +
+          '<div class="label" style="margin-top:4px;">' + (tx.address || '-') + '</div>' +
+          '<div class="label" style="margin-top:2px; font-size:11px; color:var(--muted);">' + (tx.time || tx.txid || '') + '</div>' +
+        '</div>';
+      }).join('');
+    } catch (e) {
+      document.getElementById('txList').innerHTML = '<div style="text-align:center; padding:24px; color:#c0392b; font-size:13px;">加载失败</div>';
+    }
+  }
+
+  loadHistory();
+</script>

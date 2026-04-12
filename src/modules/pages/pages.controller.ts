@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Redirect, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { readFileSync } from 'fs';
@@ -39,12 +39,16 @@ export class PagesController {
     };
   }
 
+  @Get()
+  @Redirect('/wallet')
+  root() {}
+
   @Get('wallet')
   walletPage(@Res() res: Response) {
     return renderPage(res, 'wallet/index.ejs', this.buildViewData({
       pageTitle: 'SCASH 钱包',
-      pageSubtitle: '钱包总览',
-      activeNav: 'wallet',
+      pageSubtitle: '',
+      activeNav: 'home',
     }));
   }
 
@@ -53,7 +57,7 @@ export class PagesController {
     return renderPage(res, 'wallet/create.ejs', this.buildViewData({
       pageTitle: '创建钱包',
       pageSubtitle: '前端生成助记词并加密上传',
-      activeNav: 'create',
+      activeNav: 'home',
     }));
   }
 
@@ -62,7 +66,7 @@ export class PagesController {
     return renderPage(res, 'wallet/import.ejs', this.buildViewData({
       pageTitle: '导入钱包',
       pageSubtitle: '前端加密后提交密文',
-      activeNav: 'import',
+      activeNav: 'home',
     }));
   }
 
@@ -71,7 +75,7 @@ export class PagesController {
     return renderPage(res, 'wallet/recover.ejs', this.buildViewData({
       pageTitle: '恢复钱包',
       pageSubtitle: '下载密文后在前端本地解密',
-      activeNav: 'recover',
+      activeNav: 'home',
     }));
   }
 
@@ -80,7 +84,52 @@ export class PagesController {
     return renderPage(res, 'wallet/bind.ejs', this.buildViewData({
       pageTitle: '绑定观察钱包',
       pageSubtitle: '仅接收，无法签名发送',
-      activeNav: 'wallet',
+      activeNav: 'home',
+    }));
+  }
+
+  @Get('wallet/send')
+  walletSendPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/send.ejs', this.buildViewData({
+      pageTitle: '发送',
+      pageSubtitle: '转出 SCASH',
+      activeNav: 'home',
+    }));
+  }
+
+  @Get('wallet/receive')
+  walletReceivePage(@Res() res: Response) {
+    return renderPage(res, 'wallet/receive.ejs', this.buildViewData({
+      pageTitle: '接收',
+      pageSubtitle: '收款地址',
+      activeNav: 'home',
+    }));
+  }
+
+  @Get('wallet/redpacket')
+  walletRedpacketPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/redpacket.ejs', this.buildViewData({
+      pageTitle: '红包',
+      pageSubtitle: '',
+      activeNav: 'redpacket',
+    }));
+  }
+
+  @Get('wallet/redpacket/create')
+  walletRedpacketCreatePage(@Res() res: Response) {
+    return renderPage(res, 'wallet/redpacket/create.ejs', this.buildViewData({
+      pageTitle: '发红包',
+      pageSubtitle: '',
+      activeNav: 'redpacket',
+    }));
+  }
+
+  @Get('wallet/history')
+  walletHistoryPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/history.ejs', this.buildViewData({
+      pageTitle: '历史交易',
+      pageSubtitle: '',
+      activeNav: 'history',
     }));
   }
 }

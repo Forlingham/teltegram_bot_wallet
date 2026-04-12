@@ -1,6 +1,14 @@
 <nav class="bottom-nav">
-  <a class="nav-item <%= activeNav === 'wallet' ? 'active' : '' %>" href="/wallet">钱包</a>
-  <a class="nav-item <%= activeNav === 'create' ? 'active' : '' %>" href="/wallet/create">创建</a>
-  <a class="nav-item <%= activeNav === 'import' ? 'active' : '' %>" href="/wallet/import">导入</a>
-  <a class="nav-item <%= activeNav === 'recover' ? 'active' : '' %>" href="/wallet/recover">恢复</a>
+  <a class="nav-item <%= activeNav === 'home' ? 'active' : '' %>" href="/wallet">
+    <div class="nav-icon">&#x1F4B0;</div>
+    <div>首页</div>
+  </a>
+  <a class="nav-item <%= activeNav === 'redpacket' ? 'active' : '' %>" href="/wallet/redpacket">
+    <div class="nav-icon">&#x1F4E5;</div>
+    <div>红包</div>
+  </a>
+  <a class="nav-item <%= activeNav === 'history' ? 'active' : '' %>" href="/wallet/history">
+    <div class="nav-icon">&#x1F4C8;</div>
+    <div>历史</div>
+  </a>
 </nav>

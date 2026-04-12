@@ -1,29 +1,32 @@
-<section id="walletMissing" class="card" style="display: none">
-  <div style="font-weight:700;margin-bottom:8px;">还没有钱包</div>
-  <div class="label" style="margin-bottom:12px;">请选择一个方式开始：创建新钱包、导入助记词钱包或绑定观察钱包。</div>
+<section id="noWallet" class="card" style="display: none">
+  <div style="text-align:center; padding: 24px 0 8px;">
+    <div style="font-size:48px; margin-bottom:12px;">&#x1F3E6;</div>
+    <div style="font-size:18px; font-weight:700; margin-bottom:6px;">欢迎使用 SCASH 钱包</div>
+    <div class="label" style="margin-bottom:24px;">创建、导入或绑定钱包后即可开始使用</div>
+  </div>
   <div class="quick-grid">
-    <a class="quick-link" href="/wallet/create">创建钱包</a>
-    <a class="quick-link" href="/wallet/import">导入钱包</a>
-    <a class="quick-link" href="/wallet/bind">绑定观察钱包</a>
+    <a class="quick-link" href="/wallet/create">&#x1F310; 创建钱包</a>
+    <a class="quick-link" href="/wallet/import">&#x1F504; 导入钱包</a>
+    <a class="quick-link" href="/wallet/bind">&#x1F517; 绑定钱包</a>
   </div>
 </section>
 
-<section id="walletMain" style="display: none">
-  <section id="backupReminder" class="card warn" style="display: none">
-    <p class="warn-title">请尽快备份助记词</p>
-    <p class="warn-desc">你尚未完成助记词备份。未备份前此提醒会持续显示，请尽快备份防止资产无法恢复。</p>
+<section id="walletHome" style="display: none">
+  <div id="backupReminder" class="card warn" style="display: none; margin-bottom:12px;">
+    <div class="warn-title">请尽快备份助记词</div>
+    <div class="warn-desc">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</div>
     <div class="actions">
       <button id="btnBackupDone" class="btn btn-brand">我已备份</button>
-      <a href="/wallet/recover" class="quick-link" style="padding:10px 12px;">去恢复页查看密文</a>
+      <a href="/wallet/recover" class="quick-link" style="padding:10px 12px;">查看密文</a>
     </div>
-  </section>
+  </div>
 
-  <section class="card">
+  <div class="card">
     <div class="label">钱包地址</div>
-    <div id="walletAddress" class="value mono">-</div>
-  </section>
+    <div id="walletAddress" class="mono" style="font-size:12px; word-break:break-all; color:var(--brand);">-</div>
+  </div>
 
-  <section class="card">
+  <div class="card">
     <div class="row">
       <div>
         <div class="label">可用余额</div>
@@ -31,30 +34,57 @@
       </div>
       <button id="btnRefresh" class="btn btn-soft">刷新</button>
     </div>
-  </section>
+  </div>
+
+  <div class="card">
+    <div class="label" style="margin-bottom:10px;">常用操作</div>
+    <div class="quick-grid">
+      <a class="quick-link" href="/wallet/send">
+        <div style="font-size:24px;">&#x2B06;</div>
+        <div style="margin-top:4px;">发送</div>
+      </a>
+      <a class="quick-link" href="/wallet/receive">
+        <div style="font-size:24px;">&#x2B07;</div>
+        <div style="margin-top:4px;">接收</div>
+      </a>
+      <a class="quick-link" href="/wallet/redpacket">
+        <div style="font-size:24px;">&#x1F4E5;</div>
+        <div style="margin-top:4px;">红包</div>
+      </a>
+    </div>
+  </div>
 </section>
 
 <script>
   async function loadHome() {
-    const home = await window.SCASH.request('/api/wallet/home');
-    if (!home.hasWallet) {
-      document.getElementById('walletMissing').style.display = 'block';
-      document.getElementById('walletMain').style.display = 'none';
-      return;
+    try {
+      var home = await window.SCASH.request('/api/wallet/home');
+      if (!home.hasWallet) {
+        document.getElementById('noWallet').style.display = 'block';
+        document.getElementById('walletHome').style.display = 'none';
+        return;
+      }
+      document.getElementById('noWallet').style.display = 'none';
+      document.getElementById('walletHome').style.display = 'block';
+      document.getElementById('walletAddress').textContent = home.address || '-';
+      document.getElementById('backupReminder').style.display = home.showBackupReminder ? 'block' : 'none';
+      loadBalance();
+    } catch (e) {
+      alert('初始化失败：' + e.message);
     }
-    document.getElementById('walletMissing').style.display = 'none';
-    document.getElementById('walletMain').style.display = 'block';
-    document.getElementById('walletAddress').textContent = home.address || '-';
-    document.getElementById('backupReminder').style.display = home.showBackupReminder ? 'block' : 'none';
   }
 
   async function loadBalance() {
-    const balance = await window.SCASH.request('/api/wallet/balance');
-    document.getElementById('walletBalance').textContent = balance.balance + ' SCASH';
+    try {
+      var bal = await window.SCASH.request('/api/wallet/balance');
+      document.getElementById('walletBalance').textContent = bal.balance + ' SCASH';
+    } catch (e) {
+      document.getElementById('walletBalance').textContent = '获取失败';
+    }
   }
 
-  document.getElementById('btnRefresh').addEventListener('click', async function () {
-    try { await loadBalance(); } catch (e) { alert(e.message); }
+  document.getElementById('btnRefresh').addEventListener('click', function () {
+    loadBalance();
   });
 
   document.getElementById('btnBackupDone').addEventListener('click', async function () {
@@ -63,15 +93,11 @@
         method: 'POST',
         body: JSON.stringify({ backedUp: true }),
       });
-      await loadHome();
-    } catch (e) { alert(e.message); }
+      document.getElementById('backupReminder').style.display = 'none';
+    } catch (e) {
+      alert(e.message);
+    }
   });
 
-  (async function () {
-    try {
-      await loadHome();
-      var main = document.getElementById('walletMain');
-      if (main.style.display !== 'none') await loadBalance();
-    } catch (e) { alert('初始化失败：' + e.message); }
-  })();
+  loadHome();
 </script>

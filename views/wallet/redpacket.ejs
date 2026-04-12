@@ -1,0 +1,42 @@
+<div style="margin-bottom:16px;">
+  <a href="/wallet/redpacket/create" class="btn btn-brand" style="display:block; text-align:center; text-decoration:none;">
+    &#x1F4E5; 发红包
+  </a>
+</div>
+
+<div class="card" style="margin-bottom:12px;">
+  <div class="label">红包广场</div>
+</div>
+
+<div id="packetList">
+  <div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">加载中…</div>
+</div>
+
+<script>
+  async function loadPackets() {
+    try {
+      var data = await window.SCASH.request('/api/redpacket/user/packets?type=all');
+      var el = document.getElementById('packetList');
+      if (!data.packets || data.packets.length === 0) {
+        el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">暂无可领取的红包</div>';
+        return;
+      }
+      el.innerHTML = data.packets.map(function (p) {
+        var status = p.claimed ? '已领取' : (p.expired ? '已过期' : '可领取');
+        var statusColor = p.claimed ? 'var(--muted)' : (p.expired ? '#c0392b' : 'var(--brand)');
+        return '<div class="card" style="margin-bottom:8px;">' +
+          '<div class="row">' +
+            '<div style="font-weight:700;">' + p.amount + ' SCASH</div>' +
+            '<div style="color:' + statusColor + '; font-size:12px;">' + status + '</div>' +
+          '</div>' +
+          '<div class="label" style="margin-top:4px;">' + (p.message || '红包') + '</div>' +
+          (!p.claimed && !p.expired ? '<a href="/wallet/redpacket/claim?id=' + p.id + '" class="btn btn-brand" style="margin-top:8px; display:block; text-align:center; text-decoration:none;">领取</a>' : '') +
+        '</div>';
+      }).join('');
+    } catch (e) {
+      document.getElementById('packetList').innerHTML = '<div style="text-align:center; padding:24px; color:#c0392b; font-size:13px;">加载失败</div>';
+    }
+  }
+
+  loadPackets();
+</script>
