@@ -271,7 +271,7 @@
 
   async function loadBalance() {
     try {
-      var bal = await window.SCASH.request('/api/wallet/balance');
+      var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
       document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
       return bal;
     } catch (e) {
@@ -331,7 +331,9 @@
       if (!bal) throw new Error('获取余额失败');
 
       var confirmedUtxos = bal.utxos.filter(function (u) { return !u.isUnconfirmed; });
-      if (confirmedUtxos.length === 0) throw new Error('没有可用的 UTXO');
+      var unconfirmedUtxos = bal.utxos.filter(function (u) { return u.isUnconfirmed; });
+      var candidateUtxos = confirmedUtxos.concat(unconfirmedUtxos);
+      if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO（含内存池）');
 
       var totalSat = BigInt(Math.round(parseFloat(total) * 1e8));
       var feeSat = BigInt(Math.round(0.0001 * 1e8));
@@ -366,12 +368,12 @@
       );
 
       var neededSat = totalSat + feeSat + dapCostSat;
-      var availableSat = confirmedUtxos.reduce(function (s, u) { return s + BigInt(Math.round(parseFloat(u.amount) * 1e8)); }, 0n);
+      var availableSat = candidateUtxos.reduce(function (s, u) { return s + BigInt(Math.round(parseFloat(u.amount) * 1e8)); }, 0n);
       if (availableSat < neededSat) {
         throw new Error('余额不足（需要 ' + (neededSat / 100000000n).toString() + ' SCASH，包含红包金额 + 手续费 + DAP 上链费用）');
       }
 
-      var hex = await buildSingleTx(mnemonic, confirmedUtxos, allOutputs, feeSat, network);
+      var hex = await buildSingleTx(mnemonic, candidateUtxos, allOutputs, feeSat, network);
       var txid = await broadcast(hex);
 
       await window.SCASH.request('/api/redpacket/create', {
