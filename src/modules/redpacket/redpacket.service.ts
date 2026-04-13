@@ -15,7 +15,7 @@ export interface CreateResult {
 export class RedpacketService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    private readonly dapService: DapService,
+    @Inject(DapService) private readonly dapService: DapService,
   ) {}
 
   async createPacket(userId: number, payload: RedpacketCreateDto): Promise<CreateResult> {
