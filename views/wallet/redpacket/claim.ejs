@@ -41,6 +41,28 @@
     return params.get(name) || '';
   }
 
+  function resolvePacketHash() {
+    var packet = getQueryParam('packet');
+    if (packet) return packet;
+
+    var tg = window.SCASH && window.SCASH.TG;
+    var startParam = '';
+
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+      startParam = tg.initDataUnsafe.start_param;
+    }
+
+    if (!startParam) {
+      startParam = getQueryParam('startapp') || getQueryParam('start_param') || '';
+    }
+
+    if (startParam.indexOf('rp_') === 0) {
+      return startParam.slice(3);
+    }
+
+    return '';
+  }
+
   function showError(msg) {
     document.getElementById('loadingSection').style.display = 'none';
     document.getElementById('errorSection').style.display = 'block';
@@ -77,7 +99,7 @@
   }
 
   async function loadPacket() {
-    var packetHash = getQueryParam('packet');
+    var packetHash = resolvePacketHash();
     if (!packetHash) { showError('红包参数缺失，请通过分享链接打开'); return; }
 
     try {
@@ -90,7 +112,7 @@
 
   document.getElementById('claimBtn').addEventListener('click', async function () {
     var btn = document.getElementById('claimBtn');
-    var packetHash = getQueryParam('packet');
+    var packetHash = resolvePacketHash();
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>领取中…';
     try {

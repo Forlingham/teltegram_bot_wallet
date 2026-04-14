@@ -408,7 +408,8 @@
       });
 
       alert('红包已发出！');
-      var shareUrl = 'https://t.me/scash_red_envelope_bot/' + selectedCoverBotPath + '?packet=' + packetHash;
+      var startParam = 'rp_' + packetHash;
+      var shareUrl = 'https://t.me/scash_red_envelope_bot/' + selectedCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
       document.getElementById('successPacketHash').textContent = packetHash;
       document.getElementById('shareUrl').textContent = shareUrl;
       document.getElementById('submitBtn').closest('.card').style.display = 'none';
@@ -416,10 +417,12 @@
 
       document.getElementById('shareBtn').onclick = function () {
         var tg = window.SCASH && window.SCASH.TG;
+        var shareText = '我发了一个SCASH红包，快来领取！';
+        var shareIntent = 'https://t.me/share/url?url=' + encodeURIComponent(shareUrl) + '&text=' + encodeURIComponent(shareText);
         if (tg && tg.openTelegramLink) {
-          tg.openTelegramLink(shareUrl);
+          tg.openTelegramLink(shareIntent);
         } else {
-          location.href = shareUrl;
+          location.href = shareIntent;
         }
       };
 
