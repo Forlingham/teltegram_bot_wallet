@@ -33,6 +33,20 @@
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
 </div>
 
+<div id="successSection" style="display:none;">
+  <div class="card" style="text-align:center;">
+    <div style="font-size:48px; margin-bottom:12px;">&#x1F389;</div>
+    <div style="font-size:18px; font-weight:700; margin-bottom:8px;">红包已发出！</div>
+    <div class="label" style="margin-bottom:16px;" id="successPacketHash">-</div>
+    <div class="card warn" style="margin-bottom:16px; text-align:left;">
+      <div class="label" style="margin-bottom:4px;">分享链接</div>
+      <div id="shareUrl" class="mono" style="font-size:11px; word-break:break-all; color:var(--brand); margin-bottom:8px;">-</div>
+    </div>
+    <button id="shareBtn" class="btn btn-brand" style="width:100%;">&#x1F4E4; 分享到聊天</button>
+    <button id="backBtn" class="btn btn-soft" style="width:100%; margin-top:8px;">返回红包</button>
+  </div>
+</div>
+
 <script type="module">
   import * as bitcoin from 'https://esm.sh/bitcoinjs-lib@6.1.5';
   import * as bip39 from 'https://esm.sh/bip39@3.1.0';
@@ -90,6 +104,7 @@
 
   let selectedType = 'RANDOM';
   let selectedCoverId = null;
+  let selectedCoverBotPath = 'open1';
 
   function scashNetwork() {
     var net = (window.SCASH && window.SCASH.NETWORK) || {};
@@ -289,7 +304,7 @@
         return;
       }
       el.innerHTML = covers.map(function (c) {
-        return '<div class="cover-item" data-id="' + c.id + '" style="min-width:64px; text-align:center; cursor:pointer; border:2px solid transparent; border-radius:8px; padding:4px;">' +
+        return '<div class="cover-item" data-id="' + c.id + '" data-botpath="' + (c.botPath || 'open' + c.id) + '" style="min-width:64px; text-align:center; cursor:pointer; border:2px solid transparent; border-radius:8px; padding:4px;">' +
           '<img src="' + c.imageUrl + '" style="width:56px; height:56px; object-fit:cover; border-radius:6px;" />' +
           '<div style="font-size:10px; margin-top:2px; color:var(--muted);">' + c.name + '</div>' +
         '</div>';
@@ -299,6 +314,7 @@
           el.querySelectorAll('.cover-item').forEach(function (i) { i.style.borderColor = 'transparent'; });
           item.style.borderColor = 'var(--brand)';
           selectedCoverId = parseInt(item.dataset.id);
+          selectedCoverBotPath = item.dataset.botpath || ('open' + selectedCoverId);
         });
       });
       if (covers.length > 0) el.querySelector('.cover-item').click();
@@ -392,7 +408,24 @@
       });
 
       alert('红包已发出！');
-      location.href = '/wallet/redpacket';
+      var shareUrl = 'https://t.me/scash_red_envelope_bot/' + selectedCoverBotPath + '?packet=' + packetHash;
+      document.getElementById('successPacketHash').textContent = packetHash;
+      document.getElementById('shareUrl').textContent = shareUrl;
+      document.getElementById('submitBtn').closest('.card').style.display = 'none';
+      document.getElementById('successSection').style.display = 'block';
+
+      document.getElementById('shareBtn').onclick = function () {
+        var tg = window.SCASH && window.SCASH.TG;
+        if (tg && tg.openTelegramLink) {
+          tg.openTelegramLink(shareUrl);
+        } else {
+          location.href = shareUrl;
+        }
+      };
+
+      document.getElementById('backBtn').onclick = function () {
+        location.href = '/wallet/redpacket';
+      };
     } catch (e) {
       console.error('[redpacket/create] submit failed:', e);
       showError(normalizeError(e));

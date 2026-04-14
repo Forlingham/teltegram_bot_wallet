@@ -83,7 +83,7 @@ export class RedpacketService {
   async getPacket(userId: number, packetHash: string) {
     const packet = await this.prisma.redPacket.findUnique({
       where: { packetHash },
-      include: { claims: true },
+      include: { claims: true, cover: true },
     });
 
     if (!packet) {

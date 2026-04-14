@@ -1,0 +1,113 @@
+<div id="loadingSection" class="card" style="text-align:center; padding:40px;">
+  <div style="color:var(--muted);">加载中…</div>
+</div>
+
+<div id="errorSection" class="card" style="display:none; text-align:center;">
+  <div id="errorMsg" style="color:#c0392b; font-size:14px;"></div>
+  <a href="/wallet/redpacket" class="btn btn-brand" style="margin-top:16px; display:inline-block; text-decoration:none;">返回红包</a>
+</div>
+
+<div id="packetSection" style="display:none;">
+  <div class="card" style="text-align:center;">
+    <div id="coverImg" style="width:120px; height:120px; border-radius:12px; margin:0 auto 16px; background:#e8f5ec; overflow:hidden;">
+      <img id="coverImage" src="" style="width:100%; height:100%; object-fit:cover;" />
+    </div>
+    <div style="font-size:18px; font-weight:700; margin-bottom:4px;" id="packetMessage">-</div>
+    <div class="label" style="margin-bottom:4px;" id="packetSender">-</div>
+    <div class="value" style="font-size:28px; margin:12px 0;" id="packetAmount">- SCASH</div>
+    <div class="label" id="packetCount">-</div>
+  </div>
+
+  <div id="claimSection" class="card">
+    <div id="claimStatus" style="display:none; text-align:center; padding:16px 0;">
+      <div id="claimMsg" style="font-size:16px; font-weight:700; margin-bottom:8px;">-</div>
+      <div id="claimAmount" style="font-size:24px; font-weight:700; color:var(--brand);">-</div>
+    </div>
+
+    <div id="claimAction">
+      <div id="walletStatus" class="label" style="margin-bottom:12px; text-align:center;"></div>
+      <button id="claimBtn" class="btn btn-brand" style="width:100%;">&#x1F389; 领取红包</button>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:16px;">
+    <a href="/wallet/redpacket" style="color:var(--muted); font-size:13px; text-decoration:none;">返回红包列表</a>
+  </div>
+</div>
+
+<script>
+  function getQueryParam(name) {
+    var params = new URL(location.href).searchParams;
+    return params.get(name) || '';
+  }
+
+  function showError(msg) {
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('errorSection').style.display = 'block';
+    document.getElementById('errorMsg').textContent = msg;
+  }
+
+  function showPacket(packet) {
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('packetSection').style.display = 'block';
+
+    document.getElementById('packetMessage').textContent = packet.message || '恭喜发财，大吉大利';
+    document.getElementById('packetSender').textContent = '发送者: ' + (packet.senderUsername || packet.senderTelegramId || '-');
+    document.getElementById('packetAmount').textContent = packet.totalAmount + ' SCASH';
+    document.getElementById('packetCount').textContent = '共 ' + packet.count + ' 个';
+
+    if (packet.cover && packet.cover.imageUrl) {
+      document.getElementById('coverImage').src = packet.cover.imageUrl;
+    }
+
+    if (packet.status === 'ACTIVE' && !packet.hasClaimed) {
+      document.getElementById('claimStatus').style.display = 'none';
+      document.getElementById('claimAction').style.display = 'block';
+    } else {
+      document.getElementById('claimAction').style.display = 'none';
+      document.getElementById('claimStatus').style.display = 'block';
+      if (packet.hasClaimed) {
+        document.getElementById('claimMsg').textContent = '已领取';
+        document.getElementById('claimAmount').textContent = packet.claimedAmount || '-';
+      } else if (packet.status !== 'ACTIVE') {
+        document.getElementById('claimMsg').textContent = packet.status === 'EXPIRED' ? '红包已过期' : '红包已结束';
+        document.getElementById('claimAmount').textContent = '';
+      }
+    }
+  }
+
+  async function loadPacket() {
+    var packetHash = getQueryParam('packet');
+    if (!packetHash) { showError('红包参数缺失，请通过分享链接打开'); return; }
+
+    try {
+      var data = await window.SCASH.request('/api/redpacket/' + encodeURIComponent(packetHash));
+      showPacket(data);
+    } catch (e) {
+      showError(e.message || '红包不存在或已过期');
+    }
+  }
+
+  document.getElementById('claimBtn').addEventListener('click', async function () {
+    var btn = document.getElementById('claimBtn');
+    var packetHash = getQueryParam('packet');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>领取中…';
+    try {
+      var result = await window.SCASH.request('/api/redpacket/' + encodeURIComponent(packetHash) + '/claim', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      document.getElementById('claimAction').style.display = 'none';
+      document.getElementById('claimStatus').style.display = 'block';
+      document.getElementById('claimMsg').textContent = '领取成功！';
+      document.getElementById('claimAmount').textContent = (result.amount || '-') + ' SCASH';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '领取红包';
+      alert(e.message || '领取失败');
+    }
+  });
+
+  loadPacket();
+</script>

@@ -150,6 +150,7 @@ model Cover {
   id        Int       @id @default(autoincrement())
   name      String
   imageUrl  String
+  botPath   String    @default("open1")
   price     Decimal   @db.Decimal(20, 8)
   quantity  Int
   sold      Int       @default(0)

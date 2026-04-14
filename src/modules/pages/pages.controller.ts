@@ -136,4 +136,13 @@ export class PagesController {
       activeNav: 'history',
     }));
   }
+
+  @Get('open')
+  openRedpacketPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/redpacket/claim.ejs', this.buildViewData({
+      pageTitle: '领取红包',
+      pageSubtitle: '',
+      activeNav: 'redpacket',
+    }));
+  }
 }

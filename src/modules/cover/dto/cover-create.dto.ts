@@ -8,6 +8,9 @@ export class CoverCreateDto {
   imageUrl!: string;
 
   @IsString()
+  botPath!: string;
+
+  @IsString()
   price!: string;
 
   @IsInt()

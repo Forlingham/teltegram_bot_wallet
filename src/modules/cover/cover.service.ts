@@ -13,6 +13,7 @@ export class CoverService {
       data: {
         name: payload.name,
         imageUrl: payload.imageUrl,
+        botPath: payload.botPath,
         price: payload.price,
         quantity: payload.quantity,
       },
