@@ -69,28 +69,34 @@
     document.getElementById('errorMsg').textContent = msg;
   }
 
-  function showPacket(packet) {
+  function showPacket(data) {
+    var packet = data && data.redPacket ? data.redPacket : (data || {});
+    var hasClaimed = typeof data.hasClaimed === 'boolean' ? data.hasClaimed : !!packet.hasClaimed;
+    var claimedAmount = data.claimedAmount || packet.claimedAmount || '';
+    var senderUsername = data.senderUsername || packet.senderUsername || (packet.sender && packet.sender.username) || '';
+    var senderTelegramId = data.senderTelegramId || packet.senderTelegramId || (packet.sender && packet.sender.telegramId) || '';
+
     document.getElementById('loadingSection').style.display = 'none';
     document.getElementById('packetSection').style.display = 'block';
 
     document.getElementById('packetMessage').textContent = packet.message || '恭喜发财，大吉大利';
-    document.getElementById('packetSender').textContent = '发送者: ' + (packet.senderUsername || packet.senderTelegramId || '-');
-    document.getElementById('packetAmount').textContent = packet.totalAmount + ' SCASH';
-    document.getElementById('packetCount').textContent = '共 ' + packet.count + ' 个';
+    document.getElementById('packetSender').textContent = '发送者: ' + (senderUsername || senderTelegramId || '-');
+    document.getElementById('packetAmount').textContent = (packet.totalAmount || '0') + ' SCASH';
+    document.getElementById('packetCount').textContent = '共 ' + (packet.count || 0) + ' 个';
 
     if (packet.cover && packet.cover.imageUrl) {
       document.getElementById('coverImage').src = packet.cover.imageUrl;
     }
 
-    if (packet.status === 'ACTIVE' && !packet.hasClaimed) {
+    if (packet.status === 'ACTIVE' && !hasClaimed) {
       document.getElementById('claimStatus').style.display = 'none';
       document.getElementById('claimAction').style.display = 'block';
     } else {
       document.getElementById('claimAction').style.display = 'none';
       document.getElementById('claimStatus').style.display = 'block';
-      if (packet.hasClaimed) {
+      if (hasClaimed) {
         document.getElementById('claimMsg').textContent = '已领取';
-        document.getElementById('claimAmount').textContent = packet.claimedAmount || '-';
+        document.getElementById('claimAmount').textContent = claimedAmount || '-';
       } else if (packet.status !== 'ACTIVE') {
         document.getElementById('claimMsg').textContent = packet.status === 'EXPIRED' ? '红包已过期' : '红包已结束';
         document.getElementById('claimAmount').textContent = '';

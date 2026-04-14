@@ -83,7 +83,7 @@ export class RedpacketService {
   async getPacket(userId: number, packetHash: string) {
     const packet = await this.prisma.redPacket.findUnique({
       where: { packetHash },
-      include: { claims: true, cover: true },
+      include: { claims: true, cover: true, sender: true },
     });
 
     if (!packet) {
@@ -99,10 +99,16 @@ export class RedpacketService {
       },
     });
 
+    const claimedAmount = hasClaimed?.amount ? hasClaimed.amount.toString() : null;
+
     return {
       redPacket: packet,
       claims: packet.claims,
       canClaim: packet.status === 'ACTIVE' && !hasClaimed,
+      hasClaimed: Boolean(hasClaimed),
+      claimedAmount,
+      senderUsername: packet.sender?.username ?? null,
+      senderTelegramId: packet.sender?.telegramId ?? null,
     };
   }
 
