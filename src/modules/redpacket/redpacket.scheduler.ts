@@ -88,12 +88,14 @@ export class RedpacketScheduler {
       });
 
       try {
+        let transferTxid: string | null = null;
         if (pending.targetAddress) {
-          await this.transferService.transferToAddress(
+          const transfer = await this.transferService.transferToAddress(
             pending.id,
             pending.amount.toString(),
             pending.targetAddress,
           );
+          transferTxid = transfer.txid;
         }
 
         await this.prisma.pendingTransfer.update({
@@ -110,7 +112,7 @@ export class RedpacketScheduler {
             where: { id: pending.claimId, status: 'PENDING' },
             data: {
               status: 'COMPLETED',
-              txid: pending.txid ?? null,
+              txid: transferTxid,
             },
           });
         }
@@ -130,7 +132,7 @@ export class RedpacketScheduler {
           await this.prisma.redPacketClaim.updateMany({
             where: { id: pending.claimId, status: 'PENDING' },
             data: {
-              status: 'FAILED',
+              status: pending.retryCount + 1 >= 5 ? 'FAILED' : 'PENDING',
             },
           });
         }

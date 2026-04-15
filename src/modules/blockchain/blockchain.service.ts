@@ -30,12 +30,26 @@ export class BlockchainService {
 
   async call<T>(method: string, params: unknown[] = []): Promise<T> {
     const id = `rpc-${Date.now()}-${this.requestId++}`;
-    const response = await this.client.post<RpcResponse<T>>('', {
-      jsonrpc: '2.0',
-      id,
-      method,
-      params,
-    });
+    let response;
+    try {
+      response = await this.client.post<RpcResponse<T>>('', {
+        jsonrpc: '2.0',
+        id,
+        method,
+        params,
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const rpcError = error.response?.data as { error?: { message?: string } } | undefined;
+        const rpcMessage = rpcError?.error?.message;
+        const status = error.response?.status;
+        if (rpcMessage) {
+          throw new Error(`RPC ${method} failed: ${rpcMessage}`);
+        }
+        throw new Error(`RPC ${method} failed: HTTP ${status ?? 'UNKNOWN'}`);
+      }
+      throw error;
+    }
 
     if (response.data.error) {
       throw new Error(`RPC ${method} failed: ${response.data.error.message}`);
