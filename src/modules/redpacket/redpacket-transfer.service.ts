@@ -57,20 +57,8 @@ export class RedpacketTransferService {
       throw new AppException('Pending transfer not found', 'PENDING_TRANSFER_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
 
-    const claimDapMessage = JSON.stringify({
-      type: 'RED_PACKET',
-      data: {
-        action: 'CLAIM',
-        packetHash: pending.redPacket?.packetHash ?? null,
-        fundingTxid: pending.redPacket?.fundingTxid ?? null,
-        claimerTelegramId: pending.user?.telegramId ?? String(pending.userId),
-        claimerTelegramUsername: pending.user?.username ?? null,
-        claimerAddress: toAddress,
-        amount,
-        timestamp: Math.floor(Date.now() / 1000),
-      },
-    });
-    const dap = buildDapOutputs(nodeEnv, claimDapMessage);
+    const dapMessage = this.buildTransferDapMessage(pending, amount, toAddress);
+    const dap = buildDapOutputs(nodeEnv, dapMessage);
     const dapCostSat = BigInt(dap.totalSats || 0);
 
     const { selected, totalSat } = await this.selectFundingUtxos(poolAddress, amountSat + feeSat + dapCostSat);
@@ -193,5 +181,45 @@ export class RedpacketTransferService {
       'COORDINATION_BALANCE_INSUFFICIENT',
       HttpStatus.BAD_REQUEST,
     );
+  }
+
+  private buildTransferDapMessage(
+    pending: {
+      type: string;
+      userId: number;
+      redPacket: { packetHash: string; fundingTxid: string } | null;
+      user: { telegramId: string; username: string | null } | null;
+    },
+    amount: string,
+    toAddress: string,
+  ): string {
+    if (!pending.redPacket) {
+      throw new AppException('Red packet missing for transfer', 'REDPACKET_NOT_FOUND_FOR_TRANSFER', HttpStatus.BAD_REQUEST);
+    }
+
+    const base = {
+      type: 'RED_PACKET',
+      data: {
+        packetHash: pending.redPacket.packetHash,
+        fundingTxid: pending.redPacket.fundingTxid,
+        timestamp: Math.floor(Date.now() / 1000),
+      } as Record<string, unknown>,
+    };
+
+    if (pending.type === 'REFUND') {
+      base.data.action = 'REFUND';
+      base.data.senderTelegramId = pending.user?.telegramId ?? String(pending.userId);
+      base.data.senderTelegramUsername = pending.user?.username ?? null;
+      base.data.senderAddress = toAddress;
+      base.data.refundAmount = amount;
+      return JSON.stringify(base);
+    }
+
+    base.data.action = 'CLAIM';
+    base.data.claimerTelegramId = pending.user?.telegramId ?? String(pending.userId);
+    base.data.claimerTelegramUsername = pending.user?.username ?? null;
+    base.data.claimerAddress = toAddress;
+    base.data.amount = amount;
+    return JSON.stringify(base);
   }
 }

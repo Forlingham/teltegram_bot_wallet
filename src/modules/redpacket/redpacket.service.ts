@@ -13,6 +13,10 @@ export interface CreateResult {
 
 @Injectable()
 export class RedpacketService {
+  private getPacketExpiryMs(): number {
+    return process.env.NODE_ENV === 'production' ? 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
+  }
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(DapService) private readonly dapService: DapService,
@@ -34,7 +38,7 @@ export class RedpacketService {
     }
 
     const packetHash = payload.packetHash || this.buildPacketHash(userId, payload.txid);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + this.getPacketExpiryMs());
     const sender = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!sender) {
       throw new AppException('User not found', 'USER_NOT_FOUND', HttpStatus.NOT_FOUND);

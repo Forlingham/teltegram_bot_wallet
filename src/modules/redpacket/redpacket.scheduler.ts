@@ -32,20 +32,16 @@ export class RedpacketScheduler {
           return;
         }
 
-        await trx.redPacket.update({
-          where: { id: packet.id },
-          data: {
-            status: 'EXPIRED',
-          },
-        });
-
         if (Number(refreshed.remainingAmount) > 0) {
+          const senderWallet = await trx.wallet.findUnique({ where: { userId: refreshed.senderId } });
+
           await trx.pendingTransfer.create({
             data: {
               userId: refreshed.senderId,
               type: 'REFUND',
               amount: refreshed.remainingAmount.toString(),
               redPacketId: refreshed.id,
+              targetAddress: senderWallet?.address ?? null,
               status: 'PENDING',
             },
           });
@@ -58,12 +54,19 @@ export class RedpacketScheduler {
               packetHash: refreshed.packetHash,
               fundingTxid: refreshed.fundingTxid,
               senderTelegramId: sender?.telegramId ?? String(refreshed.senderId),
-              senderAddress: null,
+              senderAddress: senderWallet?.address ?? null,
               refundAmount: refreshed.remainingAmount.toString(),
               timestamp: Math.floor(Date.now() / 1000),
             },
           });
         }
+
+        await trx.redPacket.update({
+          where: { id: packet.id },
+          data: {
+            status: Number(refreshed.remainingAmount) > 0 ? 'REFUNDED' : 'EXPIRED',
+          },
+        });
       });
     }
   }

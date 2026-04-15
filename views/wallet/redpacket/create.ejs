@@ -106,6 +106,7 @@
   let selectedCoverId = null;
   let selectedCoverBotPath = 'open1';
   const FEE_RESERVE_PER_PACKET_SAT = 100000n; // 0.001 SCASH
+  const PACKET_EXPIRE_SECONDS = (window.SCASH && window.SCASH.ENV) === 'production' ? 86400 : 300;
 
   function scashNetwork() {
     var net = (window.SCASH && window.SCASH.NETWORK) || {};
@@ -380,7 +381,7 @@
           amount: total,
           count: countInt,
           strategy: selectedType,
-          expiredAt: Math.floor(Date.now() / 1000) + 86400,
+          expiredAt: Math.floor(Date.now() / 1000) + PACKET_EXPIRE_SECONDS,
           timestamp: Math.floor(Date.now() / 1000),
         },
       };
