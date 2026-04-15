@@ -10,6 +10,113 @@ import { WalletHomeDto } from './dto/wallet-home.dto';
 export class WalletService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  async getHistory(userId: number): Promise<{
+    transactions: Array<{
+      txid: string;
+      direction: 'in' | 'out';
+      amount: string;
+      address: string;
+      time: string;
+      isUnconfirmed?: boolean;
+      kind?: 'wallet' | 'redpacket_claim';
+    }>;
+  }> {
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      const claims = await this.prisma.redPacketClaim.findMany({
+        where: { userId },
+        include: { redPacket: true },
+        orderBy: { claimedAt: 'desc' },
+        take: 100,
+      });
+
+      return {
+        transactions: claims.map((claim) => ({
+          txid: claim.txid || `claim-${claim.id}`,
+          direction: 'in',
+          amount: claim.amount.toString(),
+          address: claim.redPacket?.packetHash || '-',
+          time: claim.claimedAt.toISOString(),
+          isUnconfirmed: claim.status !== 'COMPLETED',
+          kind: 'redpacket_claim',
+        })),
+      };
+    }
+
+    const [received, spentInputs] = await Promise.all([
+      this.prisma.utxo.findMany({
+        where: { address: wallet.address },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+      }),
+      this.prisma.utxo.findMany({
+        where: {
+          address: wallet.address,
+          isSpent: true,
+          spentByTxid: { not: null },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 1000,
+      }),
+    ]);
+
+    const perTx = new Map<string, {
+      txid: string;
+      receiveSat: bigint;
+      spendSat: bigint;
+      hasUnconfirmed: boolean;
+      time: Date;
+    }>();
+
+    for (const row of received) {
+      const current = perTx.get(row.txid) || {
+        txid: row.txid,
+        receiveSat: 0n,
+        spendSat: 0n,
+        hasUnconfirmed: false,
+        time: row.createdAt,
+      };
+      current.receiveSat += scashToSatoshi(row.amount.toString());
+      current.hasUnconfirmed = current.hasUnconfirmed || row.isUnconfirmed;
+      if (row.createdAt > current.time) current.time = row.createdAt;
+      perTx.set(row.txid, current);
+    }
+
+    for (const row of spentInputs) {
+      if (!row.spentByTxid) continue;
+      const current = perTx.get(row.spentByTxid) || {
+        txid: row.spentByTxid,
+        receiveSat: 0n,
+        spendSat: 0n,
+        hasUnconfirmed: false,
+        time: row.updatedAt,
+      };
+      current.spendSat += scashToSatoshi(row.amount.toString());
+      if (row.updatedAt > current.time) current.time = row.updatedAt;
+      perTx.set(row.spentByTxid, current);
+    }
+
+    const transactions = Array.from(perTx.values())
+      .map((tx) => {
+        const netSat = tx.receiveSat - tx.spendSat;
+        const direction: 'in' | 'out' = netSat >= 0n ? 'in' : 'out';
+        const amountSat = netSat >= 0n ? netSat : -netSat;
+        return {
+          txid: tx.txid,
+          direction,
+          amount: satoshiToScash(amountSat),
+          address: wallet.address,
+          time: tx.time.toISOString(),
+          isUnconfirmed: tx.hasUnconfirmed,
+          kind: 'wallet' as const,
+        };
+      })
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 100);
+
+    return { transactions };
+  }
+
   async createWallet(userId: number, payload: WalletEncryptedPayloadDto): Promise<{ address: string }> {
     await this.ensureAddressNotUsedByOtherUser(payload.address, userId);
 

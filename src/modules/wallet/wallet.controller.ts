@@ -86,6 +86,21 @@ export class WalletController {
     return this.walletService.getHomeState(user.userId);
   }
 
+  @Get('history')
+  history(@CurrentUser() user: AuthenticatedUser): Promise<{
+    transactions: Array<{
+      txid: string;
+      direction: 'in' | 'out';
+      amount: string;
+      address: string;
+      time: string;
+      isUnconfirmed?: boolean;
+      kind?: 'wallet' | 'redpacket_claim';
+    }>;
+  }> {
+    return this.walletService.getHistory(user.userId);
+  }
+
   @Post('backup/complete')
   backupComplete(
     @CurrentUser() user: AuthenticatedUser,
