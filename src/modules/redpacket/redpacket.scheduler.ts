@@ -53,10 +53,11 @@ export class RedpacketScheduler {
               action: 'REFUND',
               packetHash: refreshed.packetHash,
               fundingTxid: refreshed.fundingTxid,
-              senderTelegramId: sender?.telegramId ?? String(refreshed.senderId),
               senderAddress: senderWallet?.address ?? null,
-              refundAmount: refreshed.remainingAmount.toString(),
-              timestamp: Math.floor(Date.now() / 1000),
+              senderTelegramUsername: sender?.username ?? null,
+              amount: refreshed.remainingAmount.toString(),
+              strategy: refreshed.type,
+              blessMessage: refreshed.message ?? null,
             },
           });
         }

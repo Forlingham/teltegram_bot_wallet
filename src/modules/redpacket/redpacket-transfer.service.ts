@@ -49,7 +49,11 @@ export class RedpacketTransferService {
     const pending = await this.prisma.pendingTransfer.findUnique({
       where: { id: pendingId },
       include: {
-        redPacket: true,
+        redPacket: {
+          include: {
+            sender: true,
+          },
+        },
         user: true,
       },
     });
@@ -57,7 +61,16 @@ export class RedpacketTransferService {
       throw new AppException('Pending transfer not found', 'PENDING_TRANSFER_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
 
-    const dapMessage = this.buildTransferDapMessage(pending, amount, toAddress);
+    const senderWallet = pending.redPacket
+      ? await this.prisma.wallet.findUnique({ where: { userId: pending.redPacket.senderId } })
+      : null;
+
+    const dapMessage = this.buildTransferDapMessage(
+      pending,
+      amount,
+      toAddress,
+      senderWallet?.address ?? null,
+    );
     const dap = buildDapOutputs(nodeEnv, dapMessage);
     const dapCostSat = BigInt(dap.totalSats || 0);
 
@@ -187,11 +200,18 @@ export class RedpacketTransferService {
     pending: {
       type: string;
       userId: number;
-      redPacket: { packetHash: string; fundingTxid: string } | null;
+      redPacket: {
+        packetHash: string;
+        fundingTxid: string;
+        message: string | null;
+        type: string;
+        sender: { username: string | null } | null;
+      } | null;
       user: { telegramId: string; username: string | null } | null;
     },
     amount: string,
     toAddress: string,
+    senderAddress: string | null,
   ): string {
     if (!pending.redPacket) {
       throw new AppException('Red packet missing for transfer', 'REDPACKET_NOT_FOUND_FOR_TRANSFER', HttpStatus.BAD_REQUEST);
@@ -202,21 +222,20 @@ export class RedpacketTransferService {
       data: {
         packetHash: pending.redPacket.packetHash,
         fundingTxid: pending.redPacket.fundingTxid,
-        timestamp: Math.floor(Date.now() / 1000),
+        senderAddress,
+        senderTelegramUsername: pending.redPacket.sender?.username ?? null,
+        strategy: pending.redPacket.type,
+        blessMessage: pending.redPacket.message ?? null,
       } as Record<string, unknown>,
     };
 
     if (pending.type === 'REFUND') {
       base.data.action = 'REFUND';
-      base.data.senderTelegramId = pending.user?.telegramId ?? String(pending.userId);
-      base.data.senderTelegramUsername = pending.user?.username ?? null;
-      base.data.senderAddress = toAddress;
-      base.data.refundAmount = amount;
+      base.data.amount = amount;
       return JSON.stringify(base);
     }
 
     base.data.action = 'CLAIM';
-    base.data.claimerTelegramId = pending.user?.telegramId ?? String(pending.userId);
     base.data.claimerTelegramUsername = pending.user?.username ?? null;
     base.data.claimerAddress = toAddress;
     base.data.amount = amount;

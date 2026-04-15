@@ -66,15 +66,12 @@ export class RedpacketService {
       data: {
         action: 'CREATE',
         packetHash,
-        senderTelegramId: sender.telegramId,
-        senderTelegramUsername: sender.username,
         senderAddress: payload.senderAddress || null,
-        fundingTxid: payload.txid,
+        senderTelegramUsername: sender.username,
         amount: payload.totalAmount,
         count: payload.count,
         strategy: payload.type,
-        expiredAt: Math.floor(expiresAt.getTime() / 1000),
-        timestamp: Math.floor(Date.now() / 1000),
+        blessMessage: payload.message ?? null,
       },
     });
 
@@ -173,6 +170,7 @@ export class RedpacketService {
 
       const amount = this.allocateAmount(packet.type, packet.remainingAmount.toString(), packet.remainingCount);
       const receiverWallet = await trx.wallet.findUnique({ where: { userId } });
+      const senderWallet = await trx.wallet.findUnique({ where: { userId: packet.senderId } });
       const targetAddress = address ?? receiverWallet?.address ?? null;
 
       const claim = await trx.redPacketClaim.create({
@@ -212,11 +210,13 @@ export class RedpacketService {
           action: 'CLAIM',
           packetHash,
           fundingTxid: packet.fundingTxid,
-          claimerTelegramId: claimer?.telegramId ?? String(userId),
+          senderAddress: senderWallet?.address ?? null,
+          senderTelegramUsername: packet.sender?.username ?? null,
           claimerTelegramUsername: claimer?.username ?? null,
           claimerAddress: targetAddress,
           amount,
-          timestamp: Math.floor(Date.now() / 1000),
+          strategy: packet.type,
+          blessMessage: packet.message ?? null,
         },
       });
 
