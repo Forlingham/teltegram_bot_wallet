@@ -22,6 +22,12 @@ type RawTransaction = {
   }>;
 };
 
+type RawTransactionVerbose = {
+  txid: string;
+  confirmations?: number;
+  blockhash?: string;
+};
+
 @Injectable()
 export class UtxoSyncService implements OnModuleInit {
   private readonly logger = new Logger(UtxoSyncService.name);
@@ -35,7 +41,9 @@ export class UtxoSyncService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    this.logger.log('UTXO sync service initializing');
     await this.catchUpBlocks();
+    this.logger.log('UTXO catch-up completed');
     void this.startZmqListeners();
   }
 
@@ -66,17 +74,28 @@ export class UtxoSyncService implements OnModuleInit {
     }
   }
 
+  private async syncBlocksFromCheckpoint(): Promise<void> {
+    try {
+      await this.catchUpBlocks();
+    } catch (error) {
+      this.logger.warn(`Failed to sync blocks from checkpoint: ${String(error)}`);
+    }
+  }
+
   private async startZmqListeners(): Promise<void> {
     const blockUrl = this.configService.getOrThrow<string>('ZMQ_BLOCK_URL');
     const txUrl = this.configService.getOrThrow<string>('ZMQ_TX_URL');
 
     this.blockSocket = new Subscriber();
     this.blockSocket.connect(blockUrl);
-    this.blockSocket.subscribe('hashblock');
+    this.blockSocket.subscribe('rawblock');
 
     this.txSocket = new Subscriber();
     this.txSocket.connect(txUrl);
     this.txSocket.subscribe('rawtx');
+
+    this.logger.log(`ZMQ subscribed: rawblock @ ${blockUrl}`);
+    this.logger.log(`ZMQ subscribed: rawtx @ ${txUrl}`);
 
     void this.listenBlocks();
     void this.listenTransactions();
@@ -87,26 +106,13 @@ export class UtxoSyncService implements OnModuleInit {
       return;
     }
 
-    for await (const [topic, message] of this.blockSocket) {
-      if (topic.toString() !== 'hashblock') {
+    for await (const [topic] of this.blockSocket) {
+      if (topic.toString() !== 'rawblock') {
         continue;
       }
 
-      const hash = message.toString('hex');
-      const height = await this.blockchain.call<number>('getblockcount');
-      await this.processBlockByHash(hash, height);
-      await this.prisma.blockSync.upsert({
-        where: { id: 1 },
-        create: {
-          id: 1,
-          lastBlockHeight: height,
-          lastBlockHash: hash,
-        },
-        update: {
-          lastBlockHeight: height,
-          lastBlockHash: hash,
-        },
-      });
+      this.logger.log('ZMQ rawblock received, syncing blocks from checkpoint');
+      await this.syncBlocksFromCheckpoint();
     }
   }
 
@@ -130,6 +136,7 @@ export class UtxoSyncService implements OnModuleInit {
   }
 
   private async processBlockByHash(hash: string, height: number): Promise<void> {
+    this.logger.log(`Processing block ${height} (${hash})`);
     const block = await this.blockchain.call<{ tx: RawTransaction[] }>('getblock', [hash, 2]);
     for (const tx of block.tx) {
       await this.processDecodedTransaction(tx, false, height);
@@ -142,6 +149,20 @@ export class UtxoSyncService implements OnModuleInit {
     blockHeight = 0,
   ): Promise<void> {
     const tx = await this.blockchain.call<RawTransaction>('decoderawtransaction', [rawTxHex]);
+
+    if (isUnconfirmed) {
+      try {
+        const verbose = await this.blockchain.call<RawTransactionVerbose>('getrawtransaction', [tx.txid, true]);
+        if ((verbose.confirmations ?? 0) > 0 && verbose.blockhash) {
+          const header = await this.blockchain.call<{ height: number }>('getblockheader', [verbose.blockhash]);
+          await this.processDecodedTransaction(tx, false, header.height);
+          return;
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to check tx confirmation for ${tx.txid}: ${String(error)}`);
+      }
+    }
+
     await this.processDecodedTransaction(tx, isUnconfirmed, blockHeight);
   }
 
@@ -198,6 +219,19 @@ export class UtxoSyncService implements OnModuleInit {
             blockHeight: isUnconfirmed ? 0 : blockHeight,
             isUnconfirmed,
             isCoinbase: !!tx.vin[0]?.coinbase,
+          },
+        });
+      }
+
+      if (!isUnconfirmed && blockHeight > 0) {
+        await trx.utxo.updateMany({
+          where: {
+            txid,
+            isUnconfirmed: true,
+          },
+          data: {
+            isUnconfirmed: false,
+            blockHeight,
           },
         });
       }
