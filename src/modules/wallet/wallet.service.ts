@@ -6,20 +6,24 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { satoshiToScash, scashToSatoshi } from '../../common/utils/money.util';
 import { WalletHomeDto } from './dto/wallet-home.dto';
 
+type WalletHistoryItem = {
+  txid: string;
+  direction: 'in' | 'out';
+  amount: string;
+  address: string;
+  time: string;
+  isUnconfirmed?: boolean;
+  kind?: 'wallet' | 'redpacket';
+  redpacketType?: 'CREATE' | 'CLAIM' | 'REFUND';
+  packetHash?: string;
+};
+
 @Injectable()
 export class WalletService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async getHistory(userId: number): Promise<{
-    transactions: Array<{
-      txid: string;
-      direction: 'in' | 'out';
-      amount: string;
-      address: string;
-      time: string;
-      isUnconfirmed?: boolean;
-      kind?: 'wallet' | 'redpacket_claim';
-    }>;
+    transactions: WalletHistoryItem[];
   }> {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
@@ -38,7 +42,9 @@ export class WalletService {
           address: claim.redPacket?.packetHash || '-',
           time: claim.claimedAt.toISOString(),
           isUnconfirmed: claim.status !== 'COMPLETED',
-          kind: 'redpacket_claim',
+          kind: 'redpacket',
+          redpacketType: 'CLAIM',
+          packetHash: claim.redPacket?.packetHash,
         })),
       };
     }
@@ -96,7 +102,7 @@ export class WalletService {
       perTx.set(row.spentByTxid, current);
     }
 
-    const transactions = Array.from(perTx.values())
+    const transactions: WalletHistoryItem[] = Array.from(perTx.values())
       .map((tx) => {
         const netSat = tx.receiveSat - tx.spendSat;
         const direction: 'in' | 'out' = netSat >= 0n ? 'in' : 'out';
@@ -108,11 +114,63 @@ export class WalletService {
           address: wallet.address,
           time: tx.time.toISOString(),
           isUnconfirmed: tx.hasUnconfirmed,
-          kind: 'wallet' as const,
-        };
+          kind: 'wallet',
+        } as WalletHistoryItem;
       })
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 100);
+
+    const txids = transactions.map((item) => item.txid);
+    const [createdPackets, pendingTransfers] = await Promise.all([
+      this.prisma.redPacket.findMany({
+        where: { fundingTxid: { in: txids } },
+        select: { fundingTxid: true, packetHash: true },
+      }),
+      this.prisma.pendingTransfer.findMany({
+        where: {
+          txid: { in: txids },
+          type: { in: ['REDPACKET_CLAIM', 'REFUND'] },
+        },
+        include: {
+          redPacket: {
+            select: {
+              packetHash: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const createByTxid = new Map<string, string>();
+    for (const item of createdPackets) {
+      createByTxid.set(item.fundingTxid, item.packetHash);
+    }
+
+    const transferByTxid = new Map<string, { type: 'CLAIM' | 'REFUND'; packetHash?: string }>();
+    for (const item of pendingTransfers) {
+      if (!item.txid) continue;
+      transferByTxid.set(item.txid, {
+        type: item.type === 'REFUND' ? 'REFUND' : 'CLAIM',
+        packetHash: item.redPacket?.packetHash,
+      });
+    }
+
+    for (const item of transactions) {
+      const createPacketHash = createByTxid.get(item.txid);
+      if (createPacketHash) {
+        item.kind = 'redpacket';
+        item.redpacketType = 'CREATE';
+        item.packetHash = createPacketHash;
+        continue;
+      }
+
+      const transfer = transferByTxid.get(item.txid);
+      if (transfer) {
+        item.kind = 'redpacket';
+        item.redpacketType = transfer.type;
+        item.packetHash = transfer.packetHash;
+      }
+    }
 
     return { transactions };
   }

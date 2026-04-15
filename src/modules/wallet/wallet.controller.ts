@@ -95,7 +95,9 @@ export class WalletController {
       address: string;
       time: string;
       isUnconfirmed?: boolean;
-      kind?: 'wallet' | 'redpacket_claim';
+      kind?: 'wallet' | 'redpacket';
+      redpacketType?: 'CREATE' | 'CLAIM' | 'REFUND';
+      packetHash?: string;
     }>;
   }> {
     return this.walletService.getHistory(user.userId);
