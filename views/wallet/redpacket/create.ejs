@@ -105,6 +105,7 @@
   let selectedType = 'RANDOM';
   let selectedCoverId = null;
   let selectedCoverBotPath = 'open1';
+  const FEE_RESERVE_PER_PACKET_SAT = 100000n; // 0.001 SCASH
 
   function scashNetwork() {
     var net = (window.SCASH && window.SCASH.NETWORK) || {};
@@ -145,6 +146,14 @@
 
   function bytesToHex(arr) {
     return Array.from(new Uint8Array(arr)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function satoshiToScashString(sats) {
+    var sign = sats < 0n ? '-' : '';
+    var abs = sats < 0n ? -sats : sats;
+    var whole = abs / 100000000n;
+    var frac = (abs % 100000000n).toString().padStart(8, '0');
+    return sign + whole.toString() + '.' + frac;
   }
 
   function deriveScashAddress(mnemonic) {
@@ -351,7 +360,11 @@
       var candidateUtxos = confirmedUtxos.concat(unconfirmedUtxos);
       if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO（含内存池）');
 
+      var countInt = parseInt(count);
       var totalSat = BigInt(Math.round(parseFloat(total) * 1e8));
+      var feeReserveSat = BigInt(countInt) * FEE_RESERVE_PER_PACKET_SAT;
+      var poolTransferSat = totalSat + feeReserveSat;
+      var feeReserveScash = satoshiToScashString(feeReserveSat);
       var feeSat = BigInt(Math.round(0.0001 * 1e8));
 
       var seed = myAddress + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
@@ -365,7 +378,7 @@
           packetHash: packetHash,
           senderAddress: myAddress,
           amount: total,
-          count: parseInt(count),
+          count: countInt,
           strategy: selectedType,
           expiredAt: Math.floor(Date.now() / 1000) + 86400,
           timestamp: Math.floor(Date.now() / 1000),
@@ -379,14 +392,14 @@
       var dapOutputs = dapRes.outputs || [];
       var dapCostSat = BigInt(dapRes.totalSats || 0);
 
-      var allOutputs = [{ address: poolAddr, value: Number(totalSat) }].concat(
-        dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
-      );
+       var allOutputs = [{ address: poolAddr, value: Number(poolTransferSat) }].concat(
+         dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
+       );
 
-      var neededSat = totalSat + feeSat + dapCostSat;
+      var neededSat = poolTransferSat + feeSat + dapCostSat;
       var availableSat = candidateUtxos.reduce(function (s, u) { return s + BigInt(Math.round(parseFloat(u.amount) * 1e8)); }, 0n);
       if (availableSat < neededSat) {
-        throw new Error('余额不足（需要 ' + (neededSat / 100000000n).toString() + ' SCASH，包含红包金额 + 手续费 + DAP 上链费用）');
+        throw new Error('余额不足（需要 ' + satoshiToScashString(neededSat) + ' SCASH，包含红包金额 + 统筹手续费预留 + 手续费 + DAP 上链费用）');
       }
 
       var hex = await buildSingleTx(mnemonic, candidateUtxos, allOutputs, feeSat, network);
@@ -397,15 +410,15 @@
         body: JSON.stringify({
           type: selectedType,
           totalAmount: total,
-          count: parseInt(count),
-          message: message || '恭喜发财，大吉大利',
-          coverId: selectedCoverId,
-          txid: txid,
-          packetHash: packetHash,
-          senderAddress: myAddress,
-          feeReserve: '0.0001',
-        }),
-      });
+           count: countInt,
+           message: message || '恭喜发财，大吉大利',
+           coverId: selectedCoverId,
+           txid: txid,
+           packetHash: packetHash,
+           senderAddress: myAddress,
+           feeReserve: feeReserveScash,
+         }),
+       });
 
       alert('红包已发出！');
       var startParam = 'rp_' + packetHash;
