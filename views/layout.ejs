@@ -55,7 +55,9 @@
     <script>
       window.SCASH = {
         SESSION_KEY: 'SCASH_SESSION_TOKEN',
+        TG_USER_KEY: 'SCASH_TG_USER_ID',
         TG: window.Telegram && window.Telegram.WebApp,
+        _memoryToken: '',
       ENV: '<%= appEnv || "development" %>',
       NETWORK: {
         bech32: '<%= (scashNetwork && scashNetwork.bech32) || "bcrt" %>',
@@ -64,26 +66,98 @@
       },
       POOL_ADDRESS: '<%= poolAddress || "" %>',
       getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
+      parseTgUserIdFromInitData: function (initDataStr) {
+        if (!initDataStr) return '';
+        try {
+          var params = new URLSearchParams(initDataStr);
+          var userJson = params.get('user');
+          if (userJson) {
+            var user = JSON.parse(decodeURIComponent(userJson));
+            if (user && user.id) return String(user.id);
+          }
+        } catch (e) {}
+        return '';
+      },
+      getCurrentTgUserId: function () {
+        var tg = this.TG;
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+          return String(tg.initDataUnsafe.user.id);
+        }
+        var initData = this.readInitData();
+        return this.parseTgUserIdFromInitData(initData);
+      },
       readInitData: function () {
         var tg = this.TG;
         if (tg) { tg.ready(); if (tg.initData) return tg.initData; }
         var params = new URL(location.href).searchParams;
         return params.get('tgWebAppData') || '';
       },
+      _verifyTokenWithServer: async function (token) {
+        try {
+          var res = await fetch('/api/auth/me', {
+            headers: { 'Content-Type': 'application/json', 'x-session-token': token },
+          });
+          if (res.ok) {
+            var json = await res.json();
+            return json.success ? token : '';
+          }
+        } catch (e) {}
+        return '';
+      },
       ensureSession: async function () {
+        var currentTgUserId = this.getCurrentTgUserId();
+
+        /* 1. Check localStorage token */
         var existing = this.getToken();
-        if (existing) return existing;
+        if (existing) {
+          var storedTgUserId = localStorage.getItem(this.TG_USER_KEY) || '';
+          if (!currentTgUserId || storedTgUserId === currentTgUserId) {
+            this._memoryToken = existing;
+            return existing;
+          }
+          /* User changed — clear old session */
+          localStorage.removeItem(this.SESSION_KEY);
+          localStorage.removeItem(this.TG_USER_KEY);
+        }
+
+        /* 2. localStorage was cleared (e.g. by another account),
+              but this page still holds a valid in-memory token
+              from the original login. Verify it's still valid. */
+        if (this._memoryToken) {
+          var verified = await this._verifyTokenWithServer(this._memoryToken);
+          if (verified) {
+            localStorage.setItem(this.SESSION_KEY, verified);
+            if (currentTgUserId) {
+              localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
+            }
+            return verified;
+          }
+          this._memoryToken = '';
+        }
+
+        /* 3. Try fresh login with initData */
         var initData = this.readInitData();
-        if (!initData) throw new Error('未检测到 Telegram 会话，请从机器人 Mini App 打开');
+        if (!initData) throw new Error('会话已过期，请关闭并重新打开 Mini App');
         var res = await fetch('/api/auth/telegram/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ initData: initData }),
         });
         var json = await res.json();
-        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '登录失败');
-        localStorage.setItem(this.SESSION_KEY, json.data.sessionToken);
-        return json.data.sessionToken;
+        if (!res.ok || !json.success) {
+          var errMsg = (json.error && json.error.message) || '';
+          if (errMsg.toLowerCase().indexOf('replay') !== -1 || errMsg.toLowerCase().indexOf('expired') !== -1) {
+            throw new Error('会话已过期，请关闭并重新打开 Mini App');
+          }
+          throw new Error(errMsg || '登录失败');
+        }
+        var newToken = json.data.sessionToken;
+        localStorage.setItem(this.SESSION_KEY, newToken);
+        if (currentTgUserId) {
+          localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
+        }
+        this._memoryToken = newToken;
+        return newToken;
       },
       request: async function (path, options) {
         var token = await this.ensureSession();
@@ -91,6 +165,15 @@
           headers: Object.assign({ 'Content-Type': 'application/json', 'x-session-token': token }, (options || {}).headers || {}),
         });
         var res = await fetch(path, mergedOptions);
+        /* If 401, the session was revoked/expired — clear and retry once */
+        if (res.status === 401) {
+          localStorage.removeItem(this.SESSION_KEY);
+          localStorage.removeItem(this.TG_USER_KEY);
+          this._memoryToken = '';
+          token = await this.ensureSession();
+          mergedOptions.headers['x-session-token'] = token;
+          res = await fetch(path, mergedOptions);
+        }
         var json = await res.json();
         if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
         return json.data;
