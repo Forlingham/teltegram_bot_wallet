@@ -57,7 +57,6 @@
         SESSION_KEY: 'SCASH_SESSION_TOKEN',
         TG_USER_KEY: 'SCASH_TG_USER_ID',
         TG: window.Telegram && window.Telegram.WebApp,
-        _memoryToken: '',
       ENV: '<%= appEnv || "development" %>',
       NETWORK: {
         bech32: '<%= (scashNetwork && scashNetwork.bech32) || "bcrt" %>',
@@ -66,6 +65,15 @@
       },
       POOL_ADDRESS: '<%= poolAddress || "" %>',
       getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
+      getTokenForUser: function (tgUserId) {
+        return localStorage.getItem('SCASH_TOKEN_' + tgUserId) || '';
+      },
+      setTokenForUser: function (tgUserId, token) {
+        localStorage.setItem('SCASH_TOKEN_' + tgUserId, token);
+        /* Also set the global key so the rest of the app still works */
+        localStorage.setItem(this.SESSION_KEY, token);
+        localStorage.setItem(this.TG_USER_KEY, tgUserId);
+      },
       parseTgUserIdFromInitData: function (initDataStr) {
         if (!initDataStr) return '';
         try {
@@ -92,50 +100,25 @@
         var params = new URL(location.href).searchParams;
         return params.get('tgWebAppData') || '';
       },
-      _verifyTokenWithServer: async function (token) {
-        try {
-          var res = await fetch('/api/auth/me', {
-            headers: { 'Content-Type': 'application/json', 'x-session-token': token },
-          });
-          if (res.ok) {
-            var json = await res.json();
-            return json.success ? token : '';
-          }
-        } catch (e) {}
-        return '';
-      },
       ensureSession: async function () {
         var currentTgUserId = this.getCurrentTgUserId();
 
-        /* 1. Check localStorage token */
-        var existing = this.getToken();
-        if (existing) {
-          var storedTgUserId = localStorage.getItem(this.TG_USER_KEY) || '';
-          if (!currentTgUserId || storedTgUserId === currentTgUserId) {
-            this._memoryToken = existing;
-            return existing;
+        if (currentTgUserId) {
+          /* Check for a per-user token first */
+          var userToken = this.getTokenForUser(currentTgUserId);
+          if (userToken) {
+            /* Restore to global key and return */
+            localStorage.setItem(this.SESSION_KEY, userToken);
+            localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
+            return userToken;
           }
-          /* User changed — clear old session */
-          localStorage.removeItem(this.SESSION_KEY);
-          localStorage.removeItem(this.TG_USER_KEY);
+        } else {
+          /* Cannot determine current user — fall back to global token */
+          var existing = this.getToken();
+          if (existing) return existing;
         }
 
-        /* 2. localStorage was cleared (e.g. by another account),
-              but this page still holds a valid in-memory token
-              from the original login. Verify it's still valid. */
-        if (this._memoryToken) {
-          var verified = await this._verifyTokenWithServer(this._memoryToken);
-          if (verified) {
-            localStorage.setItem(this.SESSION_KEY, verified);
-            if (currentTgUserId) {
-              localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
-            }
-            return verified;
-          }
-          this._memoryToken = '';
-        }
-
-        /* 3. Try fresh login with initData */
+        /* No valid token found — do a fresh login */
         var initData = this.readInitData();
         if (!initData) throw new Error('会话已过期，请关闭并重新打开 Mini App');
         var res = await fetch('/api/auth/telegram/login', {
@@ -152,11 +135,11 @@
           throw new Error(errMsg || '登录失败');
         }
         var newToken = json.data.sessionToken;
-        localStorage.setItem(this.SESSION_KEY, newToken);
         if (currentTgUserId) {
-          localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
+          this.setTokenForUser(currentTgUserId, newToken);
+        } else {
+          localStorage.setItem(this.SESSION_KEY, newToken);
         }
-        this._memoryToken = newToken;
         return newToken;
       },
       request: async function (path, options) {
@@ -167,9 +150,10 @@
         var res = await fetch(path, mergedOptions);
         /* If 401, the session was revoked/expired — clear and retry once */
         if (res.status === 401) {
+          var uid = this.getCurrentTgUserId();
           localStorage.removeItem(this.SESSION_KEY);
           localStorage.removeItem(this.TG_USER_KEY);
-          this._memoryToken = '';
+          if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid);
           token = await this.ensureSession();
           mergedOptions.headers['x-session-token'] = token;
           res = await fetch(path, mergedOptions);
