@@ -151,6 +151,7 @@ model Cover {
   name      String
   imageUrl  String
   botPath   String    @default("open1")
+  textTone  String    @default("LIGHT")
   price     Decimal   @db.Decimal(20, 8)
   quantity  Int
   sold      Int       @default(0)

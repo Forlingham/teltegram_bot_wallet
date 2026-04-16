@@ -14,6 +14,7 @@ export class CoverService {
         name: payload.name,
         imageUrl: payload.imageUrl,
         botPath: payload.botPath,
+        textTone: payload.textTone ?? 'LIGHT',
         price: payload.price,
         quantity: payload.quantity,
       },

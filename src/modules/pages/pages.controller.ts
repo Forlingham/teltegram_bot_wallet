@@ -143,6 +143,7 @@ export class PagesController {
       pageTitle: '领取红包',
       pageSubtitle: '',
       activeNav: 'redpacket',
+      hideBottomNav: true,
     }));
   }
 }

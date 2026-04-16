@@ -1,4 +1,4 @@
-import { IsInt, IsString, IsUrl, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, IsUrl, Min } from 'class-validator';
 
 export class CoverCreateDto {
   @IsString()
@@ -9,6 +9,11 @@ export class CoverCreateDto {
 
   @IsString()
   botPath!: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['LIGHT', 'DARK'])
+  textTone?: 'LIGHT' | 'DARK';
 
   @IsString()
   price!: string;
