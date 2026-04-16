@@ -17,7 +17,7 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .app { max-width: 860px; margin: 0 auto; padding: 16px 16px <%= hideBottomNav ? 16 : 88 %>px; }
+    .app { max-width: 860px; margin: 0 auto; padding: 16px 16px <%= (typeof hideBottomNav !== 'undefined' && hideBottomNav) ? 16 : 88 %>px; }
     .app-header { padding: 14px 4px 12px; }
     .brand { font-size: 24px; font-weight: 700; }
     .subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
@@ -105,7 +105,7 @@
   </script>
     <%- body %>
   </main>
-  <% if (!hideBottomNav) { %>
+  <% if (!(typeof hideBottomNav !== 'undefined' && hideBottomNav)) { %>
     <%- include('partials/bottom-nav') %>
   <% } %>
   <script>

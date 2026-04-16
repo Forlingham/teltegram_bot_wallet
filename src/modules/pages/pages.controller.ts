@@ -32,6 +32,7 @@ export class PagesController {
     const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
     const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
     return {
+      hideBottomNav: false,
       ...data,
       appEnv: nodeEnv,
       scashNetwork: {
