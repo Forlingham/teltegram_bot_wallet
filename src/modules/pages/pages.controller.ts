@@ -32,7 +32,7 @@ export class PagesController {
     const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
     const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
     return {
-      hideBottomNav: false,
+      hideBottomNav: true,
       ...data,
       appEnv: nodeEnv,
       scashNetwork: {
@@ -54,6 +54,8 @@ export class PagesController {
       pageTitle: 'SCASH 钱包',
       pageSubtitle: '',
       activeNav: 'home',
+      hideBottomNav: false,
+      backAsClose: true,
     }));
   }
 
@@ -117,6 +119,8 @@ export class PagesController {
       pageTitle: '红包',
       pageSubtitle: '',
       activeNav: 'redpacket',
+      hideBottomNav: false,
+      backAsClose: true,
     }));
   }
 
@@ -135,6 +139,8 @@ export class PagesController {
       pageTitle: '历史交易',
       pageSubtitle: '',
       activeNav: 'history',
+      hideBottomNav: false,
+      backAsClose: true,
     }));
   }
 
