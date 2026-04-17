@@ -1,7 +1,7 @@
 <div class="card">
   <div class="label" style="margin-bottom:12px;">钱包管理</div>
   
-  <a href="/wallet/recover" class="row" style="text-decoration:none; padding:12px 0; border-bottom:1px solid var(--line);">
+  <a id="btnRecover" href="/wallet/recover" class="row" style="text-decoration:none; padding:12px 0; border-bottom:1px solid var(--line);">
     <div style="font-weight:600; color:var(--text);">查看 / 备份助记词</div>
     <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
   </a>
@@ -169,4 +169,16 @@
       btn.textContent = '确认修改';
     }
   });
+
+  // 判断是否为观察钱包
+  async function initSettings() {
+    try {
+      var home = await window.SCASH.request('/api/wallet/home');
+      if (home.isWatchOnly) {
+        document.getElementById('btnRecover').style.display = 'none';
+        document.getElementById('btnChangePassword').style.display = 'none';
+      }
+    } catch(e) {}
+  }
+  initSettings();
 </script>

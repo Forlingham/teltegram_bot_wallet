@@ -33,6 +33,8 @@ export class PagesController {
     const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
     return {
       hideBottomNav: true,
+      requireFullWallet: false, // 默认不强制，需要签名的页面设为 true
+      requireAnyWallet: false,  // 只要有钱包（哪怕是观察钱包）就能进
       ...data,
       appEnv: nodeEnv,
       scashNetwork: {
@@ -83,6 +85,7 @@ export class PagesController {
       pageTitle: '查看 / 备份助记词',
       pageSubtitle: '本地解密查看你的助记词',
       activeNav: 'home',
+      requireFullWallet: true,
     }));
   }
 
@@ -101,6 +104,7 @@ export class PagesController {
       pageTitle: '发送',
       pageSubtitle: '转出 SCASH',
       activeNav: 'home',
+      requireFullWallet: true,
     }));
   }
 
@@ -119,6 +123,7 @@ export class PagesController {
       pageTitle: '刻字上链',
       pageSubtitle: '将 Markdown 文本永久刻入 SCASH',
       activeNav: 'home',
+      requireFullWallet: true,
     }));
   }
   
@@ -128,6 +133,7 @@ export class PagesController {
       pageTitle: '钱包设置',
       pageSubtitle: '安全与管理',
       activeNav: 'home',
+      requireAnyWallet: true, // 允许观察者钱包进入以便解除绑定
     }));
   }
 
@@ -148,6 +154,7 @@ export class PagesController {
       pageTitle: '发红包',
       pageSubtitle: '',
       activeNav: 'redpacket',
+      requireFullWallet: true,
     }));
   }
 

@@ -36,7 +36,7 @@
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .quick-link { display: block; text-align: center; text-decoration: none; color: var(--brand); background: #edf7ef; border: 1px solid #d7eadb; border-radius: 10px; padding: 10px 8px; font-weight: 600; font-size: 14px; }
-    .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: #ffffff; border-top: 1px solid var(--line); }
+    .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: #ffffff; border-top: 1px solid var(--line); z-index: 50; }
     .nav-item { padding: 12px 8px 14px; text-align: center; text-decoration: none; color: #5f695f; font-size: 13px; }
     .nav-item.active { color: var(--brand); font-weight: 700; }
     input, textarea, .input-wrap { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; background: #fafefa; margin-bottom: 12px; }
@@ -57,130 +57,148 @@
         SESSION_KEY: 'SCASH_SESSION_TOKEN',
         TG_USER_KEY: 'SCASH_TG_USER_ID',
         TG: window.Telegram && window.Telegram.WebApp,
-      ENV: '<%= appEnv || "development" %>',
-      NETWORK: {
-        bech32: '<%= (scashNetwork && scashNetwork.bech32) || "bcrt" %>',
-        pubKeyHash: <%= (scashNetwork && scashNetwork.pubKeyHash) || 60 %>,
-        scriptHash: <%= (scashNetwork && scashNetwork.scriptHash) || 125 %>,
-      },
-      POOL_ADDRESS: '<%= poolAddress || "" %>',
-      getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
-      getTokenForUser: function (tgUserId) {
-        return localStorage.getItem('SCASH_TOKEN_' + tgUserId) || '';
-      },
-      setTokenForUser: function (tgUserId, token) {
-        localStorage.setItem('SCASH_TOKEN_' + tgUserId, token);
-        /* Also set the global key so the rest of the app still works */
-        localStorage.setItem(this.SESSION_KEY, token);
-        localStorage.setItem(this.TG_USER_KEY, tgUserId);
-      },
-      parseTgUserIdFromInitData: function (initDataStr) {
-        if (!initDataStr) return '';
-        try {
-          var params = new URLSearchParams(initDataStr);
-          var userJson = params.get('user');
-          if (userJson) {
-            var user = JSON.parse(decodeURIComponent(userJson));
-            if (user && user.id) return String(user.id);
+        ENV: '<%= appEnv || "development" %>',
+        REQUIRE_FULL_WALLET: <%= (typeof requireFullWallet !== 'undefined' && requireFullWallet) ? 'true' : 'false' %>,
+        REQUIRE_ANY_WALLET: <%= (typeof requireAnyWallet !== 'undefined' && requireAnyWallet) ? 'true' : 'false' %>,
+        NETWORK: {
+          bech32: '<%= (scashNetwork && scashNetwork.bech32) || "bcrt" %>',
+          pubKeyHash: <%= (scashNetwork && scashNetwork.pubKeyHash) || 60 %>,
+          scriptHash: <%= (scashNetwork && scashNetwork.scriptHash) || 125 %>,
+        },
+        POOL_ADDRESS: '<%= poolAddress || "" %>',
+        getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
+        getTokenForUser: function (tgUserId) {
+          if (!tgUserId) return null;
+          return localStorage.getItem('SCASH_TOKEN_' + tgUserId) || null;
+        },
+        setTokenForUser: function (tgUserId, token) {
+          localStorage.setItem('SCASH_TOKEN_' + tgUserId, token);
+          localStorage.setItem(this.SESSION_KEY, token);
+          localStorage.setItem(this.TG_USER_KEY, tgUserId);
+        },
+        parseTgUserIdFromInitData: function (initDataStr) {
+          if (!initDataStr) return '';
+          try {
+            var params = new URLSearchParams(initDataStr);
+            var userJson = params.get('user');
+            if (userJson) {
+              var user = JSON.parse(decodeURIComponent(userJson));
+              if (user && user.id) return String(user.id);
+            }
+          } catch (e) {}
+          return '';
+        },
+        getCurrentTgUserId: function () {
+          var tg = this.TG;
+          if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            return String(tg.initDataUnsafe.user.id);
           }
-        } catch (e) {}
-        return '';
-      },
-      getCurrentTgUserId: function () {
-        var tg = this.TG;
-        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-          return String(tg.initDataUnsafe.user.id);
-        }
-        var initData = this.readInitData();
-        return this.parseTgUserIdFromInitData(initData);
-      },
-      readInitData: function () {
-        var tg = this.TG;
-        if (tg) { tg.ready(); if (tg.initData) return tg.initData; }
-        var params = new URL(location.href).searchParams;
-        return params.get('tgWebAppData') || '';
-      },
-      ensureSession: async function () {
-        var currentTgUserId = this.getCurrentTgUserId();
+          var initData = this.readInitData();
+          return this.parseTgUserIdFromInitData(initData);
+        },
+        readInitData: function () {
+          var tg = this.TG;
+          if (tg) { tg.ready(); if (tg.initData) return tg.initData; }
+          var params = new URL(location.href).searchParams;
+          return params.get('tgWebAppData') || '';
+        },
+        ensureSession: async function () {
+          var currentTgUserId = this.getCurrentTgUserId();
 
-        if (currentTgUserId) {
-          /* Check for a per-user token first */
-          var userToken = this.getTokenForUser(currentTgUserId);
-          if (userToken) {
-            /* Restore to global key and return */
-            localStorage.setItem(this.SESSION_KEY, userToken);
-            localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
-            return userToken;
+          if (currentTgUserId) {
+            var userToken = this.getTokenForUser(currentTgUserId);
+            if (userToken) {
+              localStorage.setItem(this.SESSION_KEY, userToken);
+              localStorage.setItem(this.TG_USER_KEY, currentTgUserId);
+              return userToken;
+            }
+          } else {
+            var existing = this.getToken();
+            if (existing) return existing;
           }
+
+          var initData = this.readInitData();
+          if (!initData) throw new Error('会话已过期，请关闭并重新打开 Mini App');
+          var res = await fetch('/api/auth/telegram/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: initData }),
+          });
+          var json = await res.json();
+          if (!res.ok || !json.success) {
+            var errMsg = (json.error && json.error.message) || '';
+            if (errMsg.toLowerCase().indexOf('replay') !== -1 || errMsg.toLowerCase().indexOf('expired') !== -1) {
+              throw new Error('会话已过期，请关闭并重新打开 Mini App');
+            }
+            throw new Error(errMsg || '登录失败');
+          }
+          var newToken = json.data.sessionToken;
+          if (currentTgUserId) {
+            this.setTokenForUser(currentTgUserId, newToken);
+          } else {
+            localStorage.setItem(this.SESSION_KEY, newToken);
+          }
+          return newToken;
+        },
+        request: async function (path, options) {
+          var token = await this.ensureSession();
+          var mergedOptions = Object.assign({}, options || {}, {
+            headers: Object.assign({ 'Content-Type': 'application/json', 'x-session-token': token }, (options || {}).headers || {}),
+          });
+          var res = await fetch(path, mergedOptions);
+          if (res.status === 401) {
+            var uid = this.getCurrentTgUserId();
+            localStorage.removeItem(this.SESSION_KEY);
+            localStorage.removeItem(this.TG_USER_KEY);
+            if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid);
+            token = await this.ensureSession();
+            mergedOptions.headers['x-session-token'] = token;
+            res = await fetch(path, mergedOptions);
+          }
+          var json = await res.json();
+          if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
+          return json.data;
+        },
+        checkWalletPermission: async function () {
+          if (!this.REQUIRE_FULL_WALLET && !this.REQUIRE_ANY_WALLET) return;
+          try {
+            var home = await this.request('/api/wallet/home');
+            
+            if (!home.hasWallet) {
+              alert('该操作需要先创建钱包');
+              location.replace('/wallet');
+              return;
+            }
+            
+            if (this.REQUIRE_FULL_WALLET && home.isWatchOnly) {
+              alert('观察钱包仅支持接收，无法进行发送或签名操作');
+              location.replace('/wallet');
+              return;
+            }
+          } catch(e) {
+            location.replace('/wallet');
+          }
+        }
+      };
+
+      // 立即执行权限校验（拦截）
+      window.SCASH.checkWalletPermission();
+
+      window.SCASH.IS_PRIMARY_PAGE = <%= (typeof backAsClose !== 'undefined' && backAsClose) ? 'true' : 'false' %>;
+
+      // Telegram back button
+      (function () {
+        var tg = window.SCASH.TG;
+        if (!tg) return;
+
+        if (window.SCASH.IS_PRIMARY_PAGE) {
+          tg.BackButton.hide();
         } else {
-          /* Cannot determine current user — fall back to global token */
-          var existing = this.getToken();
-          if (existing) return existing;
+          tg.BackButton.show();
+          tg.onEvent('backButtonClicked', function () { history.back(); });
         }
-
-        /* No valid token found — do a fresh login */
-        var initData = this.readInitData();
-        if (!initData) throw new Error('会话已过期，请关闭并重新打开 Mini App');
-        var res = await fetch('/api/auth/telegram/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: initData }),
-        });
-        var json = await res.json();
-        if (!res.ok || !json.success) {
-          var errMsg = (json.error && json.error.message) || '';
-          if (errMsg.toLowerCase().indexOf('replay') !== -1 || errMsg.toLowerCase().indexOf('expired') !== -1) {
-            throw new Error('会话已过期，请关闭并重新打开 Mini App');
-          }
-          throw new Error(errMsg || '登录失败');
-        }
-        var newToken = json.data.sessionToken;
-        if (currentTgUserId) {
-          this.setTokenForUser(currentTgUserId, newToken);
-        } else {
-          localStorage.setItem(this.SESSION_KEY, newToken);
-        }
-        return newToken;
-      },
-      request: async function (path, options) {
-        var token = await this.ensureSession();
-        var mergedOptions = Object.assign({}, options || {}, {
-          headers: Object.assign({ 'Content-Type': 'application/json', 'x-session-token': token }, (options || {}).headers || {}),
-        });
-        var res = await fetch(path, mergedOptions);
-        /* If 401, the session was revoked/expired — clear and retry once */
-        if (res.status === 401) {
-          var uid = this.getCurrentTgUserId();
-          localStorage.removeItem(this.SESSION_KEY);
-          localStorage.removeItem(this.TG_USER_KEY);
-          if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid);
-          token = await this.ensureSession();
-          mergedOptions.headers['x-session-token'] = token;
-          res = await fetch(path, mergedOptions);
-        }
-        var json = await res.json();
-        if (!res.ok || !json.success) throw new Error((json.error && json.error.message) || '请求失败');
-        return json.data;
-      }
-    };
-
-    window.SCASH.IS_PRIMARY_PAGE = <%= (typeof backAsClose !== 'undefined' && backAsClose) ? 'true' : 'false' %>;
-
-    // Telegram back button
-    (function () {
-      var tg = window.SCASH.TG;
-      if (!tg) return;
-
-      if (window.SCASH.IS_PRIMARY_PAGE) {
-        /* Primary pages (home / redpacket / history): hide back button */
-        tg.BackButton.hide();
-      } else {
-        /* Sub-pages: show back button, normal back navigation */
-        tg.BackButton.show();
-        tg.onEvent('backButtonClicked', function () { history.back(); });
-      }
-    })();
-  </script>
+      })();
+    </script>
     <%- body %>
   </main>
   <% if (!(typeof hideBottomNav !== 'undefined' && hideBottomNav)) { %>
