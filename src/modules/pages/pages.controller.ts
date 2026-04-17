@@ -113,6 +113,15 @@ export class PagesController {
     }));
   }
 
+  @Get('wallet/inscribe')
+  walletInscribePage(@Res() res: Response) {
+    return renderPage(res, 'wallet/inscribe.ejs', this.buildViewData({
+      pageTitle: '刻字上链',
+      pageSubtitle: '将 Markdown 文本永久刻入 SCASH',
+      activeNav: 'home',
+    }));
+  }
+
   @Get('wallet/redpacket')
   walletRedpacketPage(@Res() res: Response) {
     return renderPage(res, 'wallet/redpacket.ejs', this.buildViewData({
