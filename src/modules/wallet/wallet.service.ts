@@ -435,6 +435,37 @@ export class WalletService {
     return { backedUp };
   }
 
+  async updatePassword(userId: number, payload: WalletEncryptedPayloadDto): Promise<void> {
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppException('Wallet not found', 'WALLET_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (wallet.isWatchOnly) {
+      throw new AppException('Watch-only wallet cannot update password', 'WATCH_ONLY_UPDATE_FORBIDDEN', HttpStatus.BAD_REQUEST);
+    }
+    
+    await this.prisma.wallet.update({
+      where: { userId },
+      data: {
+        encryptedMnemonic: payload.encryptedMnemonic,
+        salt: payload.salt,
+        iv: payload.iv,
+        authTag: payload.authTag,
+      },
+    });
+  }
+
+  async unbindWallet(userId: number): Promise<void> {
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppException('Wallet not found', 'WALLET_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    
+    await this.prisma.wallet.delete({
+      where: { userId },
+    });
+  }
+
   private async ensureAddressNotUsedByOtherUser(address: string, userId: number): Promise<void> {
     const existing = await this.prisma.wallet.findUnique({ where: { address } });
     if (existing && existing.userId !== userId) {

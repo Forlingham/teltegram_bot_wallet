@@ -1,4 +1,9 @@
-<header class="app-header">
-  <div class="brand"><%= pageTitle || 'SCASH 钱包' %></div>
-  <div class="subtitle"><%= pageSubtitle || '' %></div>
+<header class="app-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+  <div>
+    <div class="brand"><%= pageTitle || 'SCASH 钱包' %></div>
+    <div class="subtitle"><%= pageSubtitle || '' %></div>
+  </div>
+  <% if (activeNav === 'home' && typeof pageTitle !== 'undefined' && pageTitle === 'SCASH 钱包') { %>
+  <a href="/wallet/settings" class="btn btn-soft" style="padding:6px 12px; font-size:20px; text-decoration:none;" title="设置">&#x2699;&#xFE0F;</a>
+  <% } %>
 </header>

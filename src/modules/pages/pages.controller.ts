@@ -80,8 +80,8 @@ export class PagesController {
   @Get('wallet/recover')
   walletRecoverPage(@Res() res: Response) {
     return renderPage(res, 'wallet/recover.ejs', this.buildViewData({
-      pageTitle: '恢复钱包',
-      pageSubtitle: '下载密文后在前端本地解密',
+      pageTitle: '查看 / 备份助记词',
+      pageSubtitle: '本地解密查看你的助记词',
       activeNav: 'home',
     }));
   }
@@ -118,6 +118,15 @@ export class PagesController {
     return renderPage(res, 'wallet/inscribe.ejs', this.buildViewData({
       pageTitle: '刻字上链',
       pageSubtitle: '将 Markdown 文本永久刻入 SCASH',
+      activeNav: 'home',
+    }));
+  }
+  
+  @Get('wallet/settings')
+  walletSettingsPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/settings.ejs', this.buildViewData({
+      pageTitle: '钱包设置',
+      pageSubtitle: '安全与管理',
       activeNav: 'home',
     }));
   }

@@ -125,4 +125,19 @@ export class WalletController {
     const txid = await this.blockchainService.broadcastTransaction(body.hex);
     return { txid };
   }
+
+  @Post('update-password')
+  async updatePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() payload: WalletEncryptedPayloadDto,
+  ): Promise<{ success: boolean }> {
+    await this.walletService.updatePassword(user.userId, payload);
+    return { success: true };
+  }
+
+  @Post('unbind')
+  async unbind(@CurrentUser() user: AuthenticatedUser): Promise<{ success: boolean }> {
+    await this.walletService.unbindWallet(user.userId);
+    return { success: true };
+  }
 }

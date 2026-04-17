@@ -1,0 +1,172 @@
+<div class="card">
+  <div class="label" style="margin-bottom:12px;">钱包管理</div>
+  
+  <a href="/wallet/recover" class="row" style="text-decoration:none; padding:12px 0; border-bottom:1px solid var(--line);">
+    <div style="font-weight:600; color:var(--text);">查看 / 备份助记词</div>
+    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
+  </a>
+
+  <div id="btnChangePassword" class="row" style="padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer;">
+    <div style="font-weight:600; color:var(--text);">修改支付密码</div>
+    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
+  </div>
+
+  <div id="btnUnbind" class="row" style="padding:12px 0; cursor:pointer;">
+    <div style="font-weight:600; color:#c0392b;">解除绑定当前钱包</div>
+    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
+  </div>
+</div>
+
+<div id="passwordModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+  <div class="card" style="width:90%; max-width:320px; background:#fff; padding:20px;">
+    <div style="font-weight:700; font-size:16px; margin-bottom:16px;">修改密码</div>
+    <input id="oldPwd" type="password" placeholder="原密码" style="margin-bottom:12px;" />
+    <input id="newPwd" type="password" placeholder="新密码（最少 8 位）" style="margin-bottom:12px;" />
+    <input id="confirmPwd" type="password" placeholder="确认新密码" style="margin-bottom:16px;" />
+    <div id="pwdError" class="error" style="display:none; margin-bottom:12px;"></div>
+    <div class="row">
+      <button id="btnCancelPwd" class="btn btn-soft" style="flex:1;">取消</button>
+      <button id="btnSubmitPwd" class="btn btn-brand" style="flex:1;">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function decryptMnemonicLocal(password) {
+    var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
+    if (!data.backup) throw new Error('未找到钱包备份');
+
+    function hexToBytes(hex) {
+      if (!hex) return new Uint8Array();
+      var parts = hex.match(/.{2}/g);
+      if (!parts) return new Uint8Array();
+      return new Uint8Array(parts.map(function (b) { return parseInt(b, 16); }));
+    }
+
+    function concatBytes(a, b) {
+      var out = new Uint8Array(a.length + b.length);
+      out.set(a, 0); out.set(b, a.length);
+      return out;
+    }
+
+    var saltBytes = hexToBytes(data.backup.salt);
+    var ivBytes = hexToBytes(data.backup.iv);
+    var ctBytes = hexToBytes(data.backup.encryptedMnemonic || data.backup.ciphertext);
+    var tagBytes = data.backup.authTag ? hexToBytes(data.backup.authTag) : null;
+
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var keyBits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['decrypt']);
+
+    var candidates = [ctBytes];
+    if (tagBytes) { 
+      candidates.push(concatBytes(ctBytes, tagBytes)); 
+      candidates.push(concatBytes(tagBytes, ctBytes)); 
+    }
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes, tagLength: 128 }, aesKey, candidates[i]);
+        return new TextDecoder().decode(pt);
+      } catch (_) {}
+    }
+    throw new Error('原密码错误');
+  }
+
+  async function encryptMnemonicLocal(mnemonic, password) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var keyBits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['encrypt']);
+    
+    var encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, aesKey, new TextEncoder().encode(mnemonic));
+    var encryptedBytes = new Uint8Array(encryptedBuf);
+    
+    var cipherBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
+    var tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
+    
+    function bytesToHex(arr) {
+      return Array.from(new Uint8Array(arr)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+    
+    return {
+      ciphertext: bytesToHex(cipherBytes),
+      salt: bytesToHex(salt),
+      iv: bytesToHex(iv),
+      authTag: bytesToHex(tagBytes)
+    };
+  }
+
+  document.getElementById('btnUnbind').addEventListener('click', async function() {
+    var conf1 = window.confirm('【高危操作】解除绑定会清空您在云端的钱包信息！\n\n请务必确认您已经备份了助记词，否则资金将永久丢失！\n\n确定要解除绑定吗？');
+    if (!conf1) return;
+    
+    var conf2 = window.confirm('再次确认：\n如果没有备份助记词，解除绑定后将无法找回！\n\n是否继续？');
+    if (!conf2) return;
+
+    try {
+      await window.SCASH.request('/api/wallet/unbind', { method: 'POST', body: '{}' });
+      alert('已解除绑定');
+      location.href = '/wallet';
+    } catch(e) {
+      alert('解除绑定失败：' + e.message);
+    }
+  });
+
+  var modal = document.getElementById('passwordModal');
+  var errorEl = document.getElementById('pwdError');
+
+  document.getElementById('btnChangePassword').addEventListener('click', function() {
+    document.getElementById('oldPwd').value = '';
+    document.getElementById('newPwd').value = '';
+    document.getElementById('confirmPwd').value = '';
+    errorEl.style.display = 'none';
+    modal.style.display = 'flex';
+  });
+
+  document.getElementById('btnCancelPwd').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+
+  document.getElementById('btnSubmitPwd').addEventListener('click', async function() {
+    var oldPwd = document.getElementById('oldPwd').value;
+    var newPwd = document.getElementById('newPwd').value;
+    var confirmPwd = document.getElementById('confirmPwd').value;
+
+    if (!oldPwd) { errorEl.textContent = '请输入原密码'; errorEl.style.display = 'block'; return; }
+    if (!newPwd || newPwd.length < 8) { errorEl.textContent = '新密码最少 8 位'; errorEl.style.display = 'block'; return; }
+    if (newPwd !== confirmPwd) { errorEl.textContent = '两次输入的新密码不一致'; errorEl.style.display = 'block'; return; }
+    if (oldPwd === newPwd) { errorEl.textContent = '新密码不能与原密码相同'; errorEl.style.display = 'block'; return; }
+
+    var btn = document.getElementById('btnSubmitPwd');
+    btn.disabled = true;
+    btn.textContent = '处理中…';
+
+    try {
+      var mnemonic = await decryptMnemonicLocal(oldPwd);
+      var enc = await encryptMnemonicLocal(mnemonic, newPwd);
+      
+      await window.SCASH.request('/api/wallet/update-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          address: 'placeholder',
+          encryptedMnemonic: enc.ciphertext,
+          salt: enc.salt,
+          iv: enc.iv,
+          authTag: enc.authTag
+        })
+      });
+
+      alert('密码修改成功');
+      modal.style.display = 'none';
+    } catch(e) {
+      errorEl.textContent = e.message || '操作失败';
+      errorEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '确认修改';
+    }
+  });
+</script>
