@@ -1,56 +1,516 @@
 <div class="card">
   <div class="label">收款地址</div>
   <input id="address" type="text" placeholder="粘贴收款方地址" autocomplete="off" style="margin-bottom:12px;" />
-  <div class="label">发送数量</div>
-  <div class="input-wrap" style="margin-bottom:8px;">
-    <input id="amount" type="text" placeholder="0.00000000" autocomplete="off" />
-  </div>
-  <div class="row" style="margin-bottom:16px;">
+
+  <div class="label">发送数量 (SCASH)</div>
+  <input id="amount" type="text" placeholder="0.00000000" autocomplete="off" style="margin-bottom:12px;" />
+
+  <div class="label">留言 / DAP 数据（选填）</div>
+  <input id="message" type="text" placeholder="给收款方的留言，将上链永久保存" autocomplete="off" maxlength="100" style="margin-bottom:12px;" />
+
+  <div class="row" style="margin-bottom:8px;">
     <span class="label" style="margin:0;">可用余额：</span>
     <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
   </div>
-  <button id="submitBtn" class="btn btn-brand" style="width:100%;">确认发送</button>
+
+  <div class="card warn" style="margin-bottom:12px;">
+    <div class="label" style="margin-bottom:6px;">费用预估（实时）</div>
+    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">转账金额</span><span id="estAmount" class="mono">-</span></div>
+    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">链上手续费</span><span id="estFee" class="mono">-</span></div>
+    <div class="row" style="margin-bottom:6px;"><span class="label" style="margin:0;">DAP 上链</span><span id="estDap" class="mono">-</span></div>
+    <div class="row" style="padding-top:6px; border-top:1px dashed #e3d2b7;"><span style="font-size:13px; font-weight:700;">预计总支出</span><span id="estTotal" class="mono" style="font-weight:700;">-</span></div>
+  </div>
+
+  <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x1F4E4; 确认发送</button>
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
 </div>
 
-<script>
-  async function loadBalance() {
-    try {
-      var bal = await window.SCASH.request('/api/wallet/balance');
-      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
-    } catch (e) {}
+<script type="module">
+  import * as bitcoin from 'https://esm.sh/bitcoinjs-lib@6.1.5';
+  import * as bip39 from 'https://esm.sh/bip39@3.1.0';
+  import { HDKey } from 'https://esm.sh/@scure/bip32@1.4.0';
+  import { bech32 } from 'https://esm.sh/bech32@2.0.0';
+  import { hmac } from 'https://esm.sh/@noble/hashes@1.5.0/hmac';
+  import { sha256 } from 'https://esm.sh/@noble/hashes@1.5.0/sha256';
+  import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.5.0/ripemd160';
+  import * as secp from 'https://esm.sh/@noble/secp256k1@2.1.0';
+  import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+
+  if (typeof window.Buffer === 'undefined') window.Buffer = Buffer;
+
+  function concatBytes() {
+    var total = 0;
+    for (var i = 0; i < arguments.length; i++) total += arguments[i].length;
+    var out = new Uint8Array(total);
+    var offset = 0;
+    for (var j = 0; j < arguments.length; j++) {
+      out.set(arguments[j], offset);
+      offset += arguments[j].length;
+    }
+    return out;
   }
 
-  function setLoading(on) {
+  secp.etc.hmacSha256Sync = function (key) {
+    var msgs = [];
+    for (var i = 1; i < arguments.length; i++) msgs.push(arguments[i]);
+    return hmac(sha256, key, concatBytes.apply(null, msgs));
+  };
+
+  secp.etc.hmacSha256Async = async function (key) {
+    var msgs = [];
+    for (var i = 1; i < arguments.length; i++) msgs.push(arguments[i]);
+    return hmac(sha256, key, concatBytes.apply(null, msgs));
+  };
+
+  function toBytes(input) {
+    if (!input) throw new Error('签名结果为空');
+    if (input instanceof Uint8Array) return input;
+    if (Array.isArray(input)) return new Uint8Array(input);
+    if (typeof input === 'string') {
+      if (/^[0-9a-fA-F]+$/.test(input) && input.length % 2 === 0) {
+        var parts = input.match(/.{2}/g) || [];
+        return new Uint8Array(parts.map(function (b) { return parseInt(b, 16); }));
+      }
+      return new TextEncoder().encode(input);
+    }
+    if (typeof input.toCompactRawBytes === 'function') return input.toCompactRawBytes();
+    if (typeof input.toRawBytes === 'function') return input.toRawBytes();
+    if (input.buffer instanceof ArrayBuffer) return new Uint8Array(input.buffer, input.byteOffset || 0, input.byteLength || input.length || 0);
+    throw new Error('不支持的字节类型: ' + Object.prototype.toString.call(input));
+  }
+
+  const NETWORK_FEE_SAT = 10000n; // 0.0001 SCASH
+  let cachedBalanceSat = null;
+  let latestDapCostSat = 0n;
+  let latestEstimateTotalSat = null;
+  let estimateSeq = 0;
+  let submitLocked = false;
+  let lastSubmitAt = 0;
+  let isEstimating = false;
+  let isSubmitting = false;
+  let loadingText = '处理中…';
+
+  function scashNetwork() {
+    var net = (window.SCASH && window.SCASH.NETWORK) || {};
+    return {
+      messagePrefix: '\x18Scash Signed Message:\n',
+      bech32: net.bech32 || 'bcrt',
+      bip32: { public: 0x0488b21e, private: 0x0488ade4 },
+      pubKeyHash: net.pubKeyHash || 60,
+      scriptHash: net.scriptHash || 125,
+      wif: 0x80,
+    };
+  }
+
+  function refreshSubmitState() {
     var btn = document.getElementById('submitBtn');
-    if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>发送中…'; }
-    else { btn.disabled = false; btn.textContent = '确认发送'; }
+    btn.disabled = isEstimating || isSubmitting || submitLocked;
+    if (isSubmitting) {
+      btn.innerHTML = '<span class="spinner"></span>' + loadingText;
+    } else {
+      btn.innerHTML = '&#x1F4E4; 确认发送';
+    }
+  }
+
+  function setLoading(on, text) {
+    isSubmitting = on;
+    loadingText = text || '发送中…';
+    refreshSubmitState();
   }
 
   function showError(msg) {
     var el = document.getElementById('errorMsg');
-    el.textContent = msg; el.style.display = 'block';
+    if (!msg) {
+      el.textContent = '';
+      el.style.display = 'none';
+      return;
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function normalizeError(err) {
+    if (!err) return '未知错误';
+    if (typeof err === 'string') return err;
+    if (err && err.name && err.message) return err.name + ': ' + err.message;
+    if (err && err.stack) return String(err.stack);
+    if (err.message) return err.message;
+    try { return JSON.stringify(err); } catch (_) { return String(err); }
+  }
+
+  function satoshiToScashString(sats) {
+    var sign = sats < 0n ? '-' : '';
+    var abs = sats < 0n ? -sats : sats;
+    var whole = abs / 100000000n;
+    var frac = (abs % 100000000n).toString().padStart(8, '0');
+    return sign + whole.toString() + '.' + frac;
+  }
+
+  function parseScashToSats(value) {
+    var s = String(value || '').trim();
+    if (!/^\d+(\.\d{1,8})?$/.test(s)) return null;
+    var parts = s.split('.');
+    var whole = BigInt(parts[0] || '0');
+    var frac = ((parts[1] || '') + '00000000').slice(0, 8);
+    return whole * 100000000n + BigInt(frac);
+  }
+
+  function validateForm() {
+    var addr = document.getElementById('address').value.trim();
+    var amount = document.getElementById('amount').value.trim();
+    var msg = document.getElementById('message').value.trim();
+    var amountSat = parseScashToSats(amount);
+
+    if (!addr) return { ok: false, message: '请输入收款地址' };
+    if (!amount) return { ok: false, message: '请输入发送金额' };
+    if (amountSat === null || amountSat <= 0n) return { ok: false, message: '金额格式不正确' };
+
+    var totalNeed = amountSat + NETWORK_FEE_SAT + latestDapCostSat;
+    if (cachedBalanceSat !== null && totalNeed > cachedBalanceSat) {
+      return { ok: false, message: '余额不足，预计至少需要 ' + satoshiToScashString(totalNeed) + ' SCASH' };
+    }
+
+    return {
+      ok: true,
+      addr: addr,
+      amount: amount,
+      amountSat: amountSat,
+      dapMsg: msg,
+      totalNeedSat: totalNeed,
+    };
+  }
+
+  function renderEstimate(data) {
+    document.getElementById('estAmount').textContent = data.amount;
+    document.getElementById('estFee').textContent = data.fee;
+    document.getElementById('estDap').textContent = data.dap;
+    document.getElementById('estTotal').textContent = data.total;
+  }
+
+  async function updateEstimate() {
+    isEstimating = true;
+    refreshSubmitState();
+
+    var addr = document.getElementById('address').value.trim();
+    var amount = document.getElementById('amount').value.trim();
+    var msg = document.getElementById('message').value.trim();
+    var amountSat = parseScashToSats(amount);
+
+    if (!amountSat || amountSat <= 0n) {
+      latestEstimateTotalSat = null;
+      latestDapCostSat = 0n;
+      renderEstimate({ amount: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
+      isEstimating = false;
+      refreshSubmitState();
+      return;
+    }
+
+    renderEstimate({
+      amount: satoshiToScashString(amountSat) + ' SCASH',
+      fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+      dap: msg ? '计算中…' : '0.00000000 SCASH',
+      total: '计算中…',
+    });
+
+    if (!msg) {
+      latestDapCostSat = 0n;
+      latestEstimateTotalSat = amountSat + NETWORK_FEE_SAT;
+      renderEstimate({
+        amount: satoshiToScashString(amountSat) + ' SCASH',
+        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        dap: '0.00000000 SCASH',
+        total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
+      });
+      isEstimating = false;
+      refreshSubmitState();
+      return;
+    }
+
+    var seq = ++estimateSeq;
+    try {
+      var dapRes = await window.SCASH.request('/api/redpacket/dap/outputs', {
+        method: 'POST',
+        body: JSON.stringify({ message: msg }),
+      });
+      if (seq !== estimateSeq) return;
+
+      latestDapCostSat = BigInt(dapRes.totalSats || 0);
+      latestEstimateTotalSat = amountSat + NETWORK_FEE_SAT + latestDapCostSat;
+
+      renderEstimate({
+        amount: satoshiToScashString(amountSat) + ' SCASH',
+        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        dap: satoshiToScashString(latestDapCostSat) + ' SCASH',
+        total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
+      });
+    } catch (e) {
+      if (seq !== estimateSeq) return;
+      latestDapCostSat = 0n;
+      latestEstimateTotalSat = null;
+      renderEstimate({
+        amount: satoshiToScashString(amountSat) + ' SCASH',
+        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        dap: '计算失败',
+        total: '-',
+      });
+    } finally {
+      isEstimating = false;
+      refreshSubmitState();
+    }
+  }
+
+  function debounce(fn, wait) {
+    var t = null;
+    return function () {
+      clearTimeout(t);
+      t = setTimeout(fn, wait);
+    };
+  }
+
+  var debouncedEstimate = debounce(updateEstimate, 350);
+
+  function deriveScashAddress(mnemonic) {
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var root = HDKey.fromMasterSeed(seed);
+    var child = root.derive("m/84'/0'/0'/0/0");
+    var pubKey = child.publicKey;
+    if (!pubKey) throw new Error('Cannot derive public key');
+    var hash = ripemd160(sha256(pubKey));
+    var words = bech32.toWords(hash);
+    words.unshift(0);
+    return bech32.encode(scashNetwork().bech32, words);
+  }
+
+  async function decryptMnemonic(password) {
+    var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
+    if (!data.backup) throw new Error('未找到钱包备份，无法发送');
+
+    function hexToBytes(hex) {
+      if (!hex || typeof hex !== 'string') throw new Error('备份数据格式错误');
+      var parts = hex.match(/.{2}/g);
+      if (!parts) throw new Error('备份数据格式错误');
+      return new Uint8Array(parts.map(function (b) { return parseInt(b, 16); }));
+    }
+
+    function concatBytes(a, b) {
+      var out = new Uint8Array(a.length + b.length);
+      out.set(a, 0);
+      out.set(b, a.length);
+      return out;
+    }
+
+    var saltBytes = hexToBytes(data.backup.salt);
+    var ivBytes = hexToBytes(data.backup.iv);
+    var cipherHex = data.backup.encryptedMnemonic || data.backup.ciphertext;
+    var ctBytes = hexToBytes(cipherHex);
+    var tagBytes = null;
+    try {
+      if (data.backup.authTag) tagBytes = hexToBytes(data.backup.authTag);
+    } catch (_) {}
+
+    var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var keyBits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+    var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['decrypt']);
+
+    var candidates = [ctBytes];
+    if (tagBytes && tagBytes.length > 0) {
+      candidates.push(concatBytes(ctBytes, tagBytes));
+      candidates.push(concatBytes(tagBytes, ctBytes));
+    }
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes, tagLength: 128 }, aesKey, candidates[i]);
+        return new TextDecoder().decode(pt);
+      } catch (_) {}
+    }
+
+    throw new Error('钱包密码错误');
+  }
+
+  async function broadcast(hex) {
+    var res = await window.SCASH.request('/api/wallet/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ hex: hex }),
+    });
+    return res.txid;
+  }
+
+  async function buildSingleTx(mnemonic, utxos, outputs, feeSat, network) {
+    var seed = bip39.mnemonicToSeedSync(mnemonic);
+    var rootKey = HDKey.fromMasterSeed(seed);
+    var childKey = rootKey.derive("m/84'/0'/0'/0/0");
+    var myAddress = deriveScashAddress(mnemonic);
+
+    var privKey = childKey.privateKey;
+    var pubKey = childKey.publicKey;
+    if (!privKey || !pubKey) throw new Error('无法派生签名密钥');
+
+    var psbt = new bitcoin.Psbt({ network: network });
+    var totalInputSat = 0n;
+    var selectedUtxos = [];
+    var outputsTotalSat = outputs.reduce(function (s, o) { return s + BigInt(o.value || 0); }, 0n);
+
+    for (var i = 0; i < utxos.length; i++) {
+      var u = utxos[i];
+      if (!u || !u.txid || typeof u.vout !== 'number' || !u.amount) continue;
+      var uSat = BigInt(Math.round(parseFloat(u.amount) * 1e8));
+      var script = bitcoin.address.toOutputScript(myAddress, network);
+      psbt.addInput({
+        hash: u.txid,
+        index: u.vout,
+        witnessUtxo: {
+          script: script,
+          value: Number(uSat),
+        },
+      });
+      selectedUtxos.push(uSat);
+      totalInputSat += uSat;
+      if (totalInputSat >= outputsTotalSat + feeSat) break;
+    }
+
+    if (totalInputSat < outputsTotalSat + feeSat) {
+      throw new Error('UTXO 余额不足（含手续费）');
+    }
+
+    for (var j = 0; j < outputs.length; j++) {
+      psbt.addOutput({ address: outputs[j].address, value: Number(outputs[j].value) });
+    }
+
+    var changeSat = totalInputSat - outputsTotalSat - feeSat;
+    if (changeSat > 0n) {
+      psbt.addOutput({ address: myAddress, value: Number(changeSat) });
+    }
+
+    var signer = {
+      publicKey: Buffer.from(pubKey),
+      sign: async function (hash) {
+        var sig = await secp.sign(new Uint8Array(hash), privKey);
+        return Buffer.from(toBytes(sig));
+      },
+    };
+
+    for (var k = 0; k < selectedUtxos.length; k++) {
+      await psbt.signInputAsync(k, signer);
+    }
+
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
+  }
+
+  async function loadBalance() {
+    try {
+      var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
+      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
+      cachedBalanceSat = parseScashToSats(bal.balance);
+      return bal;
+    } catch (e) {
+      showError('获取余额失败：' + e.message);
+      return null;
+    }
   }
 
   document.getElementById('submitBtn').addEventListener('click', async function () {
-    var addr = document.getElementById('address').value.trim();
-    var amount = document.getElementById('amount').value.trim();
+    var now = Date.now();
+    if (submitLocked || now - lastSubmitAt < 1500) return;
+    submitLocked = true;
+    lastSubmitAt = now;
+    refreshSubmitState();
+
     showError('');
-    if (!addr) { showError('请输入收款地址'); return; }
-    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) { showError('请输入有效金额'); return; }
-    setLoading(true);
+
     try {
-      await window.SCASH.request('/api/wallet/send', {
-        method: 'POST',
-        body: JSON.stringify({ address: addr, amount: amount }),
-      });
-      alert('发送成功');
-      location.href = '/wallet';
+      await updateEstimate();
+      var check = validateForm();
+      if (!check.ok) {
+        showError(check.message);
+        submitLocked = false;
+        refreshSubmitState();
+        return;
+      }
+
+      var confirmText = [
+        '请确认转账信息：',
+        '收款方：' + check.addr,
+        '金额：' + check.amount + ' SCASH',
+        check.dapMsg ? ('留言：' + check.dapMsg) : '',
+        '预计总支出：' + (latestEstimateTotalSat ? satoshiToScashString(latestEstimateTotalSat) : satoshiToScashString(check.totalNeedSat)) + ' SCASH',
+      ].filter(Boolean).join('\n');
+
+      if (!window.confirm(confirmText)) {
+        submitLocked = false;
+        refreshSubmitState();
+        return;
+      }
+
+      var pw = prompt('请输入钱包密码以签署交易：');
+      if (!pw) {
+        submitLocked = false;
+        refreshSubmitState();
+        return;
+      }
+
+      setLoading(true);
+      var network = scashNetwork();
+      var mnemonic = await decryptMnemonic(pw);
+      var bal = await loadBalance();
+      if (!bal) throw new Error('获取余额失败');
+
+      var candidateUtxos = bal.utxos.filter(function (u) { return !u.isUnconfirmed; })
+        .concat(bal.utxos.filter(function (u) { return u.isUnconfirmed; }));
+
+      if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO');
+
+      var dapOutputs = [];
+      var dapCostSat = 0n;
+      if (check.dapMsg) {
+        var dapRes = await window.SCASH.request('/api/redpacket/dap/outputs', {
+          method: 'POST',
+          body: JSON.stringify({ message: check.dapMsg }),
+        });
+        dapOutputs = dapRes.outputs || [];
+        dapCostSat = BigInt(dapRes.totalSats || 0);
+      }
+
+      var allOutputs = [{ address: check.addr, value: Number(check.amountSat) }].concat(
+        dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
+      );
+
+      var hex = await buildSingleTx(mnemonic, candidateUtxos, allOutputs, NETWORK_FEE_SAT, network);
+      var txid = await broadcast(hex);
+
+      alert('发送成功！\nTxHash: ' + txid);
+      location.href = '/wallet/history';
+
+      submitLocked = false;
     } catch (e) {
-      showError(e.message);
+      console.error('[wallet/send] submit failed:', e);
+      showError(normalizeError(e));
       setLoading(false);
+      submitLocked = false;
+      refreshSubmitState();
     }
   });
 
+  window.addEventListener('unhandledrejection', function (event) {
+    console.error('[wallet/send] unhandledrejection:', event.reason);
+    showError(normalizeError(event.reason));
+    setLoading(false);
+    submitLocked = false;
+    refreshSubmitState();
+  });
+
+  window.addEventListener('error', function (event) {
+    console.error('[wallet/send] error:', event.error || event.message);
+    showError(normalizeError(event.error || event.message));
+    setLoading(false);
+    submitLocked = false;
+    refreshSubmitState();
+  });
+
   loadBalance();
+  document.getElementById('address').addEventListener('input', debouncedEstimate);
+  document.getElementById('amount').addEventListener('input', debouncedEstimate);
+  document.getElementById('message').addEventListener('input', debouncedEstimate);
+  refreshSubmitState();
 </script>
