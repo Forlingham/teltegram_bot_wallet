@@ -1,51 +1,134 @@
-<div class="card">
-  <div class="label">我的收款地址</div>
-  <div id="myAddress" class="mono" style="font-size:13px; word-break:break-all; color:var(--brand); margin-bottom:16px;">-</div>
-  <div class="row">
-    <button id="btnCopy" class="btn btn-brand" style="flex:1;">复制地址</button>
-    <button id="btnRefresh" class="btn btn-soft" style="flex:1;">刷新</button>
+<div class="card" style="text-align: center; padding: 24px 16px;">
+  <div class="label" style="font-size: 14px; margin-bottom: 8px;">我的 SCASH 收款地址</div>
+  
+  <div style="background: #fff; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    <div id="qrcode" style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+      <div style="color:var(--muted); font-size:13px;"><span class="spinner"></span>加载中…</div>
+    </div>
   </div>
-  <div id="copyTip" style="text-align:center; color:var(--brand); font-size:13px; margin-top:8px; display:none;">已复制到剪贴板</div>
+
+  <div id="myAddress" class="mono" style="font-size: 14px; word-break: break-all; color: var(--brand); background: #edf7ef; padding: 12px; border-radius: 10px; margin-bottom: 24px; font-weight: 500;">-</div>
+
+  <div class="row" style="gap: 12px;">
+    <button id="btnCopy" class="btn btn-brand" style="flex: 1; padding: 12px;">&#x1F4CB; 复制地址</button>
+    <button id="btnShare" class="btn btn-soft" style="flex: 1; padding: 12px;">&#x1F4E4; 分享地址</button>
+  </div>
+  
+  <div id="copyTip" style="color: var(--brand); font-size: 13px; margin-top: 12px; height: 18px; opacity: 0; transition: opacity 0.3s;">已复制到剪贴板</div>
 </div>
 
-<div class="card">
-  <div class="label">扫码收款</div>
-  <div id="qrcode" style="text-align:center; padding:16px; background:#fff; border-radius:10px; display:inline-block;">
-    <div style="color:var(--muted); font-size:13px;">加载中…</div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
+  let currentAddress = '';
+
+  function showTip(msg) {
+    var tip = document.getElementById('copyTip');
+    tip.textContent = msg;
+    tip.style.opacity = '1';
+    setTimeout(function () { tip.style.opacity = '0'; }, 2000);
+  }
+
   async function loadAddress() {
     try {
       var home = await window.SCASH.request('/api/wallet/home');
-      var addr = home.address || '-';
+      var addr = home.address;
+      if (!addr) {
+        document.getElementById('myAddress').textContent = '未创建钱包';
+        document.getElementById('qrcode').innerHTML = '<div style="color:var(--muted); font-size:13px;">请先创建或导入钱包</div>';
+        return;
+      }
+      
+      currentAddress = addr;
       document.getElementById('myAddress').textContent = addr;
+      
       var qrEl = document.getElementById('qrcode');
-      if (addr && addr !== '-') {
-        qrEl.innerHTML = '';
-        QRCode.toCanvas(addr, { width: 180 }, function (err, canvas) {
-          if (!err) qrEl.appendChild(canvas);
+      qrEl.innerHTML = '';
+      
+      try {
+        var uri = 'scash:' + addr;
+        
+        // 使用 qrcodejs 这个库（它保证能在所有浏览器下暴露全局 QRCode 对象）
+        new QRCode(qrEl, {
+          text: uri,
+          width: 200,
+          height: 200,
+          colorDark: '#1e2a1e',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.L
         });
+
+        // 保证库画出的图填充满盒子
+        setTimeout(() => {
+          var imgs = qrEl.getElementsByTagName('img');
+          if (imgs.length > 0) {
+            imgs[0].style.width = '100%';
+            imgs[0].style.height = '100%';
+            imgs[0].style.display = 'block';
+          }
+          var canvas = qrEl.getElementsByTagName('canvas');
+          if (canvas.length > 0) {
+            canvas[0].style.width = '100%';
+            canvas[0].style.height = '100%';
+          }
+        }, 50);
+
+      } catch (qrErr) {
+        console.error('QR Generate Error:', qrErr);
+        qrEl.innerHTML = '<div style="color:#c0392b; font-size:13px;">二维码生成失败</div>';
       }
     } catch (e) {
+      console.error('Load Address Error:', e);
       document.getElementById('myAddress').textContent = '获取失败';
+      document.getElementById('qrcode').innerHTML = '<div style="color:#c0392b; font-size:13px;">加载失败</div>';
     }
   }
 
   document.getElementById('btnCopy').addEventListener('click', function () {
-    var addr = document.getElementById('myAddress').textContent;
-    if (!addr || addr === '-') return;
-    navigator.clipboard.writeText(addr).then(function () {
-      var tip = document.getElementById('copyTip');
-      tip.style.display = 'block';
-      setTimeout(function () { tip.style.display = 'none'; }, 2000);
-    });
+    if (!currentAddress) return;
+    
+    var tg = window.SCASH && window.SCASH.TG;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentAddress).then(function() {
+        showTip('已复制到剪贴板');
+      }).catch(function() {
+        showTip('复制失败，请手动长按复制');
+      });
+    } else {
+      var textArea = document.createElement('textarea');
+      textArea.value = currentAddress;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showTip('已复制到剪贴板');
+      } catch (err) {
+        showTip('复制失败，请手动长按复制');
+      }
+      document.body.removeChild(textArea);
+    }
   });
 
-  document.getElementById('btnRefresh').addEventListener('click', function () {
-    loadAddress();
+  document.getElementById('btnShare').addEventListener('click', function () {
+    if (!currentAddress) return;
+    
+    var tg = window.SCASH && window.SCASH.TG;
+    var shareText = '这是我的 SCASH 收款地址：\n\n' + currentAddress;
+    
+    if (tg && tg.openTelegramLink) {
+      var shareIntent = 'https://t.me/share/url?url=' + encodeURIComponent(currentAddress) + '&text=' + encodeURIComponent(shareText);
+      tg.openTelegramLink(shareIntent);
+    } else if (navigator.share) {
+      navigator.share({
+        title: '我的 SCASH 收款地址',
+        text: shareText
+      }).catch(function() {
+        showTip('分享被取消');
+      });
+    } else {
+      showTip('当前环境不支持直接分享，请复制地址');
+    }
   });
 
   loadAddress();
