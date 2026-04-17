@@ -26,13 +26,25 @@
     <div id="walletAddress" class="mono" style="font-size:12px; word-break:break-all; color:var(--brand);">-</div>
   </div>
 
-  <div class="card">
-    <div class="row">
+  <div class="card" style="padding: 20px 16px;">
+    <div class="row" style="align-items: flex-start; margin-bottom: 16px;">
       <div>
-        <div class="label">可用余额</div>
-        <div id="walletBalance" class="value">0.00000000 SCASH</div>
+        <div class="label" style="margin-bottom:8px;">总余额</div>
+        <div id="walletTotalBalance" class="value" style="font-size: 32px; color: var(--brand); margin-top: 0;">0.00000000</div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--brand);">SCASH</div>
       </div>
-      <button id="btnRefresh" class="btn btn-soft">刷新</button>
+      <button id="btnRefresh" class="btn btn-soft" style="padding: 8px 12px;">&#x21BB; 刷新</button>
+    </div>
+    
+    <div style="background: #f8fbf7; border: 1px dashed #d8e8d8; border-radius: 10px; padding: 12px;">
+      <div class="row" style="margin-bottom: 6px;">
+        <span class="label" style="margin:0;">已确认 (链上)</span>
+        <span id="walletConfirmedBalance" class="mono" style="font-weight: 600; color: #1e2a1e;">0.00000000 SCASH</span>
+      </div>
+      <div class="row">
+        <span class="label" style="margin:0;">未确认 (内存池)</span>
+        <span id="walletUnconfirmedBalance" class="mono" style="font-weight: 600; color: #a95a08;">0.00000000 SCASH</span>
+      </div>
     </div>
   </div>
 
@@ -56,6 +68,14 @@
 </section>
 
 <script>
+  function satoshiToScashString(sats) {
+    var sign = sats < 0n ? '-' : '';
+    var abs = sats < 0n ? -sats : sats;
+    var whole = abs / 100000000n;
+    var frac = (abs % 100000000n).toString().padStart(8, '0');
+    return sign + whole.toString() + '.' + frac;
+  }
+
   async function loadHome() {
     try {
       var home = await window.SCASH.request('/api/wallet/home');
@@ -75,11 +95,38 @@
   }
 
   async function loadBalance() {
+    var btn = document.getElementById('btnRefresh');
+    btn.innerHTML = '<span class="spinner" style="border-color:var(--brand); border-top-color:transparent;"></span> 刷新中…';
+    btn.disabled = true;
+    
     try {
-      var bal = await window.SCASH.request('/api/wallet/balance');
-      document.getElementById('walletBalance').textContent = bal.balance + ' SCASH';
+      var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
+      var utxos = bal.utxos || [];
+      var confirmedSats = 0n;
+      var unconfirmedSats = 0n;
+      
+      for (var i = 0; i < utxos.length; i++) {
+        var u = utxos[i];
+        var uSat = BigInt(Math.round(parseFloat(u.amount) * 1e8));
+        if (u.isUnconfirmed) {
+          unconfirmedSats += uSat;
+        } else {
+          confirmedSats += uSat;
+        }
+      }
+      
+      var totalSats = confirmedSats + unconfirmedSats;
+      
+      document.getElementById('walletTotalBalance').textContent = satoshiToScashString(totalSats);
+      document.getElementById('walletConfirmedBalance').textContent = satoshiToScashString(confirmedSats) + ' SCASH';
+      document.getElementById('walletUnconfirmedBalance').textContent = satoshiToScashString(unconfirmedSats) + ' SCASH';
     } catch (e) {
-      document.getElementById('walletBalance').textContent = '获取失败';
+      document.getElementById('walletTotalBalance').textContent = '获取失败';
+      document.getElementById('walletConfirmedBalance').textContent = '-';
+      document.getElementById('walletUnconfirmedBalance').textContent = '-';
+    } finally {
+      btn.innerHTML = '&#x21BB; 刷新';
+      btn.disabled = false;
     }
   }
 
