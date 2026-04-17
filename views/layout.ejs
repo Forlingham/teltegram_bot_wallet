@@ -166,40 +166,14 @@
 
     window.SCASH.IS_PRIMARY_PAGE = <%= (typeof backAsClose !== 'undefined' && backAsClose) ? 'true' : 'false' %>;
 
-    // Telegram back button / phone back button
+    // Telegram back button
     (function () {
       var tg = window.SCASH.TG;
       if (!tg) return;
 
       if (window.SCASH.IS_PRIMARY_PAGE) {
-        /* Primary pages (home / redpacket / history):
-           - Hide the Telegram header back button
-           - Phone back button: double-press within 2s to close */
+        /* Primary pages (home / redpacket / history): hide back button */
         tg.BackButton.hide();
-
-        var lastBackTime = 0;
-        tg.onEvent('backButtonClicked', function () {
-          var now = Date.now();
-          if (now - lastBackTime < 2000) {
-            tg.close();
-          } else {
-            lastBackTime = now;
-            tg.showAlert('再按一次退出');
-          }
-        });
-
-        /* Intercept browser back for phone back button */
-        history.pushState(null, '', location.href);
-        window.addEventListener('popstate', function () {
-          var now = Date.now();
-          if (now - lastBackTime < 2000) {
-            tg.close();
-          } else {
-            lastBackTime = now;
-            history.pushState(null, '', location.href);
-            tg.showAlert('再按一次退出');
-          }
-        });
       } else {
         /* Sub-pages: show back button, normal back navigation */
         tg.BackButton.show();
