@@ -4,8 +4,9 @@
   </a>
 </div>
 
-<div class="card" style="margin-bottom:12px;">
-  <div class="label">红包广场</div>
+<div class="card" style="margin-bottom:12px; text-align:center; padding:24px;">
+  <div style="font-size:32px; margin-bottom:8px;">&#x1F3AB;</div>
+  <div class="label">红包封面功能还在开发中</div>
 </div>
 
 <div id="packetList">
@@ -18,7 +19,7 @@
       var data = await window.SCASH.request('/api/redpacket/user/packets?type=all');
       var el = document.getElementById('packetList');
       if (!data.packets || data.packets.length === 0) {
-        el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">暂无可领取的红包</div>';
+        el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">暂无可使用的的红包封面</div>';
         return;
       }
       el.innerHTML = data.packets.map(function (p) {
