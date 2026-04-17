@@ -393,15 +393,39 @@ export class WalletService {
     };
   }
 
-  async getHomeState(userId: number): Promise<WalletHomeDto> {
+  async getHomeState(userId: number): Promise<WalletHomeDto & {
+    pendingAirdrop?: {
+      amount: string;
+      count: number;
+    }
+  }> {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
+      // 查询是否有等待到账的金额
+      const pendings = await this.prisma.pendingTransfer.findMany({
+        where: {
+          userId,
+          status: 'PENDING',
+          targetAddress: null, // 还没绑定地址的情况
+        }
+      });
+      
+      let pendingAirdrop;
+      if (pendings.length > 0) {
+        const totalPendingSats = pendings.reduce((sum, p) => sum + scashToSatoshi(p.amount.toString()), 0n);
+        pendingAirdrop = {
+          amount: satoshiToScash(totalPendingSats),
+          count: pendings.length
+        };
+      }
+
       return {
         hasWallet: false,
         address: null,
         isWatchOnly: false,
         isMnemonicBackedUp: false,
         showBackupReminder: false,
+        pendingAirdrop,
       };
     }
 
