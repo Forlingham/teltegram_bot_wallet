@@ -16,6 +16,15 @@ type WalletHistoryItem = {
   kind?: 'wallet' | 'redpacket';
   redpacketType?: 'CREATE' | 'CLAIM' | 'REFUND';
   packetHash?: string;
+  redpacketInfo?: {
+    status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'REFUNDED';
+    expiresAt: string;
+    claimedCount: number;
+    remainingCount: number;
+    remainingAmount: string;
+    canShare: boolean;
+    shareUrl?: string;
+  };
 };
 
 @Injectable()
@@ -123,8 +132,17 @@ export class WalletService {
     const txids = transactions.map((item) => item.txid);
     const [createdPackets, pendingTransfers] = await Promise.all([
       this.prisma.redPacket.findMany({
-        where: { fundingTxid: { in: txids } },
-        select: { fundingTxid: true, packetHash: true },
+        where: {
+          fundingTxid: { in: txids },
+          senderId: userId,
+        },
+        include: {
+          cover: {
+            select: {
+              botPath: true,
+            },
+          },
+        },
       }),
       this.prisma.pendingTransfer.findMany({
         where: {
@@ -141,9 +159,25 @@ export class WalletService {
       }),
     ]);
 
-    const createByTxid = new Map<string, string>();
+    const createByTxid = new Map<string, {
+      packetHash: string;
+      expiresAt: Date;
+      claimedCount: number;
+      remainingCount: number;
+      remainingAmount: string;
+      status: string;
+      botPath: string;
+    }>();
     for (const item of createdPackets) {
-      createByTxid.set(item.fundingTxid, item.packetHash);
+      createByTxid.set(item.fundingTxid, {
+        packetHash: item.packetHash,
+        expiresAt: item.expiredAt,
+        claimedCount: item.count - item.remainingCount,
+        remainingCount: item.remainingCount,
+        remainingAmount: item.remainingAmount.toString(),
+        status: item.status,
+        botPath: item.cover?.botPath || 'open1',
+      });
     }
 
     const transferByTxid = new Map<string, { type: 'CLAIM' | 'REFUND'; packetHash?: string }>();
@@ -156,11 +190,23 @@ export class WalletService {
     }
 
     for (const item of transactions) {
-      const createPacketHash = createByTxid.get(item.txid);
-      if (createPacketHash) {
+      const createPacket = createByTxid.get(item.txid);
+      if (createPacket) {
+        const isActive = createPacket.status === 'ACTIVE' && createPacket.remainingCount > 0;
         item.kind = 'redpacket';
         item.redpacketType = 'CREATE';
-        item.packetHash = createPacketHash;
+        item.packetHash = createPacket.packetHash;
+        item.redpacketInfo = {
+          status: createPacket.status as 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'REFUNDED',
+          expiresAt: createPacket.expiresAt.toISOString(),
+          claimedCount: createPacket.claimedCount,
+          remainingCount: createPacket.remainingCount,
+          remainingAmount: createPacket.remainingAmount,
+          canShare: isActive,
+          shareUrl: isActive
+            ? `https://t.me/scash_red_envelope_bot/${createPacket.botPath}?startapp=${encodeURIComponent(`rp_${createPacket.packetHash}`)}`
+            : undefined,
+        };
         continue;
       }
 

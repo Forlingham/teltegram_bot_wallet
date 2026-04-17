@@ -98,6 +98,15 @@ export class WalletController {
       kind?: 'wallet' | 'redpacket';
       redpacketType?: 'CREATE' | 'CLAIM' | 'REFUND';
       packetHash?: string;
+      redpacketInfo?: {
+        status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'REFUNDED';
+        expiresAt: string;
+        claimedCount: number;
+        remainingCount: number;
+        remainingAmount: string;
+        canShare: boolean;
+        shareUrl?: string;
+      };
     }>;
   }> {
     return this.walletService.getHistory(user.userId);
