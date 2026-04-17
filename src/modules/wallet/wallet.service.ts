@@ -399,6 +399,7 @@ export class WalletService {
       count: number;
     }
   }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
       // 查询是否有等待到账的金额
@@ -426,6 +427,7 @@ export class WalletService {
         isMnemonicBackedUp: false,
         showBackupReminder: false,
         pendingAirdrop,
+        avatarUrl: user?.photoUrl ?? null,
       };
     }
 
@@ -435,6 +437,7 @@ export class WalletService {
       isWatchOnly: wallet.isWatchOnly,
       isMnemonicBackedUp: wallet.isMnemonicBackedUp,
       showBackupReminder: !wallet.isWatchOnly && !wallet.isMnemonicBackedUp,
+      avatarUrl: user?.photoUrl ?? null,
     };
   }
 

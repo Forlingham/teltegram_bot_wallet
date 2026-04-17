@@ -41,6 +41,9 @@
   </div>
 
   <div class="card" style="padding: 20px 16px;">
+    <div id="homeAvatarArea" style="display:none; text-align:center; margin-bottom:12px;">
+      <img id="homeAvatar" src="" style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid var(--brand);" />
+    </div>
     <div class="row" style="align-items: flex-start; margin-bottom: 16px;">
       <div>
         <div class="label" style="margin-bottom:8px;">总余额</div>
@@ -108,6 +111,13 @@
       document.getElementById('noWallet').style.display = 'none';
       document.getElementById('walletHome').style.display = 'block';
       document.getElementById('walletAddress').textContent = home.address || '-';
+      
+      if (home.avatarUrl) {
+        document.getElementById('homeAvatar').src = home.avatarUrl;
+        document.getElementById('homeAvatarArea').style.display = 'block';
+      } else {
+        document.getElementById('homeAvatarArea').style.display = 'none';
+      }
       document.getElementById('backupReminder').style.display = home.showBackupReminder ? 'block' : 'none';
       
       if (home.isWatchOnly) {

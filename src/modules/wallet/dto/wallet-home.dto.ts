@@ -4,4 +4,5 @@ export interface WalletHomeDto {
   isWatchOnly: boolean;
   isMnemonicBackedUp: boolean;
   showBackupReminder: boolean;
+  avatarUrl?: string | null;
 }
