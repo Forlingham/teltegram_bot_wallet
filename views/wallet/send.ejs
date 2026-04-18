@@ -1,32 +1,78 @@
-<div class="card">
-  <div class="label">收款地址</div>
-  <div style="position:relative; display:flex; gap:8px; align-items:center;">
-    <input id="address" type="text" placeholder="粘贴收款方地址" autocomplete="off" style="margin-bottom:12px; flex:1;" />
-    <button id="scanQrBtn" type="button" class="btn btn-soft" style="flex-shrink:0; padding:10px 14px; margin-bottom:12px;" title="扫描二维码">&#x1F4F7; 扫码</button>
-  </div>
+<div class="space-y-8" style="margin: 0;">
+  <section class="space-y-3">
+    <div class="flex justify-between items-end px-2">
+      <label class="font-headline font-bold text-sm text-on-surface-variant">收款地址</label>
+    </div>
+    <div class="flex gap-3">
+      <div class="relative flex-1 group">
+        <input id="address" class="w-full h-14 px-6 bg-surface-container-high border-none rounded-DEFAULT focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all duration-300 font-medium placeholder:text-outline" placeholder="粘贴收款方地址" type="text" autocomplete="off"/>
+      </div>
+      <button id="scanQrBtn" class="w-14 h-14 flex items-center justify-center bg-surface-container-lowest ambient-shadow rounded-DEFAULT hover:scale-95 active:scale-90 transition-transform" title="扫描二维码">
+        <span class="material-symbols-outlined text-primary">qr_code_scanner</span>
+      </button>
+    </div>
+  </section>
 
-  <div class="label">发送数量 (SCASH)</div>
-  <input id="amount" type="text" placeholder="0.00000000" autocomplete="off" style="margin-bottom:2px;" />
-  <div id="fiatEstimate" style="font-size:12px; color:var(--muted); margin-bottom:12px; min-height:16px;"></div>
+  <section class="space-y-3">
+    <div class="flex justify-between items-end px-2">
+      <label class="font-headline font-bold text-sm text-on-surface-variant">发送数量 (SCASH)</label>
+      <span class="font-label text-xs font-semibold text-tertiary">可用余额: <span id="availBalance">-</span></span>
+    </div>
+    <div class="relative">
+      <input id="amount" class="w-full h-20 px-8 bg-surface-container-lowest ambient-shadow border-none rounded-lg focus:ring-2 focus:ring-primary/20 transition-all duration-300 text-3xl font-headline font-bold text-primary placeholder:text-surface-container-highest" placeholder="0.00000000" type="text" autocomplete="off"/>
+      <div class="absolute right-8 top-1/2 -translate-y-1/2 flex gap-2">
+        <button id="maxBtn" class="px-3 py-1 bg-primary-container/20 text-primary font-bold text-[10px] rounded-full uppercase tracking-tighter hover:bg-primary-container/30 transition-colors">MAX</button>
+      </div>
+    </div>
+    <div id="fiatEstimate" class="text-sm text-on-surface-variant font-medium px-2 min-h-[20px]"></div>
+  </section>
 
-  <div class="label">留言 / DAP 数据（选填）</div>
-  <input id="message" type="text" placeholder="给收款方的留言，将上链永久保存" autocomplete="off" maxlength="100" style="margin-bottom:12px;" />
+  <section class="space-y-3" style="margin-top: 10px;">
+    <label class="font-headline font-bold text-sm text-on-surface-variant px-2">留言 / DAP 数据 (选填)</label>
+    <textarea id="message" class="w-full p-2 bg-surface-container-low border-none rounded-DEFAULT focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all duration-300 font-medium resize-none placeholder:text-outline" placeholder="给收款方的留言，将上链永久保存" rows="3" maxlength="100" autocomplete="off"></textarea>
+  </section>
 
-  <div class="row" style="margin-bottom:8px;">
-    <span class="label" style="margin:0;">可用余额：</span>
-    <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
-  </div>
+  <section class="bg-surface-container-low rounded-lg p-6 space-y-4">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">analytics</span>
+      <h3 class="font-headline font-bold text-sm text-on-surface">费用预估 (实时)</h3>
+    </div>
+    <div class="space-y-3">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-on-surface-variant font-medium">转账金额</span>
+        <span id="estAmount" class="text-sm text-on-surface font-bold font-headline">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-on-surface-variant font-medium">链上手续费</span>
+        <span id="estFee" class="text-sm text-tertiary font-bold font-headline">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-on-surface-variant font-medium">DAP 上链</span>
+        <span id="estDap" class="text-sm text-on-surface font-bold font-headline">-</span>
+      </div>
+    </div>
+    <div class="pt-4 mt-2 border-t border-outline-variant/10 flex justify-between items-center">
+      <span class="text-sm font-bold text-on-surface">预计总支出</span>
+      <div class="text-right">
+        <span id="estTotal" class="text-lg font-headline font-extrabold text-primary">-</span>
+        <p id="estTotalFiat" class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">≈ - USD</p>
+      </div>
+    </div>
+  </section>
 
-  <div class="card warn" style="margin-bottom:12px;">
-    <div class="label" style="margin-bottom:6px;">费用预估（实时）</div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">转账金额</span><span id="estAmount" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">链上手续费</span><span id="estFee" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:6px;"><span class="label" style="margin:0;">DAP 上链</span><span id="estDap" class="mono">-</span></div>
-    <div class="row" style="padding-top:6px; border-top:1px dashed #e3d2b7;"><span style="font-size:13px; font-weight:700;">预计总支出</span><span id="estTotal" class="mono" style="font-weight:700;">-</span></div>
-  </div>
-
-  <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x1F4E4; 确认发送</button>
-  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+  <footer class="pt-6">
+    <button id="submitBtn" class="w-full signature-gradient h-16 rounded-full flex items-center justify-center gap-3 ambient-shadow hover:scale-[0.98] active:scale-95 transition-all duration-200 group">
+      <span class="text-white font-headline font-extrabold text-lg">确认发送</span>
+      <span class="material-symbols-outlined text-white text-xl group-hover:translate-x-1 transition-transform">send</span>
+    </button>
+    <div id="errorMsg" class="error text-center mt-4" style="display:none;"></div>
+    <div class="mt-6 flex flex-col items-center gap-4">
+      <div class="flex items-center gap-2 px-4 py-2 bg-surface-container-high/50 rounded-full">
+        <div class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></div>
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Network Secure (Mainnet)</span>
+      </div>
+    </div>
+  </footer>
 </div>
 
 <script type="module">
@@ -112,7 +158,7 @@
     if (isSubmitting) {
       btn.innerHTML = '<span class="spinner"></span>' + loadingText;
     } else {
-      btn.innerHTML = '&#x1F4E4; 确认发送';
+      btn.innerHTML = '<span class="text-white font-headline font-extrabold text-lg">确认发送</span><span class="material-symbols-outlined text-white text-xl">send</span>';
     }
   }
 
@@ -423,7 +469,7 @@
   async function loadBalance() {
     try {
       var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
-      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
+      document.getElementById('availBalance').textContent = bal.balance;
       cachedBalanceSat = parseScashToSats(bal.balance);
       return bal;
     } catch (e) {
