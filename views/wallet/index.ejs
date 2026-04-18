@@ -7,7 +7,10 @@
         </div>
         <div class="flex-1">
           <p class="text-xs font-bold text-warning uppercase tracking-wider mb-0.5">待入账红包</p>
-          <p class="text-xl font-bold font-headline text-on-surface"><span id="pendingAirdropAmount">-</span> <span class="text-xs font-normal text-on-surface-variant">SCASH</span></p>
+          <p class="text-xl font-bold font-headline text-on-surface flex items-center gap-1">
+            <span id="pendingAirdropAmount">-</span>
+            <img src="/img/logo-128x128.png" class="w-5 h-5 object-contain" alt="SCASH" />
+          </p>
         </div>
         <div class="text-right">
           <p class="text-[10px] text-on-surface-variant font-medium"><span id="pendingAirdropCount">-</span> 个红包</p>
@@ -98,9 +101,9 @@
         </button>
       </div>
       <div class="flex flex-col items-start">
-        <h1 class="text-4xl font-headline font-extrabold tracking-tight text-on-surface flex items-baseline gap-2">
-          <span id="walletTotalBalance">0.00000000</span>
-          <span class="text-xl text-primary font-bold">SCASH</span>
+        <h1 id="walletTotalBalanceWrap" class="font-headline font-extrabold tracking-tight text-on-surface flex items-baseline gap-2">
+          <span id="walletTotalBalance">0.00</span>
+          <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
         </h1>
         <div class="flex items-center gap-2 mt-1">
           <span id="balanceFiat" class="text-lg text-on-surface-variant font-medium" style="display: none;"></span>
@@ -134,16 +137,20 @@
         <span class="material-symbols-outlined text-sm">check_circle</span>
         <span class="text-[11px] font-bold font-headline uppercase tracking-tight">已确认 (链上)</span>
       </div>
-      <p id="walletConfirmedBalance" class="text-sm font-bold text-on-surface">0.00000000</p>
-      <p class="text-[10px] text-on-surface-variant">SCASH</p>
+      <p id="walletConfirmedBalance" class="text-sm font-bold text-on-surface flex items-center gap-1">
+        <span>0.00</span>
+        <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
+      </p>
     </div>
     <div class="bg-surface-container-low rounded-lg p-4 flex flex-col gap-1 border border-primary/5">
       <div class="flex items-center gap-1.5 text-primary mb-1">
         <span class="material-symbols-outlined text-sm">pending</span>
         <span class="text-[11px] font-bold font-headline uppercase tracking-tight">未确认 (内存池)</span>
       </div>
-      <p id="walletUnconfirmedBalance" class="text-sm font-bold text-primary">0.00000000</p>
-      <p class="text-[10px] text-primary/70">SCASH</p>
+      <p id="walletUnconfirmedBalance" class="text-sm font-bold text-primary flex items-center gap-1">
+        <span>0.00</span>
+        <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
+      </p>
     </div>
   </section>
 
@@ -205,6 +212,20 @@
     var whole = abs / 100000000n;
     var frac = (abs % 100000000n).toString().padStart(8, '0');
     return sign + whole.toString() + '.' + frac;
+  }
+
+  function formatBalanceSmallDecimal(sats) {
+    var str = satoshiToScashString(sats);
+    var parts = str.split('.');
+    if (parts.length === 2) {
+      return '<span class="text-4xl font-bold">' + parts[0] + '</span><span class="text-lg font-bold">' + '.' + parts[1] + '</span>';
+    }
+    return '<span class="text-4xl font-bold">' + str + '</span>';
+  }
+
+  function formatBalanceInline(sats) {
+    var str = satoshiToScashString(sats);
+    return '<span class="font-bold">' + str + '</span>';
   }
 
   async function loadHome() {
@@ -271,16 +292,16 @@
       
       var totalSats = confirmedSats + unconfirmedSats;
       cachedTotalSats = totalSats;
-      
-      document.getElementById('walletTotalBalance').textContent = satoshiToScashString(totalSats);
-      document.getElementById('walletConfirmedBalance').textContent = satoshiToScashString(confirmedSats) + ' SCASH';
-      document.getElementById('walletUnconfirmedBalance').textContent = satoshiToScashString(unconfirmedSats) + ' SCASH';
+
+      document.getElementById('walletTotalBalance').innerHTML = formatBalanceSmallDecimal(totalSats);
+      document.getElementById('walletConfirmedBalance').innerHTML = formatBalanceInline(confirmedSats) + ' <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />';
+      document.getElementById('walletUnconfirmedBalance').innerHTML = formatBalanceInline(unconfirmedSats) + ' <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />';
       
       updatePriceDisplay();
     } catch (e) {
-      document.getElementById('walletTotalBalance').textContent = '获取失败';
-      document.getElementById('walletConfirmedBalance').textContent = '-';
-      document.getElementById('walletUnconfirmedBalance').textContent = '-';
+      document.getElementById('walletTotalBalance').innerHTML = '<span class="text-2xl font-bold">获取失败</span>';
+      document.getElementById('walletConfirmedBalance').innerHTML = '<span class="font-bold">-</span>';
+      document.getElementById('walletUnconfirmedBalance').innerHTML = '<span class="font-bold">-</span>';
     } finally {
       var icon = document.getElementById('refreshIcon');
       btn.disabled = false;

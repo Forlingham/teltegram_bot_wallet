@@ -31,25 +31,23 @@
 
   function formatAmount(num) {
     if (!num && num !== 0) return '0.00';
-    return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+    return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+
+  function formatAmountTitle(num) {
+    var str = formatAmount(num);
+    var parts = str.split('.');
+    if (parts.length === 2) {
+      return '<span class="text-xl font-bold">' + parts[0] + '</span><span class="text-xs font-bold">' + '.' + parts[1] + '</span>';
+    }
+    return '<span class="text-xl font-bold">' + str + '</span>';
+  }
+
+  var coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 object-contain align-middle mb-0.5" alt="SCASH" />';
 
   function formatInt(num) {
     if (!num && num !== 0) return '0';
     return Number(num).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
-  }
-
-  function getExpiryCountdown(expiresAt) {
-    if (!expiresAt) return '';
-    var now = Date.now();
-    var exp = new Date(expiresAt).getTime();
-    var diff = exp - now;
-    if (diff <= 0) return '已过期';
-    var hours = Math.floor(diff / (1000 * 60 * 60));
-    var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    var secs = Math.floor((diff % (1000 * 60)) / 1000);
-    if (hours > 0) return hours + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + ' 后过期';
-    return mins + ':' + String(secs).padStart(2, '0') + ' 后过期';
   }
 
   async function loadHistory() {
@@ -116,44 +114,47 @@
 
     var pending = tx.isUnconfirmed ? '<span class="text-[10px] text-error ml-1">(未确认)</span>' : '';
 
-    var expiryText = status === 'ACTIVE' ? getExpiryCountdown(info.expiresAt) : formatTimeShort(info.expiresAt);
-
     var refundBlock = '';
     if (status === 'EXPIRED' || status === 'REFUNDED') {
       refundBlock = '<div class="bg-error/5 border border-error/20 p-3 rounded mb-4 flex items-center gap-3">' +
         '<span class="material-symbols-outlined text-error" style="font-variation-settings: \'FILL\' 1;">assignment_return</span>' +
         '<div>' +
           '<p class="text-[10px] text-error font-bold uppercase">已原路退回</p>' +
-          '<p class="text-sm font-bold text-on-surface">' + formatAmount(info.remainingAmount) + ' SCASH <span class="font-normal text-xs text-on-surface-variant">(未领取部分)</span></p>' +
+          '<p class="text-sm font-bold text-on-surface">' + formatAmount(info.remainingAmount) + ' ' + coinLogo + '<span class="font-normal text-xs text-on-surface-variant">(未领取部分)</span></p>' +
         '</div>' +
       '</div>';
     }
 
-    var progressBlock = '';
-    if (status === 'ACTIVE') {
-      var totalCount = info.totalCount || 0;
-      var claimedCount = info.claimedCount || 0;
-      var totalAmount = parseFloat(info.totalAmount || 0);
-      var remainingAmount = parseFloat(info.remainingAmount || 0);
-      var claimedAmount = totalAmount - remainingAmount;
-      var countPct = totalCount > 0 ? Math.round(claimedCount / totalCount * 100) : 0;
+    var totalCount = info.totalCount || 0;
+    var claimedCount = info.claimedCount || 0;
+    var totalAmount = parseFloat(info.totalAmount || 0);
+    var remainingAmount = parseFloat(info.remainingAmount || 0);
+    var claimedAmount = totalAmount - remainingAmount;
+    var countPct = totalCount > 0 ? Math.round(claimedCount / totalCount * 100) : 0;
 
-      progressBlock = '<div class="grid grid-cols-2 gap-3 mb-4">' +
-        '<div class="bg-surface-container-low p-3 rounded">' +
-          '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">领取进度</p>' +
-          '<div class="flex justify-between items-end">' +
-            '<p class="text-sm font-bold text-on-surface">' + claimedCount + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + totalCount + ' 人</span></p>' +
-            '<p class="text-[10px] font-bold text-primary">' + countPct + '%</p>' +
-          '</div>' +
-          '<div class="w-full h-1.5 bg-surface-container-high rounded-full mt-2 overflow-hidden">' +
-            '<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: ' + countPct + '%"></div>' +
-          '</div>' +
+    var progressBlock = '<div class="grid grid-cols-2 gap-3 mb-4">' +
+      '<div class="bg-surface-container-low p-3 rounded">' +
+        '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">领取进度</p>' +
+        '<div class="flex justify-between items-end">' +
+          '<p class="text-sm font-bold text-on-surface">' + claimedCount + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + totalCount + ' 人</span></p>' +
+          '<p class="text-[10px] font-bold text-primary">' + countPct + '%</p>' +
         '</div>' +
-        '<div class="bg-surface-container-low p-3 rounded">' +
-          '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">金额进度</p>' +
-          '<p class="text-sm font-bold text-on-surface">' + formatAmount(claimedAmount) + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + formatAmount(totalAmount) + '</span></p>' +
-          '<p class="text-[10px] font-bold text-on-surface-variant mt-1.5">剩余: ' + formatAmount(remainingAmount) + ' SCASH</p>' +
+        '<div class="w-full h-1.5 bg-surface-container-high rounded-full mt-2 overflow-hidden">' +
+          '<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: ' + countPct + '%"></div>' +
         '</div>' +
+      '</div>' +
+      '<div class="bg-surface-container-low p-3 rounded">' +
+        '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">金额进度</p>' +
+        '<p class="text-sm font-bold text-on-surface">' + formatAmount(claimedAmount) + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + formatAmount(totalAmount) + '</span></p>' +
+        '<p class="text-[10px] font-bold text-on-surface-variant mt-1.5">剩余: ' + formatAmount(remainingAmount) + ' ' + coinLogo + '</p>' +
+      '</div>' +
+    '</div>';
+
+    var expiryBlock = '';
+    if (status === 'ACTIVE') {
+      expiryBlock = '<div class="flex justify-between items-center text-[11px]">' +
+        '<span class="text-on-surface-variant font-medium">到期时间</span>' +
+        '<span class="text-on-surface font-semibold">' + formatTimeShort(info.expiresAt) + '</span>' +
       '</div>';
     }
 
@@ -166,7 +167,7 @@
           '</div>' +
           '<div>' +
             '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">发出的红包</p>' +
-            '<h3 class="text-xl font-bold text-on-surface font-headline">' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+            '<h3 class="text-on-surface font-headline">' + formatAmountTitle(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant ml-1">' + coinLogo + '</span></h3>' +
           '</div>' +
         '</div>' +
         '<span class="px-3 py-1 ' + s.badge + ' ' + s.badgeText + ' text-[11px] font-extrabold rounded-full tracking-wide">' + s.text + pending + '</span>' +
@@ -182,10 +183,7 @@
           '<span class="text-on-surface-variant font-medium">创建时间</span>' +
           '<span class="text-on-surface font-semibold">' + formatTimeShort(tx.time) + '</span>' +
         '</div>' +
-        '<div class="flex justify-between items-center text-[11px]">' +
-          '<span class="text-on-surface-variant font-medium">到期时间</span>' +
-          '<span class="' + (status === 'ACTIVE' ? 'text-error font-bold italic' : 'text-on-surface font-semibold') + '">' + expiryText + '</span>' +
-        '</div>' +
+        expiryBlock +
       '</div>' +
       (shareBtn ? '<div class="mt-4 flex justify-end">' + shareBtn + '</div>' : '') +
     '</section>';
@@ -207,7 +205,7 @@
           '</div>' +
           '<div>' +
             '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">退回红包</p>' +
-            '<h3 class="text-xl font-bold text-error font-headline">+' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+            '<h3 class="text-error font-headline"><span class="text-xl font-bold">+</span>' + formatAmountTitle(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant ml-1">' + coinLogo + '</span></h3>' +
           '</div>' +
         '</div>' +
         '<span class="px-3 py-1 bg-error/10 text-error text-[11px] font-extrabold rounded-full tracking-wide">已退款' + pending + '</span>' +
@@ -246,7 +244,7 @@
           '</div>' +
           '<div>' +
             '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">收到的红包</p>' +
-            '<h3 class="text-xl font-bold text-tertiary font-headline">+' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+            '<h3 class="text-tertiary font-headline"><span class="text-xl font-bold">+</span>' + formatAmountTitle(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant ml-1">' + coinLogo + '</span></h3>' +
           '</div>' +
         '</div>' +
         '<span class="px-3 py-1 bg-tertiary/10 text-tertiary text-[11px] font-extrabold rounded-full tracking-wide">已领取' + pending + '</span>' +
@@ -285,7 +283,7 @@
           '</div>' +
           '<div>' +
             '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">链上转账</p>' +
-            '<h3 class="text-xl font-bold ' + dirColor + ' font-headline">' + (isIn ? '+' : '-') + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+            '<h3 class="' + dirColor + ' font-headline"><span class="text-xl font-bold">' + (isIn ? '+' : '-') + '</span>' + formatAmountTitle(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant ml-1">' + coinLogo + '</span></h3>' +
           '</div>' +
         '</div>' +
         '<span class="px-3 py-1 bg-surface-container-low text-on-surface-variant text-[11px] font-extrabold rounded-full tracking-wide">' + dirLabel + pending + '</span>' +
