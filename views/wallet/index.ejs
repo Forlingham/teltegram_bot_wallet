@@ -80,6 +80,10 @@
         <div style="font-size:24px;">&#x270D;</div>
         <div style="margin-top:4px;">刻字上链</div>
       </a>
+      <a id="scanQrHomeBtn" class="quick-link" href="javascript:void(0)">
+        <div style="font-size:24px;">&#x1F4F7;</div>
+        <div style="margin-top:4px;">扫码</div>
+      </a>
     </div>
   </div>
 </section>
@@ -183,4 +187,28 @@
   });
 
   loadHome();
+
+  /* QR scan from homepage */
+  var tg = window.SCASH && window.SCASH.TG;
+  if (tg) {
+    tg.onEvent('qrTextReceived', function (obj) {
+      tg.closeScanQrPopup();
+      var raw = (obj.data || '').trim();
+      var address = raw;
+      /* strip scash: prefix if present */
+      if (address.indexOf('scash:') === 0) {
+        address = address.slice(6);
+      }
+      var bech32Prefix = (window.SCASH && window.SCASH.NETWORK && window.SCASH.NETWORK.bech32) || 'bcrt';
+      if (address.indexOf(bech32Prefix + '1') === 0) {
+        location.href = '/wallet/send?address=' + encodeURIComponent(address);
+      } else {
+        tg.showAlert('不支持的地址格式');
+      }
+    });
+
+    document.getElementById('scanQrHomeBtn').addEventListener('click', function () {
+      tg.showScanQrPopup({ text: '扫描收款地址二维码' });
+    });
+  }
 </script>

@@ -20,6 +20,9 @@
   .sender-info { transition:opacity .3s ease; }
   .env-wrapper.open .sender-info { opacity:0; pointer-events:none; }
   .env-coin { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:92px; height:92px; background:#fff; border-radius:50%; border:1px solid rgba(0,0,0,.05); z-index:5; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .4s cubic-bezier(.175,.885,.32,1.275); box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 20px rgba(var(--glow-color), .5); animation:coin-pulse 2s infinite alternate ease-in-out; }
+  .env-coin.loading { pointer-events:none!important; animation:coin-spin 1s linear infinite!important; }
+  .env-coin.loading .coin-inner { opacity:.5; }
+  @keyframes coin-spin { 0% { transform:translate(-50%,-50%) rotateY(0deg); } 100% { transform:translate(-50%,-50%) rotateY(360deg); } }
   @keyframes coin-pulse { 0% { box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 10px rgba(var(--glow-color), .2);} 100% { box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 34px rgba(var(--glow-color), .8);} }
   .coin-inner { position:relative; width:78px; height:78px; border-radius:50%; overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.1); background:#fff; }
   .coin-inner img { width:100%; height:100%; object-fit:cover; transform:scale(1.03); }
@@ -272,33 +275,46 @@
 
   async function claimPacket() {
     var coin = document.getElementById('coin');
+    var wrapper = document.getElementById('envelope');
+    var hintEl = document.getElementById('resultHint');
     var packetHash = resolvePacketHash();
     if (!packetHash) return;
+
+    coin.classList.add('loading');
     coin.style.pointerEvents = 'none';
+
     try {
       var result = await window.SCASH.request('/api/redpacket/' + encodeURIComponent(packetHash) + '/claim', {
         method: 'POST',
         body: JSON.stringify({}),
       });
-      var wrapper = document.getElementById('envelope');
+
+      coin.classList.remove('loading');
       wrapper.classList.add('open');
-      wrapper.classList.add('settled');
+      setTimeout(function () { wrapper.classList.add('settled'); }, 600);
       document.getElementById('packetAmount').innerHTML = formatAmountWithLogo(result.amount || '0');
-      document.getElementById('resultHint').style.display = 'block';
-      document.getElementById('resultHint').textContent = '领取成功';
+      hintEl.style.display = 'block';
+      hintEl.textContent = '领取成功';
+
+      if (result.claims) {
+        renderClaimList(result.claims);
+      }
     } catch (e) {
-      coin.style.pointerEvents = 'auto';
-      alert(e.message || '领取失败');
+      coin.classList.remove('loading');
+      // 重新拉取红包最新状态，复用 showPacket 展示过期/抢完等信息
+      try {
+        var data = await window.SCASH.request('/api/redpacket/' + encodeURIComponent(packetHash));
+        showPacket(data);
+      } catch (_) {
+        coin.style.pointerEvents = 'auto';
+        alert((e && e.message) || '领取失败');
+      }
     }
   }
 
   document.getElementById('coin').addEventListener('click', function () {
     if (!claimContext.canClaim) return;
-    var wrapper = document.getElementById('envelope');
-    wrapper.classList.add('open');
-    setTimeout(function () {
-      claimPacket();
-    }, 240);
+    claimPacket();
   });
 
   document.getElementById('closeBtn').addEventListener('click', function () {

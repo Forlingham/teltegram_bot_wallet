@@ -1,6 +1,9 @@
 <div class="card">
   <div class="label">收款地址</div>
-  <input id="address" type="text" placeholder="粘贴收款方地址" autocomplete="off" style="margin-bottom:12px;" />
+  <div style="position:relative; display:flex; gap:8px; align-items:center;">
+    <input id="address" type="text" placeholder="粘贴收款方地址" autocomplete="off" style="margin-bottom:12px; flex:1;" />
+    <button id="scanQrBtn" type="button" class="btn btn-soft" style="flex-shrink:0; padding:10px 14px; margin-bottom:12px;" title="扫描二维码">&#x1F4F7; 扫码</button>
+  </div>
 
   <div class="label">发送数量 (SCASH)</div>
   <input id="amount" type="text" placeholder="0.00000000" autocomplete="off" style="margin-bottom:12px;" />
@@ -509,8 +512,48 @@
   });
 
   loadBalance();
+  /* pre-fill address from QR scan redirect */
+  (function () {
+    var params = new URL(location.href).searchParams;
+    var addr = params.get('address');
+    if (addr) {
+      var addrField = document.getElementById('address');
+      addrField.value = addr;
+      addrField.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  })();
   document.getElementById('address').addEventListener('input', debouncedEstimate);
   document.getElementById('amount').addEventListener('input', debouncedEstimate);
   document.getElementById('message').addEventListener('input', debouncedEstimate);
   refreshSubmitState();
+
+  /* QR code scanning via Telegram native API */
+  var tg = window.SCASH && window.SCASH.TG;
+
+  if (tg) {
+    tg.onEvent('qrTextReceived', function (obj) {
+      console.log('[scan] qrTextReceived fired, obj:', obj);
+      tg.closeScanQrPopup();
+      var raw = (obj.data || '').trim();
+      var address = raw;
+      /* strip scash: prefix if present */
+      if (address.indexOf('scash:') === 0) {
+        address = address.slice(6);
+      }
+      /* validate bech32 prefix */
+      var bech32Prefix = (window.SCASH && window.SCASH.NETWORK && window.SCASH.NETWORK.bech32) || 'bcrt';
+      if (address.indexOf(bech32Prefix + '1') !== 0) {
+        tg.showAlert('不支持的地址格式');
+        return;
+      }
+      var addrField = document.getElementById('address');
+      addrField.value = address;
+      addrField.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  document.getElementById('scanQrBtn').addEventListener('click', function () {
+    if (!tg) return;
+    tg.showScanQrPopup({ text: '扫描收款地址二维码' });
+  });
 </script>

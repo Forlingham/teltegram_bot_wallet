@@ -45,7 +45,7 @@
       qrEl.innerHTML = '';
       
       try {
-        var uri = 'scash:' + addr;
+        var uri =  addr;
         
         // 使用 qrcodejs 这个库（它保证能在所有浏览器下暴露全局 QRCode 对象）
         new QRCode(qrEl, {
