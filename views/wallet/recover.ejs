@@ -1,23 +1,81 @@
-<div class="card">
-  <div class="info">从云端下载加密备份后，在本地输入密码解密恢复助记词。后端不接触明文助记词。</div>
-  <button id="loadBtn" class="btn btn-brand">读取云端备份</button>
+<main class="max-w-md mx-auto min-h-screen flex flex-col  gap-6 relative">
 
-  <div id="backupSection" style="display:none; margin-top:16px;">
-    <div class="label">备份数据（密文）</div>
-    <pre id="backupData">-</pre>
-    <div class="label" style="margin-top:12px;">输入密码解密</div>
-    <input id="password" type="password" placeholder="输入密码解密" autocomplete="off" />
-    <button id="decryptBtn" class="btn btn-brand" style="margin-top:8px;">解密并显示</button>
-    <div id="mnemonicResult" style="margin-top:12px; font-size:13px; color:var(--brand); word-break:break-all; font-family:ui-monospace;"></div>
-  </div>
+  <section class="flex flex-col gap-3 p-5 rounded-lg bg-primary/5 border-l-4 border-primary">
+    <div class="flex items-center gap-2 text-primary">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+      <span class="font-bold text-sm">云端加密安全提示</span>
+    </div>
+    <p class="text-on-surface-variant text-sm leading-relaxed">
+      您的助记词将通过高强度非对称算法加密。云端备份仅保存加密后的密文，只有配合您设置的交易密码才能解密读取，确保资产绝对安全。
+    </p>
+  </section>
 
-  <div id="errorMsg" style="color:#c0392b;font-size:13px;margin-top:10px;display:none;"></div>
-</div>
+  <section>
+    <button id="loadBtn" class="w-full h-14 primary-gradient text-on-primary rounded-full font-bold flex items-center justify-center gap-3 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+      <span class="material-symbols-outlined">cloud_download</span>
+      <span>读取云端备份</span>
+    </button>
+  </section>
+
+  <section id="backupSection" style="display:none;" class="flex flex-col gap-3">
+    <div class="flex justify-between items-center px-1">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">备份数据（密文）</h2>
+      <button id="copyBackupBtn" class="text-on-surface-variant hover:text-primary transition-colors">
+        <span class="material-symbols-outlined text-sm">content_copy</span>
+      </button>
+    </div>
+    <div class="bg-surface-container-low rounded-lg p-4 overflow-hidden border border-outline-variant/10">
+      <pre id="backupData" class="text-[10px] text-primary/80 leading-relaxed whitespace-pre-wrap break-all font-mono opacity-70">-</pre>
+    </div>
+  </section>
+
+  <section id="decryptSection" style="display:none;" class="flex flex-col gap-3">
+    <label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant px-1">输入密码解密</label>
+    <div class="relative flex items-center group">
+      <input id="password" class="w-full h-14 px-6 pr-12 bg-surface-container-high border-none rounded-full focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-on-surface-variant/50" placeholder="请输入您的钱包交易密码" type="password" autocomplete="off" />
+      <button id="togglePasswordBtn" class="absolute right-4 text-on-surface-variant hover:text-primary transition-colors">
+        <span class="material-symbols-outlined text-lg">visibility_off</span>
+      </button>
+    </div>
+  </section>
+
+  <section id="decryptBtnSection" style="display:none;">
+    <button id="decryptBtn" class="w-full h-14 bg-surface-container-highest text-primary rounded-full font-extrabold flex items-center justify-center gap-2 active:scale-95 transition-transform">
+      <span>解密并显示</span>
+      <span class="material-symbols-outlined">lock_open</span>
+    </button>
+  </section>
+
+  <section id="mnemonicSection" style="display:none;" class="mt-2">
+    <div class="bg-surface-container-lowest rounded-lg p-6 flex flex-col gap-6 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+      <div id="mnemonicPlaceholder" class="flex flex-col items-center gap-2 py-4 border-2 border-dashed border-outline-variant/20 rounded-lg">
+        <span class="material-symbols-outlined text-4xl text-outline-variant/40">visibility</span>
+        <p class="text-xs text-on-surface-variant font-medium">验证密码后在此显示 12 位助记词</p>
+      </div>
+      <div id="mnemonicGrid" class="grid grid-cols-3 gap-3" style="display:none;"></div>
+      <div id="mnemonicResult" class="hidden text-sm text-primary font-mono word-break-all leading-relaxed p-3 bg-primary/5 rounded-lg"></div>
+    </div>
+  </section>
+
+  <section id="copyMnemonicSection" style="display:none;" class="flex justify-center">
+    <button id="copyMnemonicBtn" class="flex items-center gap-2 px-6 py-3 bg-surface-container-low rounded-full text-on-surface-variant text-sm font-bold hover:bg-surface-container-high transition-colors">
+      <span class="material-symbols-outlined text-lg">content_copy</span>
+      <span>复制助记词</span>
+    </button>
+  </section>
+
+  <div id="errorMsg" class="text-error text-sm font-medium text-center" style="display:none;"></div>
+</main>
 
 <script>
   function showError(msg) {
     var el = document.getElementById('errorMsg');
-    el.textContent = msg; el.style.display = 'block';
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').style.display = 'none';
   }
 
   async function decryptMnemonicFull(backup, password) {
@@ -65,24 +123,78 @@
   }
 
   document.getElementById('loadBtn').addEventListener('click', async function () {
+    hideError();
     try {
       var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
       if (!data.backup) { showError('未找到云端备份，请先创建或备份钱包'); return; }
       document.getElementById('backupData').textContent = JSON.stringify(data.backup, null, 2);
-      document.getElementById('backupSection').style.display = 'block';
+      document.getElementById('backupSection').style.display = 'flex';
+      document.getElementById('decryptSection').style.display = 'flex';
+      document.getElementById('decryptBtnSection').style.display = 'block';
     } catch (e) { showError(e.message); }
   });
 
+  document.getElementById('copyBackupBtn').addEventListener('click', function () {
+    var text = document.getElementById('backupData').textContent;
+    navigator.clipboard.writeText(text).then(function () {
+      var btn = document.getElementById('copyBackupBtn');
+      btn.querySelector('.material-symbols-outlined').textContent = 'check';
+      setTimeout(function () {
+        btn.querySelector('.material-symbols-outlined').textContent = 'content_copy';
+      }, 1500);
+    });
+  });
+
+  document.getElementById('togglePasswordBtn').addEventListener('click', function () {
+    var input = document.getElementById('password');
+    var icon = document.querySelector('#togglePasswordBtn .material-symbols-outlined');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.textContent = 'visibility';
+    } else {
+      input.type = 'password';
+      icon.textContent = 'visibility_off';
+    }
+  });
+
+  document.getElementById('copyMnemonicBtn').addEventListener('click', function () {
+    var mnemonic = window._cachedMnemonic;
+    if (!mnemonic) return;
+    navigator.clipboard.writeText(mnemonic).then(function () {
+      var btn = document.getElementById('copyMnemonicBtn');
+      btn.querySelector('.material-symbols-outlined').textContent = 'check';
+      btn.classList.add('text-primary');
+      setTimeout(function () {
+        btn.querySelector('.material-symbols-outlined').textContent = 'content_copy';
+        btn.classList.remove('text-primary');
+      }, 1500);
+    });
+  });
+
   document.getElementById('decryptBtn').addEventListener('click', async function () {
+    hideError();
     var pw = document.getElementById('password').value.trim();
     if (!pw) { showError('请输入密码'); return; }
     try {
       var data = await window.SCASH.request('/api/wallet/recover', { method: 'POST', body: '{}' });
       if (!data.backup) { showError('未找到云端备份'); return; }
-      
+
       var mnemonic = await decryptMnemonicFull(data.backup, pw);
-      document.getElementById('mnemonicResult').textContent = mnemonic;
-      document.getElementById('errorMsg').style.display = 'none';
+      var words = mnemonic.trim().split(/\s+/);
+
+      window._cachedMnemonic = mnemonic;
+
+      document.getElementById('mnemonicPlaceholder').style.display = 'none';
+      var grid = document.getElementById('mnemonicGrid');
+      grid.style.display = 'grid';
+      grid.innerHTML = words.map(function (word, i) {
+        return '<div class="h-10 bg-surface-container-low rounded-full flex items-center justify-center">' +
+          '<span class="text-xs font-bold text-primary">' + (i + 1) + '. ' + word + '</span>' +
+        '</div>';
+      }).join('');
+
+      document.getElementById('mnemonicSection').style.display = 'block';
+      document.getElementById('copyMnemonicSection').style.display = 'flex';
     } catch (e) { showError('解密失败：' + e.message); }
   });
 </script>
