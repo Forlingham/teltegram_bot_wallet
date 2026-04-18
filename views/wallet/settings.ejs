@@ -1,32 +1,87 @@
-<div class="card">
-  <div class="label" style="margin-bottom:12px;">钱包管理</div>
-  
-  <a id="btnRecover" href="/wallet/recover" class="row" style="text-decoration:none; padding:12px 0; border-bottom:1px solid var(--line);">
-    <div style="font-weight:600; color:var(--text);">查看 / 备份助记词</div>
-    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
-  </a>
-
-  <div id="btnChangePassword" class="row" style="padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer;">
-    <div style="font-weight:600; color:var(--text);">修改支付密码</div>
-    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
-  </div>
-
-  <div id="btnUnbind" class="row" style="padding:12px 0; cursor:pointer;">
-    <div style="font-weight:600; color:#c0392b;">解除绑定当前钱包</div>
-    <div style="color:var(--muted); font-size:16px;">&#x203A;</div>
-  </div>
+<div class="fixed inset-0 pointer-events-none -z-10 bg-background overflow-hidden">
+  <div class="absolute top-[-10%] right-[-20%] w-[80%] h-[60%] rounded-full bg-primary/5 blur-[120px]"></div>
+  <div class="absolute bottom-[-10%] left-[-20%] w-[60%] h-[50%] rounded-full bg-tertiary/5 blur-[100px]"></div>
 </div>
 
+<main class="flex flex-col gap-8">
+  <section class="relative overflow-hidden p-6 rounded-lg bg-gradient-to-br from-primary to-primary-container text-white shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="relative z-10">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="text-xs font-label uppercase tracking-wider opacity-80 mb-1">Current Wallet</p>
+          <h2 class="font-headline text-xl font-bold">Personal Savings</h2>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
+          <span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-tertiary-fixed"></span>
+        <p class="text-sm font-medium opacity-90">已连接到主网</p>
+      </div>
+    </div>
+    <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
+  </section>
+
+  <section class="flex flex-col gap-2">
+    <a id="btnRecover" href="/wallet/recover" class="group flex items-center justify-between p-5 rounded-lg bg-surface-container-lowest active:scale-[0.98] transition-all shadow-[0px_12px_32px_rgba(44,47,49,0.06)] text-left">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-sm bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+          <span class="material-symbols-outlined">key</span>
+        </div>
+        <div>
+          <p class="text-[15px] font-semibold text-on-surface">查看 / 备份助记词</p>
+          <p class="text-xs text-on-surface-variant">确保您的资产安全</p>
+        </div>
+      </div>
+      <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+    </a>
+
+    <button id="btnChangePassword" class="group flex items-center justify-between p-5 rounded-lg bg-surface-container-lowest active:scale-[0.98] transition-all shadow-[0px_12px_32px_rgba(44,47,49,0.06)] text-left">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-sm bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+          <span class="material-symbols-outlined">lock_reset</span>
+        </div>
+        <div>
+          <p class="text-[15px] font-semibold text-on-surface">修改支付密码</p>
+          <p class="text-xs text-on-surface-variant">保护您的交易权限</p>
+        </div>
+      </div>
+      <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+    </button>
+
+    <button id="btnUnbind" class="group mt-4 flex items-center justify-between p-5 rounded-lg bg-error/5 active:scale-[0.98] transition-all border border-error/10 text-left">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-sm bg-error/10 flex items-center justify-center text-error">
+          <span class="material-symbols-outlined">link_off</span>
+        </div>
+        <div>
+          <p class="text-[15px] font-bold text-error">解除绑定当前钱包</p>
+          <p class="text-xs text-error/70">此操作不可撤销，请谨慎操作</p>
+        </div>
+      </div>
+      <span class="material-symbols-outlined text-error group-hover:translate-x-1 transition-transform">chevron_right</span>
+    </button>
+  </section>
+</main>
+
 <div id="passwordModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
-  <div class="card" style="width:90%; max-width:320px; background:#fff; padding:20px;">
-    <div style="font-weight:700; font-size:16px; margin-bottom:16px;">修改密码</div>
-    <input id="oldPwd" type="password" placeholder="原密码" style="margin-bottom:12px;" />
-    <input id="newPwd" type="password" placeholder="新密码（最少 8 位）" style="margin-bottom:12px;" />
-    <input id="confirmPwd" type="password" placeholder="确认新密码" style="margin-bottom:16px;" />
-    <div id="pwdError" class="error" style="display:none; margin-bottom:12px;"></div>
-    <div class="row">
-      <button id="btnCancelPwd" class="btn btn-soft" style="flex:1;">取消</button>
-      <button id="btnSubmitPwd" class="btn btn-brand" style="flex:1;">确认修改</button>
+  <div class="bg-surface-container-lowest rounded-lg p-6 w-[90%] max-w-[360px] shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lock_reset</span>
+      </div>
+      <h3 class="font-headline text-lg font-bold text-on-surface">修改密码</h3>
+    </div>
+    <div class="space-y-4">
+      <input id="oldPwd" type="password" class="w-full px-4 py-3 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant/50" placeholder="原密码" autocomplete="off" />
+      <input id="newPwd" type="password" class="w-full px-4 py-3 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant/50" placeholder="新密码（最少 8 位）" autocomplete="off" />
+      <input id="confirmPwd" type="password" class="w-full px-4 py-3 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 text-on-surface placeholder:text-on-surface-variant/50" placeholder="确认新密码" autocomplete="off" />
+    </div>
+    <div id="pwdError" class="text-error text-sm font-medium mt-3" style="display:none;"></div>
+    <div class="flex gap-3 mt-6">
+      <button id="btnCancelPwd" class="flex-1 py-3 bg-surface-container-low rounded-full text-on-surface-variant font-semibold active:scale-[0.98] transition-transform">取消</button>
+      <button id="btnSubmitPwd" class="flex-1 py-3 primary-gradient rounded-full text-on-primary font-bold active:scale-[0.98] transition-transform">确认修改</button>
     </div>
   </div>
 </div>
@@ -59,9 +114,9 @@
     var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['decrypt']);
 
     var candidates = [ctBytes];
-    if (tagBytes) { 
-      candidates.push(concatBytes(ctBytes, tagBytes)); 
-      candidates.push(concatBytes(tagBytes, ctBytes)); 
+    if (tagBytes) {
+      candidates.push(concatBytes(ctBytes, tagBytes));
+      candidates.push(concatBytes(tagBytes, ctBytes));
     }
 
     for (var i = 0; i < candidates.length; i++) {
@@ -76,21 +131,21 @@
   async function encryptMnemonicLocal(mnemonic, password) {
     var salt = crypto.getRandomValues(new Uint8Array(16));
     var iv = crypto.getRandomValues(new Uint8Array(12));
-    
+
     var keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
     var keyBits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
     var aesKey = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['encrypt']);
-    
+
     var encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, aesKey, new TextEncoder().encode(mnemonic));
     var encryptedBytes = new Uint8Array(encryptedBuf);
-    
+
     var cipherBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
     var tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
-    
+
     function bytesToHex(arr) {
       return Array.from(new Uint8Array(arr)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
     }
-    
+
     return {
       ciphertext: bytesToHex(cipherBytes),
       salt: bytesToHex(salt),
@@ -102,7 +157,7 @@
   document.getElementById('btnUnbind').addEventListener('click', async function() {
     var conf1 = window.confirm('【高危操作】解除绑定会清空您在云端的钱包信息！\n\n请务必确认您已经备份了助记词，否则资金将永久丢失！\n\n确定要解除绑定吗？');
     if (!conf1) return;
-    
+
     var conf2 = window.confirm('再次确认：\n如果没有备份助记词，解除绑定后将无法找回！\n\n是否继续？');
     if (!conf2) return;
 
@@ -142,12 +197,12 @@
 
     var btn = document.getElementById('btnSubmitPwd');
     btn.disabled = true;
-    btn.textContent = '处理中…';
+    btn.innerHTML = '<span class="material-symbols-outlined text-xl spin-anim">progress_activity</span>处理中…';
 
     try {
       var mnemonic = await decryptMnemonicLocal(oldPwd);
       var enc = await encryptMnemonicLocal(mnemonic, newPwd);
-      
+
       await window.SCASH.request('/api/wallet/update-password', {
         method: 'POST',
         body: JSON.stringify({
@@ -170,7 +225,6 @@
     }
   });
 
-  // 判断是否为观察钱包
   async function initSettings() {
     try {
       var home = await window.SCASH.request('/api/wallet/home');
