@@ -360,9 +360,7 @@
       box.style.display = 'none';
       return;
     }
-    
-    // 过滤掉 markdown 里的图片语法，不支持图片
-    var noImageContent = content.replace(/!\[.*?\]\((.*?)\)/g, '[图片暂不支持]');
+
     var html = marked.parse(noImageContent);
     
     htmlWrap.innerHTML = html;

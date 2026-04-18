@@ -340,18 +340,40 @@
     claimPacket();
   });
 
-  document.getElementById('closeBtn').addEventListener('click', function () {
+  function closeMiniApp() {
     var tg = window.SCASH && window.SCASH.TG;
     if (tg && typeof tg.close === 'function') {
       tg.close();
       return;
     }
     location.href = '/wallet/redpacket';
+  }
+
+  document.getElementById('closeBtn').addEventListener('click', function () {
+    closeMiniApp();
   });
 
   document.getElementById('homeBtn').addEventListener('click', function () {
     location.href = '/wallet';
   });
+
+  (function bindBackAsClose() {
+    var tg = window.SCASH && window.SCASH.TG;
+    if (tg) {
+      try { tg.BackButton.show(); } catch (_) {}
+      tg.onEvent('backButtonClicked', function () {
+        closeMiniApp();
+      });
+    }
+
+    // Android system back: consume one history step and close Mini App
+    if (!history.state || !history.state.__claimBackClose) {
+      history.pushState({ __claimBackClose: true }, '', location.href);
+    }
+    window.addEventListener('popstate', function () {
+      closeMiniApp();
+    });
+  })();
 
   loadPacket();
 </script>

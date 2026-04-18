@@ -121,7 +121,7 @@ export class PagesController {
   walletInscribePage(@Res() res: Response) {
     return renderPage(res, 'wallet/inscribe.ejs', this.buildViewData({
       pageTitle: '刻字上链',
-      pageSubtitle: '将 Markdown 文本永久刻入 SCASH',
+      pageSubtitle: '将文本永久刻入 SCASH',
       activeNav: 'home',
       requireFullWallet: true,
     }));
