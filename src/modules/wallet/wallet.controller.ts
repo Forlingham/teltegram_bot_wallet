@@ -102,6 +102,8 @@ export class WalletController {
         status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'REFUNDED';
         expiresAt: string;
         claimedCount: number;
+        totalCount: number;
+        totalAmount: string;
         remainingCount: number;
         remainingAmount: string;
         canShare: boolean;

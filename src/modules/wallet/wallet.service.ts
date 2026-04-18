@@ -163,6 +163,8 @@ export class WalletService {
       packetHash: string;
       expiresAt: Date;
       claimedCount: number;
+      totalCount: number;
+      totalAmount: string;
       remainingCount: number;
       remainingAmount: string;
       status: string;
@@ -173,6 +175,8 @@ export class WalletService {
         packetHash: item.packetHash,
         expiresAt: item.expiredAt,
         claimedCount: item.count - item.remainingCount,
+        totalCount: item.count,
+        totalAmount: item.totalAmount.toString(),
         remainingCount: item.remainingCount,
         remainingAmount: item.remainingAmount.toString(),
         status: item.status,
@@ -200,6 +204,8 @@ export class WalletService {
           status: createPacket.status as 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'REFUNDED',
           expiresAt: createPacket.expiresAt.toISOString(),
           claimedCount: createPacket.claimedCount,
+          totalCount: createPacket.totalCount,
+          totalAmount: createPacket.totalAmount,
           remainingCount: createPacket.remainingCount,
           remainingAmount: createPacket.remainingAmount,
           canShare: isActive,

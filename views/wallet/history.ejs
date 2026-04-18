@@ -1,5 +1,11 @@
-<div class="card">
-  <div class="label">交易记录</div>
+<div class="flex items-center gap-3 mb-6">
+  <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+    <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+  </div>
+  <div>
+    <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">钱包</p>
+    <h2 class="text-xl font-bold font-headline text-on-surface">交易记录</h2>
+  </div>
 </div>
 
 <div id="txList">
@@ -17,17 +23,42 @@
     return explorerBaseUrl().replace(/\/$/, '') + '/tx/' + encodeURIComponent(txid);
   }
 
-  function formatLocalTime(iso) {
+  function formatTimeShort(iso) {
     if (!iso) return '-';
     var d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString('zh-CN', { hour12: false });
+    var date = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+    var time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+    return date + ' ' + time;
   }
 
   function formatTxid(txid) {
     if (!txid) return '-';
     if (txid.length <= 20) return txid;
-    return txid.slice(0, 10) + '...' + txid.slice(-10);
+    return txid.slice(0, 6) + '...' + txid.slice(-6);
+  }
+
+  function formatAmount(num) {
+    if (!num && num !== 0) return '0.00';
+    return Number(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  }
+
+  function formatInt(num) {
+    if (!num && num !== 0) return '0';
+    return Number(num).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+  }
+
+  function getExpiryCountdown(expiresAt) {
+    if (!expiresAt) return '';
+    var now = Date.now();
+    var exp = new Date(expiresAt).getTime();
+    var diff = exp - now;
+    if (diff <= 0) return '已过期';
+    var hours = Math.floor(diff / (1000 * 60 * 60));
+    var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    var secs = Math.floor((diff % (1000 * 60)) / 1000);
+    if (hours > 0) return hours + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + ' 后过期';
+    return mins + ':' + String(secs).padStart(2, '0') + ' 后过期';
   }
 
   async function loadHistory() {
@@ -41,55 +72,19 @@
         return;
       }
       el.innerHTML = data.transactions.map(function (tx) {
-        var dir = tx.direction || 'unknown';
-        var dirLabel = dir === 'in' ? '转入' : (dir === 'out' ? '转出' : '未知');
-        var dirColor = dir === 'in' ? 'var(--brand)' : (dir === 'out' ? '#c0392b' : 'var(--muted)');
-        var rpTypeMap = { CREATE: '红包创建', CLAIM: '红包领取', REFUND: '红包退款' };
-        var badge = (tx.kind === 'redpacket' && tx.redpacketType) ? (rpTypeMap[tx.redpacketType] || '红包交易') : '链上交易';
-        var badgeBg = tx.kind === 'redpacket' ? '#fff1df' : '#edf7ef';
-        var badgeColor = tx.kind === 'redpacket' ? '#a95a08' : 'var(--brand)';
-        var pending = tx.isUnconfirmed ? '（未确认）' : '';
-        var txLine = tx.txid && tx.txid.indexOf('claim-') !== 0
-          ? '<a href="' + txExplorerUrl(tx.txid) + '" target="_blank" rel="noopener noreferrer" class="mono" style="font-size:12px; color:var(--brand); text-decoration:none;">' + formatTxid(tx.txid) + '</a>'
-          : '<span class="mono" style="font-size:12px; color:var(--muted);">' + formatTxid(tx.txid || '') + '</span>';
+        var kind = tx.kind || 'transfer';
+        var rpType = tx.redpacketType;
 
-        var redpacketExtra = '';
-        if (tx.redpacketType === 'CREATE' && tx.redpacketInfo) {
-          var info = tx.redpacketInfo;
-          var statusMap = {
-            ACTIVE: { text: '进行中', bg: '#edf7ef', color: 'var(--brand)', border: '#d7eadb' },
-            COMPLETED: { text: '已抢完', bg: '#fff1df', color: '#a95a08', border: '#f1ce9c' },
-            EXPIRED: { text: '已过期', bg: '#f7f0f0', color: '#9b1c1c', border: '#e5caca' },
-            REFUNDED: { text: '已退款', bg: '#eef2ff', color: '#3730a3', border: '#c7d2fe' },
-          };
-          var s = statusMap[info.status] || { text: '已结束', bg: '#f3f4f6', color: '#4b5563', border: '#d1d5db' };
-          var shareBtn = '';
-          if (info.canShare && info.shareUrl) {
-            shareBtn = '<button class="btn btn-soft rp-share-btn" data-url="' + info.shareUrl + '" style="padding:6px 10px; font-size:12px;">再次分享</button>';
-          }
-          redpacketExtra =
-            '<div style="margin-top:8px; padding:8px; border-radius:10px; background:' + s.bg + '; border:1px dashed ' + s.border + ';">' +
-              '<div style="margin-bottom:6px;"><span style="display:inline-block; padding:2px 8px; border-radius:999px; background:#fff; color:' + s.color + '; border:1px solid ' + s.border + '; font-size:12px; font-weight:700;">' + s.text + '</span></div>' +
-              '<div class="label" style="margin:0 0 4px;">过期时间：' + formatLocalTime(info.expiresAt) + '</div>' +
-              '<div class="label" style="margin:0 0 4px;">领取人数：' + info.claimedCount + '</div>' +
-              '<div class="label" style="margin:0 0 4px;">剩余个数：' + info.remainingCount + '</div>' +
-              '<div class="label" style="margin:0 0 6px;">剩余金额：' + info.remainingAmount + ' SCASH</div>' +
-              shareBtn +
-            '</div>';
+        if (kind === 'redpacket' && rpType === 'CREATE' && tx.redpacketInfo) {
+          return renderRedpacketCreateCard(tx);
         }
-
-        return '<div class="card" style="margin-bottom:8px;">' +
-          '<div class="row">' +
-            '<div style="font-weight:700; color:' + dirColor + ';">' + dirLabel + '</div>' +
-            '<div style="font-weight:700;">' + tx.amount + ' SCASH</div>' +
-          '</div>' +
-          '<div style="margin-top:6px;">' +
-            '<span style="display:inline-block; padding:2px 8px; border-radius:999px; background:' + badgeBg + '; color:' + badgeColor + '; font-size:12px; font-weight:700;">' + badge + pending + '</span>' +
-          '</div>' +
-          '<div class="label" style="margin-top:8px;">TxHash: ' + txLine + '</div>' +
-          redpacketExtra +
-          '<div class="label" style="margin-top:2px; font-size:11px; color:var(--muted);">' + (tx.time || tx.txid || '') + '</div>' +
-        '</div>';
+        if (kind === 'redpacket' && rpType === 'REFUND') {
+          return renderRedpacketRefundCard(tx);
+        }
+        if (kind === 'redpacket' && rpType === 'CLAIM') {
+          return renderRedpacketClaimCard(tx);
+        }
+        return renderTransferCard(tx);
       }).join('');
 
       el.querySelectorAll('.rp-share-btn').forEach(function (btn) {
@@ -106,6 +101,215 @@
     } catch (e) {
       document.getElementById('txList').innerHTML = '<div style="text-align:center; padding:24px; color:#c0392b; font-size:13px;">加载失败</div>';
     }
+  }
+
+  function renderRedpacketCreateCard(tx) {
+    var info = tx.redpacketInfo;
+    var status = info.status || 'UNKNOWN';
+    var statusMap = {
+      ACTIVE: { text: '进行中', badge: 'bg-primary/10', badgeText: 'text-primary' },
+      COMPLETED: { text: '已抢完', badge: 'bg-tertiary/10', badgeText: 'text-tertiary' },
+      EXPIRED: { text: '已过期 (退款)', badge: 'bg-error/10', badgeText: 'text-error' },
+      REFUNDED: { text: '已退款', badge: 'bg-error/10', badgeText: 'text-error' },
+    };
+    var s = statusMap[status] || { text: '已结束', badge: 'bg-surface-variant', badgeText: 'text-on-surface-variant' };
+
+    var shareBtn = '';
+    if (info.canShare && info.shareUrl) {
+      shareBtn = '<button class="rp-share-btn px-3 py-1.5 bg-primary/10 text-primary text-xs font-bold rounded-full" data-url="' + info.shareUrl + '">再次分享</button>';
+    }
+
+    var txLine = tx.txid && tx.txid.indexOf('claim-') !== 0
+      ? '<a href="' + txExplorerUrl(tx.txid) + '" target="_blank" rel="noopener noreferrer" class="font-mono text-primary bg-primary/5 px-2 py-0.5 rounded text-[11px]">' + formatTxid(tx.txid) + '</a>'
+      : '<span class="font-mono text-on-surface-variant text-[11px]">' + formatTxid(tx.txid || '') + '</span>';
+
+    var pending = tx.isUnconfirmed ? '<span class="text-[10px] text-error ml-1">(未确认)</span>' : '';
+
+    var expiryText = status === 'ACTIVE' ? getExpiryCountdown(info.expiresAt) : formatTimeShort(info.expiresAt);
+
+    var refundBlock = '';
+    if (status === 'EXPIRED' || status === 'REFUNDED') {
+      refundBlock = '<div class="bg-error/5 border border-error/20 p-3 rounded mb-4 flex items-center gap-3">' +
+        '<span class="material-symbols-outlined text-error" style="font-variation-settings: \'FILL\' 1;">assignment_return</span>' +
+        '<div>' +
+          '<p class="text-[10px] text-error font-bold uppercase">已原路退回</p>' +
+          '<p class="text-sm font-bold text-on-surface">' + formatAmount(info.remainingAmount) + ' SCASH <span class="font-normal text-xs text-on-surface-variant">(未领取部分)</span></p>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var progressBlock = '';
+    if (status === 'ACTIVE') {
+      var totalCount = info.totalCount || 0;
+      var claimedCount = info.claimedCount || 0;
+      var totalAmount = parseFloat(info.totalAmount || 0);
+      var remainingAmount = parseFloat(info.remainingAmount || 0);
+      var claimedAmount = totalAmount - remainingAmount;
+      var countPct = totalCount > 0 ? Math.round(claimedCount / totalCount * 100) : 0;
+
+      progressBlock = '<div class="grid grid-cols-2 gap-3 mb-4">' +
+        '<div class="bg-surface-container-low p-3 rounded">' +
+          '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">领取进度</p>' +
+          '<div class="flex justify-between items-end">' +
+            '<p class="text-sm font-bold text-on-surface">' + claimedCount + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + totalCount + ' 人</span></p>' +
+            '<p class="text-[10px] font-bold text-primary">' + countPct + '%</p>' +
+          '</div>' +
+          '<div class="w-full h-1.5 bg-surface-container-high rounded-full mt-2 overflow-hidden">' +
+            '<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: ' + countPct + '%"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-surface-container-low p-3 rounded">' +
+          '<p class="text-[10px] text-on-surface-variant font-bold uppercase mb-1">金额进度</p>' +
+          '<p class="text-sm font-bold text-on-surface">' + formatAmount(claimedAmount) + ' <span class="text-xs font-normal text-on-surface-variant">/ ' + formatAmount(totalAmount) + '</span></p>' +
+          '<p class="text-[10px] font-bold text-on-surface-variant mt-1.5">剩余: ' + formatAmount(remainingAmount) + ' SCASH</p>' +
+        '</div>' +
+      '</div>';
+    }
+
+    return '<section class="bg-surface-container-lowest rounded-lg p-5 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] relative overflow-hidden group mb-4">' +
+      '<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12 group-hover:bg-primary/10 transition-colors"></div>' +
+      '<div class="flex justify-between items-start mb-4">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">' +
+            '<span class="material-symbols-outlined text-primary" style="font-variation-settings: \'FILL\' 1;">outbox</span>' +
+          '</div>' +
+          '<div>' +
+            '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">发出的红包</p>' +
+            '<h3 class="text-xl font-bold text-on-surface font-headline">' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+          '</div>' +
+        '</div>' +
+        '<span class="px-3 py-1 ' + s.badge + ' ' + s.badgeText + ' text-[11px] font-extrabold rounded-full tracking-wide">' + s.text + pending + '</span>' +
+      '</div>' +
+      progressBlock +
+      refundBlock +
+      '<div class="flex flex-col gap-2 border-t border-surface-container pt-3">' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">交易哈希 (Hash)</span>' +
+          txLine +
+        '</div>' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">创建时间</span>' +
+          '<span class="text-on-surface font-semibold">' + formatTimeShort(tx.time) + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">到期时间</span>' +
+          '<span class="' + (status === 'ACTIVE' ? 'text-error font-bold italic' : 'text-on-surface font-semibold') + '">' + expiryText + '</span>' +
+        '</div>' +
+      '</div>' +
+      (shareBtn ? '<div class="mt-4 flex justify-end">' + shareBtn + '</div>' : '') +
+    '</section>';
+  }
+
+  function renderRedpacketRefundCard(tx) {
+    var txLine = tx.txid
+      ? '<a href="' + txExplorerUrl(tx.txid) + '" target="_blank" rel="noopener noreferrer" class="font-mono text-error bg-error/10 px-2 py-0.5 rounded text-[11px]">' + formatTxid(tx.txid) + '</a>'
+      : '<span class="font-mono text-on-surface-variant text-[11px]">' + formatTxid(tx.txid || '') + '</span>';
+
+    var pending = tx.isUnconfirmed ? '<span class="text-[10px] text-error ml-1">(未确认)</span>' : '';
+
+    return '<section class="bg-surface-container-lowest rounded-lg p-5 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] relative overflow-hidden group mb-4">' +
+      '<div class="absolute top-0 right-0 w-24 h-24 bg-error/5 rounded-full -mr-12 -mt-12"></div>' +
+      '<div class="flex justify-between items-start mb-4">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 bg-error/10 rounded-full flex items-center justify-center">' +
+            '<span class="material-symbols-outlined text-error" style="font-variation-settings: \'FILL\' 1;">assignment_return</span>' +
+          '</div>' +
+          '<div>' +
+            '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">退回红包</p>' +
+            '<h3 class="text-xl font-bold text-error font-headline">+' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+          '</div>' +
+        '</div>' +
+        '<span class="px-3 py-1 bg-error/10 text-error text-[11px] font-extrabold rounded-full tracking-wide">已退款' + pending + '</span>' +
+      '</div>' +
+      '<div class="bg-error/5 border border-error/20 p-3 rounded mb-4">' +
+        '<div class="flex items-center gap-2 ">' +
+          '<span class="material-symbols-outlined text-error scale-75" style="font-variation-settings: \'FILL\' 1;">inbox</span>' +
+          '<p class="text-xs text-error font-bold uppercase">红包过期 · 未领取部分原路退回</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="flex flex-col gap-2 border-t border-surface-container pt-3">' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">交易哈希 (Hash)</span>' +
+          txLine +
+        '</div>' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">退回时间</span>' +
+          '<span class="text-on-surface font-semibold">' + formatTimeShort(tx.time) + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderRedpacketClaimCard(tx) {
+    var txLine = tx.txid && tx.txid.indexOf('claim-') !== 0
+      ? '<a href="' + txExplorerUrl(tx.txid) + '" target="_blank" rel="noopener noreferrer" class="font-mono text-tertiary bg-tertiary/10 px-2 py-0.5 rounded text-[11px]">' + formatTxid(tx.txid) + '</a>'
+      : '<span class="font-mono text-on-surface-variant text-[11px]">' + formatTxid(tx.txid || '') + '</span>';
+
+    var pending = tx.isUnconfirmed ? '<span class="text-[10px] text-error ml-1">(未确认)</span>' : '';
+
+    return '<section class="bg-surface-container-lowest rounded-lg p-5 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] relative overflow-hidden group mb-4">' +
+      '<div class="flex justify-between items-start mb-4">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 bg-tertiary/10 rounded-full flex items-center justify-center">' +
+            '<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: \'FILL\' 1;">task_alt</span>' +
+          '</div>' +
+          '<div>' +
+            '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">收到的红包</p>' +
+            '<h3 class="text-xl font-bold text-tertiary font-headline">+' + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+          '</div>' +
+        '</div>' +
+        '<span class="px-3 py-1 bg-tertiary/10 text-tertiary text-[11px] font-extrabold rounded-full tracking-wide">已领取' + pending + '</span>' +
+      '</div>' +
+      '<div class="flex flex-col gap-2 border-t border-surface-container pt-3">' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">交易哈希 (Hash)</span>' +
+          txLine +
+        '</div>' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">领取时间</span>' +
+          '<span class="text-on-surface font-semibold">' + formatTimeShort(tx.time) + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderTransferCard(tx) {
+    var dir = tx.direction || 'unknown';
+    var isIn = dir === 'in';
+    var dirLabel = isIn ? '转入' : '转出';
+    var dirColor = isIn ? 'text-tertiary' : 'text-error';
+    var dirBg = isIn ? 'bg-tertiary/10' : 'bg-error/10';
+    var dirIcon = isIn ? 'call_received' : 'call_made';
+    var pending = tx.isUnconfirmed ? '<span class="text-[10px] text-error ml-1">(未确认)</span>' : '';
+
+    var txLine = tx.txid
+      ? '<a href="' + txExplorerUrl(tx.txid) + '" target="_blank" rel="noopener noreferrer" class="font-mono text-primary bg-primary/5 px-2 py-0.5 rounded text-[11px]">' + formatTxid(tx.txid) + '</a>'
+      : '<span class="font-mono text-on-surface-variant text-[11px]">-</span>';
+
+    return '<section class="bg-surface-container-lowest rounded-lg p-5 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] relative overflow-hidden group mb-4">' +
+      '<div class="flex justify-between items-start mb-4">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 ' + dirBg + ' rounded-full flex items-center justify-center">' +
+            '<span class="material-symbols-outlined ' + dirColor + '" style="font-variation-settings: \'FILL\' 1;">' + dirIcon + '</span>' +
+          '</div>' +
+          '<div>' +
+            '<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">链上转账</p>' +
+            '<h3 class="text-xl font-bold ' + dirColor + ' font-headline">' + (isIn ? '+' : '-') + formatAmount(tx.amount) + ' <span class="text-xs font-normal text-on-surface-variant">SCASH</span></h3>' +
+          '</div>' +
+        '</div>' +
+        '<span class="px-3 py-1 bg-surface-container-low text-on-surface-variant text-[11px] font-extrabold rounded-full tracking-wide">' + dirLabel + pending + '</span>' +
+      '</div>' +
+      '<div class="flex flex-col gap-2 border-t border-surface-container pt-3">' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">交易哈希 (Hash)</span>' +
+          txLine +
+        '</div>' +
+        '<div class="flex justify-between items-center text-[11px]">' +
+          '<span class="text-on-surface-variant font-medium">时间</span>' +
+          '<span class="text-on-surface font-semibold">' + formatTimeShort(tx.time) + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
   }
 
   loadHistory();
