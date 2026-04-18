@@ -79,12 +79,20 @@
 </section>
 
 <section id="walletHome" style="display: none;margin-top: 0;">
-  <div id="backupReminder" class="rounded-lg p-4 mb-4" style="display: none; background: var(--warn-bg); border: 1px solid var(--warn-border);">
-    <div class="font-bold mb-2" style="color: var(--warn-text);">请尽快备份助记词</div>
-    <div class="text-sm mb-3" style="color: var(--warn-text); line-height: 1.5;">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</div>
-    <div class="flex gap-2 flex-wrap">
-      <button id="btnBackupDone" class="px-4 py-2 rounded-lg font-semibold text-white" style="background: var(--brand);">我已备份</button>
-      <a href="/wallet/recover" class="px-4 py-2 rounded-lg font-semibold" style="background: #edf7ef; color: var(--brand);">查看密文</a>
+  <div id="backupReminder" class="relative overflow-hidden rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]" style="display: none; background: linear-gradient(135deg, #9128ad 0%, #e67aff 100%);">
+    <div class="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+    <div class="relative z-10 flex items-start gap-4">
+      <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">key</span>
+      </div>
+      <div class="flex-1">
+        <h3 class="font-headline text-lg font-bold text-white mb-1">请尽快备份助记词</h3>
+        <p class="text-white/80 text-sm leading-relaxed mb-4">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</p>
+        <div class="flex gap-3">
+          <button id="btnBackupDone" class="px-5 py-2.5 bg-white text-primary rounded-full font-bold text-sm shadow-lg active:scale-[0.98] transition-transform">我已备份</button>
+          <a href="/wallet/recover" class="px-5 py-2.5 bg-white/20 backdrop-blur-md text-white rounded-full font-bold text-sm border border-white/30 active:scale-[0.98] transition-transform">去备份</a>
+        </div>
+      </div>
     </div>
   </div>
 
