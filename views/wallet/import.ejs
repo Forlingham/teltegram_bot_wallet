@@ -1,15 +1,69 @@
-<div class="card">
-  <div class="info">输入你的12个助记词，设置密码加密后导入。助记词仅在前端使用，不会上传到服务器。</div>
+<div class="fixed top-[-10%] right-[-10%] w-[300px] h-[300px] bg-primary rounded-full blur-[80px] opacity-15 -z-10"></div>
+<div class="fixed bottom-[-5%] left-[-5%] w-[250px] h-[250px] bg-tertiary rounded-full blur-[80px] opacity-15 -z-10"></div>
 
-  <div class="label">助记词（12个单词，用空格分隔）</div>
-  <textarea id="mnemonic" rows="3" placeholder="word1 word2 word3 ..."></textarea>
+<main class="min-h-screen max-w-md mx-auto flex flex-col gap-10 relative">
+  <header class="space-y-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-full primary-gradient flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">download</span>
+      </div>
+      <div class="h-1 w-12 bg-surface-container-highest rounded-full"></div>
+    </div>
+    <h1 class="font-headline text-[2.75rem] font-extrabold leading-[1.1] tracking-tight text-on-background">
+      导入钱包
+    </h1>
+    <p class="font-body text-on-surface-variant leading-relaxed text-sm">
+      输入你的12个助记词，设置密码加密后导入。明文助记词仅在前端使用，上传服务器的密码是经过你的密码加密的。
+    </p>
+  </header>
 
-  <div class="label">设置钱包密码</div>
-  <input id="password" type="password" placeholder="请输入密码（不少于8位）" autocomplete="off" />
-  <input id="confirm" type="password" placeholder="再次输入密码确认" autocomplete="off" style="margin-top:0" />
+  <section class="flex flex-col gap-8">
+    <div class="space-y-4">
+      <div class="flex items-center justify-between px-1">
+        <label class="font-headline font-bold text-lg tracking-tight">助记词</label>
+        <span class="font-label text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full">12 Words</span>
+      </div>
+      <div class="relative group">
+        <textarea id="mnemonic" class="w-full min-h-[160px] bg-surface-container-lowest rounded-lg p-5 font-body text-on-surface border-none focus:ring-2 focus:ring-primary/20 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] transition-all resize-none placeholder:text-outline-variant" placeholder="word1 word2 word3 ..."></textarea>
+        <div class="absolute inset-0 rounded-lg pointer-events-none border border-primary/5 group-focus-within:border-primary/20 transition-colors"></div>
+      </div>
+    </div>
 
-  <button id="submitBtn" class="btn btn-brand" style="margin-top:16px;">导入钱包</button>
-  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 px-1">
+        <span class="material-symbols-outlined text-primary text-xl">lock</span>
+        <label class="font-headline font-bold text-lg tracking-tight">设置钱包密码</label>
+      </div>
+      <div class="space-y-3">
+        <div class="relative">
+          <input id="password" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" placeholder="请输入密码 (不少于8位)" type="password" autocomplete="off" />
+        </div>
+        <div class="relative">
+          <input id="confirm" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" placeholder="再次输入密码确认" type="password" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-surface-container-low/50 rounded-lg p-5 flex gap-4 items-start">
+      <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+      <p class="text-xs font-label text-on-surface-variant leading-relaxed">
+        <span class="font-bold text-on-surface">安全提示：</span>
+        请确保周围环境安全。导入成功后，我们将为您创建高强度的本地加密存储环境。
+      </p>
+    </div>
+  </section>
+
+  <footer class="mt-auto pt-8 pb-4">
+    <button id="submitBtn" class="w-full h-16 primary-gradient rounded-full flex items-center justify-center gap-2 text-on-primary font-headline font-bold text-lg shadow-[0px_12px_32px_rgba(44,47,49,0.06)] active:scale-[0.98] transition-transform duration-200 group">
+      导入钱包
+      <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+    </button>
+    <div id="errorMsg" class="text-error text-sm font-medium mt-4 text-center" style="display:none;"></div>
+  </footer>
+</main>
+
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none overflow-hidden opacity-40 -z-10">
+  <div class="absolute top-[20%] right-[-20%] w-[400px] h-[400px] bg-primary/20 rounded-full blur-[120px]"></div>
 </div>
 
 <script type="module">
@@ -21,13 +75,19 @@
 
   function setLoading(on) {
     var btn = document.getElementById('submitBtn');
-    if (on) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>导入中…'; }
-    else { btn.disabled = false; btn.textContent = '导入钱包'; }
+    if (on) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined text-xl spin-anim">progress_activity</span><span>导入中…</span>';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '导入钱包<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>';
+    }
   }
 
   function showError(msg) {
     var el = document.getElementById('errorMsg');
-    el.textContent = msg; el.style.display = 'block';
+    el.textContent = msg;
+    el.style.display = 'block';
   }
 
   function deriveScashAddress(mnemonic) {
@@ -56,6 +116,7 @@
 
   document.getElementById('submitBtn').addEventListener('click', async function () {
     var mn = document.getElementById('mnemonic').value.trim();
+    mn = mn.replace(/\s+/g, ' ');
     var pw = document.getElementById('password').value.trim();
     var cw = document.getElementById('confirm').value.trim();
     showError('');
