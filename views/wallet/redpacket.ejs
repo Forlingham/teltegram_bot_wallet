@@ -1,3 +1,19 @@
+<style>
+  .lb-card { margin-bottom:12px; }
+  .lb-title { font-size:15px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .lb-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #f0f0f0; }
+  .lb-row:last-child { border-bottom:none; }
+  .lb-rank { min-width:24px; font-size:14px; font-weight:800; text-align:center; color:var(--muted); }
+  .lb-rank.top1 { color:#d4a017; font-size:16px; }
+  .lb-rank.top2 { color:#8c8c8c; font-size:15px; }
+  .lb-rank.top3 { color:#b87333; font-size:15px; }
+  .lb-avatar { width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #eee; background:#f8f8f8; flex-shrink:0; }
+  .lb-info { flex:1; min-width:0; }
+  .lb-name { font-size:13px; font-weight:600; color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lb-count { font-size:11px; color:var(--muted); margin-top:1px; }
+  .lb-amount { font-size:13px; font-weight:700; color:var(--brand); white-space:nowrap; }
+</style>
+
 <div style="margin-bottom:16px;">
   <a href="/wallet/redpacket/create" class="btn btn-brand" style="display:block; text-align:center; text-decoration:none;">
     &#x1F4E5; 发红包
@@ -9,35 +25,52 @@
   <div class="label">红包封面功能还在开发中</div>
 </div>
 
-<div id="packetList">
-  <div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">加载中…</div>
+<div class="card lb-card">
+  <div class="lb-title">&#x1F3C6; 红包发送排行榜</div>
+  <div id="leaderboard">
+    <div style="text-align:center; padding:16px; color:var(--muted); font-size:13px;">加载中…</div>
+  </div>
 </div>
 
 <script>
-  async function loadPackets() {
+  function rankClass(rank) {
+    if (rank === 1) return 'lb-rank top1';
+    if (rank === 2) return 'lb-rank top2';
+    if (rank === 3) return 'lb-rank top3';
+    return 'lb-rank';
+  }
+
+  function rankIcon(rank) {
+    if (rank === 1) return '\u{1F947}';
+    if (rank === 2) return '\u{1F948}';
+    if (rank === 3) return '\u{1F949}';
+    return rank;
+  }
+
+  async function loadLeaderboard() {
+    var el = document.getElementById('leaderboard');
     try {
-      var data = await window.SCASH.request('/api/redpacket/user/packets?type=all');
-      var el = document.getElementById('packetList');
-      if (!data.packets || data.packets.length === 0) {
-        el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">暂无可使用的的红包封面</div>';
+      var data = await window.SCASH.request('/api/redpacket/leaderboard');
+      if (!data || data.length === 0) {
+        el.innerHTML = '<div style="text-align:center; padding:16px; color:var(--muted); font-size:13px;">暂无发送记录</div>';
         return;
       }
-      el.innerHTML = data.packets.map(function (p) {
-        var status = p.claimed ? '已领取' : (p.expired ? '已过期' : '可领取');
-        var statusColor = p.claimed ? 'var(--muted)' : (p.expired ? '#c0392b' : 'var(--brand)');
-        return '<div class="card" style="margin-bottom:8px;">' +
-          '<div class="row">' +
-            '<div style="font-weight:700;">' + p.amount + ' SCASH</div>' +
-            '<div style="color:' + statusColor + '; font-size:12px;">' + status + '</div>' +
+      el.innerHTML = data.map(function (item) {
+        var avatar = item.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(item.displayName));
+        return '<div class="lb-row">' +
+          '<div class="' + rankClass(item.rank) + '">' + rankIcon(item.rank) + '</div>' +
+          '<img class="lb-avatar" src="' + avatar + '" alt="avatar" />' +
+          '<div class="lb-info">' +
+            '<div class="lb-name">' + item.displayName + '</div>' +
+            '<div class="lb-count">发送 ' + item.totalCount + ' 次</div>' +
           '</div>' +
-          '<div class="label" style="margin-top:4px;">' + (p.message || '红包') + '</div>' +
-          (!p.claimed && !p.expired ? '<a href="/wallet/redpacket/claim?id=' + p.id + '" class="btn btn-brand" style="margin-top:8px; display:block; text-align:center; text-decoration:none;">领取</a>' : '') +
+          '<div class="lb-amount">' + item.totalAmount + ' SCASH</div>' +
         '</div>';
       }).join('');
     } catch (e) {
-      document.getElementById('packetList').innerHTML = '<div style="text-align:center; padding:24px; color:#c0392b; font-size:13px;">加载失败</div>';
+      el.innerHTML = '<div style="text-align:center; padding:16px; color:#c0392b; font-size:13px;">加载失败</div>';
     }
   }
 
-  loadPackets();
+  loadLeaderboard();
 </script>

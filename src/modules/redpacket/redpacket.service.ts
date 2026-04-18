@@ -279,4 +279,38 @@ export class RedpacketService {
     const seed = `${userId}:${txid}:${Date.now()}:${randomBytes(8).toString('hex')}`;
     return createHash('sha256').update(seed).digest('hex').slice(0, 32);
   }
+
+  async getLeaderboard(limit = 20) {
+    const rows = await this.prisma.redPacket.groupBy({
+      by: ['senderId'],
+      _sum: { totalAmount: true },
+      _count: { id: true },
+      orderBy: { _sum: { totalAmount: 'desc' } },
+      take: limit,
+    });
+
+    const userIds = rows.map((r) => r.senderId);
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, username: true, firstName: true, lastName: true, photoUrl: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return rows.map((r, idx) => {
+      const user = userMap.get(r.senderId);
+      const displayName = user
+        ? user.username
+          ? '@' + user.username
+          : [user.firstName, user.lastName].filter(Boolean).join(' ') || '#' + r.senderId
+        : '#' + r.senderId;
+      return {
+        rank: idx + 1,
+        userId: r.senderId,
+        displayName,
+        photoUrl: user?.photoUrl ?? null,
+        totalAmount: r._sum.totalAmount?.toString() ?? '0',
+        totalCount: r._count.id,
+      };
+    });
+  }
 }

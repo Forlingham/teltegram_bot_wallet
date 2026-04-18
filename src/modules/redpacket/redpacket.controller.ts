@@ -34,6 +34,11 @@ export class RedpacketController {
     return this.redpacketService.listPackets(user.userId, query.type);
   }
 
+  @Get('leaderboard')
+  leaderboard() {
+    return this.redpacketService.getLeaderboard(20);
+  }
+
   @Get(':id')
   get(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.redpacketService.getPacket(user.userId, id);
