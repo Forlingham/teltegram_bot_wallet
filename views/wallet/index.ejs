@@ -1,108 +1,154 @@
-<section id="noWallet" class="card" style="display: none">
-  <div style="text-align:center; padding: 24px 0 8px;">
-    <div style="font-size:48px; margin-bottom:12px;">&#x1F3E6;</div>
-    <div style="font-size:18px; font-weight:700; margin-bottom:6px;">欢迎使用 SCASH 钱包</div>
-    <div class="label" style="margin-bottom:24px;">创建、导入或绑定钱包后即可开始使用</div>
+<section id="noWallet" style="display: none">
+  <div class="text-center pt-8 pb-4">
+    <div class="text-5xl mb-3">&#x1F3E6;</div>
+    <div class="text-lg font-headline font-bold mb-2">欢迎使用 SCASH 钱包</div>
+    <div class="text-sm text-on-surface-variant font-label">创建、导入或绑定钱包后即可开始使用</div>
   </div>
-  
+
   <div id="pendingAirdropSection" style="display: none; background: #fffdf5; border: 1px dashed #f1ce9c; border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: center;">
-    <div style="font-size: 14px; color: #a95a08; font-weight: 700; margin-bottom: 8px;">&#x1F381; 你有待入账的红包资金</div>
-    <div style="font-size: 28px; font-weight: 900; color: #d42828; margin-bottom: 4px;">
-      <span id="pendingAirdropAmount">-</span> <span style="font-size: 14px;">SCASH</span>
+    <div class="text-sm font-bold mb-2" style="color: #a95a08;">&#x1F381; 你有待入账的红包资金</div>
+    <div class="text-2xl font-extrabold mb-1" style="color: #d42828;">
+      <span id="pendingAirdropAmount">-</span> <span class="text-sm">SCASH</span>
     </div>
-    <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+    <div class="text-xs text-on-surface-variant mb-3">
       来自 <span id="pendingAirdropCount">-</span> 个红包。创建或导入钱包后将自动打入你的地址。
     </div>
   </div>
 
-  <div class="quick-grid">
-    <a class="quick-link" href="/wallet/create">&#x1F310; 创建钱包</a>
-    <a class="quick-link" href="/wallet/import">&#x1F504; 导入钱包</a>
-    <a class="quick-link" href="/wallet/bind">&#x1F517; 绑定钱包</a>
-  </div>
+  <nav class="grid grid-cols-3 gap-3">
+    <a class="flex flex-col items-center gap-2 py-4 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container-lowest transition-colors" href="/wallet/create">
+      <span class="text-2xl">&#x1F310;</span>
+      <span class="text-xs font-bold text-on-surface">创建钱包</span>
+    </a>
+    <a class="flex flex-col items-center gap-2 py-4 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container-lowest transition-colors" href="/wallet/import">
+      <span class="text-2xl">&#x1F504;</span>
+      <span class="text-xs font-bold text-on-surface">导入钱包</span>
+    </a>
+    <a class="flex flex-col items-center gap-2 py-4 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container-lowest transition-colors" href="/wallet/bind">
+      <span class="text-2xl">&#x1F517;</span>
+      <span class="text-xs font-bold text-on-surface">绑定钱包</span>
+    </a>
+  </nav>
 </section>
 
 <section id="walletHome" style="display: none">
-  <div id="backupReminder" class="card warn" style="display: none; margin-bottom:12px;">
-    <div class="warn-title">请尽快备份助记词</div>
-    <div class="warn-desc">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</div>
-    <div class="actions">
-      <button id="btnBackupDone" class="btn btn-brand">我已备份</button>
-      <a href="/wallet/recover" class="quick-link" style="padding:10px 12px;">查看密文</a>
+  <div id="backupReminder" class="rounded-lg p-4 mb-4" style="display: none; background: var(--warn-bg); border: 1px solid var(--warn-border);">
+    <div class="font-bold mb-2" style="color: var(--warn-text);">请尽快备份助记词</div>
+    <div class="text-sm mb-3" style="color: var(--warn-text); line-height: 1.5;">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</div>
+    <div class="flex gap-2 flex-wrap">
+      <button id="btnBackupDone" class="px-4 py-2 rounded-lg font-semibold text-white" style="background: var(--brand);">我已备份</button>
+      <a href="/wallet/recover" class="px-4 py-2 rounded-lg font-semibold" style="background: #edf7ef; color: var(--brand);">查看密文</a>
     </div>
   </div>
 
-  <div class="card">
-    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
-      <span>钱包地址</span>
-      <span id="watchOnlyTag" style="display:none; font-size:11px; padding:2px 6px; background:#f4f7f2; border:1px dashed #c0392b; color:#c0392b; border-radius:4px; font-weight:700;">观察钱包 (不可发送)</span>
+  <section class="relative overflow-hidden pt-4">
+    <div class="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl"></div>
+    <div class="relative z-10 space-y-1">
+      <div id="homeAvatarArea" class="flex justify-center mb-3" style="display: none;">
+        <img id="homeAvatar" src="" class="w-14 h-14 rounded-full object-cover border-2 border-primary/20" />
+      </div>
+      <div class="flex justify-between items-start">
+        <p class="text-on-surface-variant font-label text-sm font-medium">总余额</p>
+        <button id="btnRefresh" class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <span class="material-symbols-outlined text-lg">refresh</span>
+        </button>
+      </div>
+      <div class="flex flex-col items-start">
+        <h1 class="text-4xl font-headline font-extrabold tracking-tight text-on-surface flex items-baseline gap-2">
+          <span id="walletTotalBalance">0.00000000</span>
+          <span class="text-xl text-primary font-bold">SCASH</span>
+        </h1>
+        <div class="flex items-center gap-2 mt-1">
+          <span id="balanceFiat" class="text-lg text-on-surface-variant font-medium" style="display: none;"></span>
+          <span id="priceTag" class="px-2 py-0.5 rounded-full text-xs font-bold" style="display: none;"></span>
+        </div>
+      </div>
     </div>
-    <div id="walletAddress" class="mono" style="font-size:12px; word-break:break-all; color:var(--brand); margin-top:6px;">-</div>
-  </div>
+  </section>
 
-  <div class="card" style="padding: 20px 16px;">
-    <div id="homeAvatarArea" style="display:none; text-align:center; margin-bottom:12px;">
-      <img id="homeAvatar" src="" style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid var(--brand);" />
+  <section class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex items-center justify-between group cursor-pointer hover:bg-surface-container-low transition-colors duration-200 mt-4">
+    <div class="flex items-center gap-3 overflow-hidden">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+        <span class="material-symbols-outlined text-lg">wallet</span>
+      </div>
+      <div class="overflow-hidden">
+        <p class="text-[10px] text-on-surface-variant font-label uppercase tracking-wider mb-0.5">我的钱包地址</p>
+        <p id="walletAddress" class="text-xs font-mono text-on-surface truncate pr-4">-</p>
+      </div>
     </div>
-    <div class="row" style="align-items: flex-start; margin-bottom: 16px;">
+    <div class="flex-shrink-0 flex items-center gap-2">
+      <span id="watchOnlyTag" class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="display: none; background: #f4f7f2; border: 1px dashed #c0392b; color: #c0392b;">观察钱包</span>
+      <button id="btnCopyAddress" class="text-slate-400 hover:text-primary transition-colors">
+        <span class="material-symbols-outlined text-lg">content_copy</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-2 gap-4 mt-4">
+    <div class="bg-surface-container-low rounded-lg p-4 flex flex-col gap-1">
+      <div class="flex items-center gap-1.5 text-on-surface-variant mb-1">
+        <span class="material-symbols-outlined text-sm">check_circle</span>
+        <span class="text-[11px] font-bold font-headline uppercase tracking-tight">已确认 (链上)</span>
+      </div>
+      <p id="walletConfirmedBalance" class="text-sm font-bold text-on-surface">0.00000000</p>
+      <p class="text-[10px] text-on-surface-variant">SCASH</p>
+    </div>
+    <div class="bg-surface-container-low rounded-lg p-4 flex flex-col gap-1 border border-primary/5">
+      <div class="flex items-center gap-1.5 text-primary mb-1">
+        <span class="material-symbols-outlined text-sm">pending</span>
+        <span class="text-[11px] font-bold font-headline uppercase tracking-tight">未确认 (内存池)</span>
+      </div>
+      <p id="walletUnconfirmedBalance" class="text-sm font-bold text-primary">0.00000000</p>
+      <p class="text-[10px] text-primary/70">SCASH</p>
+    </div>
+  </section>
+
+  <nav class="grid grid-cols-4 gap-3 mt-6">
+    <a class="flex flex-col items-center gap-2 group" href="/wallet/send">
+      <div class="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-lg shadow-primary/20 group-active:scale-90 transition-all duration-300">
+        <span class="material-symbols-outlined text-2xl">send</span>
+      </div>
+      <span class="text-xs font-bold text-on-surface">发送</span>
+    </a>
+    <a class="flex flex-col items-center gap-2 group" href="/wallet/receive">
+      <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
+        <span class="material-symbols-outlined text-2xl">download</span>
+      </div>
+      <span class="text-xs font-bold text-on-surface">接收</span>
+    </a>
+    <a class="flex flex-col items-center gap-2 group" href="/wallet/inscribe">
+      <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
+        <span class="material-symbols-outlined text-2xl">edit_note</span>
+      </div>
+      <span class="text-xs font-bold text-on-surface">刻字上链</span>
+    </a>
+    <a id="scanQrHomeBtn" class="flex flex-col items-center gap-2 group cursor-pointer">
+      <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
+        <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
+      </div>
+      <span class="text-xs font-bold text-on-surface">扫码</span>
+    </a>
+  </nav>
+
+  <div id="priceChartCard"  class="mt-6 pt-2">
+    <div class="flex justify-between items-end mb-4">
       <div>
-        <div class="label" style="margin-bottom:8px;">总余额</div>
-        <div id="walletTotalBalance" class="value" style="font-size: 32px; color: var(--brand); margin-top: 0;">0.00000000</div>
-        <div style="font-size: 13px; font-weight: 700; color: var(--brand);">SCASH</div>
-        <div id="balanceFiat" style="display:none; font-size:12px; color:var(--muted); margin-top:4px;"></div>
+        <h2 class="text-lg font-headline font-bold text-on-surface">SCASH 7日走势</h2>
+        <p id="chartPriceTag" class="text-xs text-on-surface-variant font-medium">市场价格：<span id="chartCurrentPrice">$0.000000</span></p>
       </div>
-      <div style="text-align:right;">
-        <button id="btnRefresh" class="btn btn-soft" style="padding: 8px 12px; margin-bottom:6px;">&#x21BB; 刷新</button>
-        <div id="priceTag" style="display:none; font-size:11px; color:var(--muted); white-space:nowrap;"></div>
+      <div class="text-right">
+        <span id="chartPriceChange" class="font-bold font-headline text-lg"></span>
       </div>
     </div>
-    
-    <div style="background: #f8fbf7; border: 1px dashed #d8e8d8; border-radius: 10px; padding: 12px;">
-      <div class="row" style="margin-bottom: 6px;">
-        <span class="label" style="margin:0;">已确认 (链上)</span>
-        <span id="walletConfirmedBalance" class="mono" style="font-weight: 600; color: #1e2a1e;">0.00000000 SCASH</span>
+    <div class=" w-full relative overflow-hidden bg-surface-container-lowest rounded-lg p-4 border border-outline-variant/10">
+      <div class="absolute inset-0 opacity-10 flex items-center justify-center">
+        <div class="w-full h-[1px] bg-outline-variant absolute top-1/4"></div>
+        <div class="w-full h-[1px] bg-outline-variant absolute top-2/4"></div>
+        <div class="w-full h-[1px] bg-outline-variant absolute top-3/4"></div>
       </div>
-      <div class="row">
-        <span class="label" style="margin:0;">未确认 (内存池)</span>
-        <span id="walletUnconfirmedBalance" class="mono" style="font-weight: 600; color: #a95a08;">0.00000000 SCASH</span>
-      </div>
+      <div id="priceChartContainer" style="width:100%; height:100%;"></div>
+      <div id="chartCrosshairPrice" class="absolute top-2 right-2 text-[10px] text-on-surface-variant"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="label" style="margin-bottom:10px;">常用操作</div>
-    <div class="quick-grid">
-      <a class="quick-link" href="/wallet/send">
-        <div style="font-size:24px;">&#x2B06;</div>
-        <div style="margin-top:4px;">发送</div>
-      </a>
-      <a class="quick-link" href="/wallet/receive">
-        <div style="font-size:24px;">&#x2B07;</div>
-        <div style="margin-top:4px;">接收</div>
-      </a>
-      <a class="quick-link" href="/wallet/inscribe">
-        <div style="font-size:24px;">&#x270D;</div>
-        <div style="margin-top:4px;">刻字上链</div>
-      </a>
-      <a id="scanQrHomeBtn" class="quick-link" href="javascript:void(0)">
-        <div style="font-size:24px;">&#x1F4F7;</div>
-        <div style="margin-top:4px;">扫码</div>
-      </a>
-    </div>
-  </div>
-
-  <div id="priceChartCard" class="card" style="display:none; padding:14px 14px 6px;">
-    <div class="row" style="margin-bottom:8px; align-items:flex-start;">
-      <div>
-        <div class="label" style="margin:0 0 2px;">SCASH 7日走势</div>
-        <div id="chartPriceChange" style="font-size:11px; font-weight:700;"></div>
-      </div>
-      <div style="text-align:right;">
-        <div id="chartCurrentPrice" style="font-size:16px; font-weight:800; color:var(--brand);"></div>
-        <div id="chartCrosshairPrice" style="font-size:11px; color:var(--muted); min-height:16px;"></div>
-      </div>
-    </div>
-    <div id="priceChartContainer" style="width:100%; height:200px;"></div>
   </div>
 </section>
 

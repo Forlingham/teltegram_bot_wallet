@@ -1,18 +1,18 @@
-<nav class="bottom-nav">
-  <a class="nav-item <%= activeNav === 'home' ? 'active' : '' %>" href="/wallet">
-    <div class="nav-icon">&#x1F4B0;</div>
-    <div>首页</div>
+<nav class="fixed bottom-0 w-full z-50 rounded-t-[2.5rem] bg-slate-50/90 backdrop-blur-2xl shadow-[0px_-12px_32px_rgba(145,40,173,0.08)] flex justify-around items-center px-4 pb-8 pt-4">
+  <a class="flex flex-col items-center justify-center <%= activeNav === 'home' ? 'bg-gradient-to-br from-purple-600 to-purple-400 text-white rounded-full px-5 py-2.5 shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-purple-500' %> active:scale-90 transition-all duration-300 ease-out py-2.5 px-5" href="/wallet">
+    <span class="material-symbols-outlined">home</span>
+    <span class="font-headline font-medium text-[10px] mt-0.5">首页</span>
   </a>
-  <a class="nav-item <%= activeNav === 'redpacket' ? 'active' : '' %>" href="/wallet/redpacket">
-    <div class="nav-icon">&#x1F4E5;</div>
-    <div>红包</div>
+  <a class="flex flex-col items-center justify-center <%= activeNav === 'redpacket' ? 'bg-gradient-to-br from-purple-600 to-purple-400 text-white rounded-full px-5 py-2.5 shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-purple-500' %> active:scale-90 transition-all duration-300 ease-out py-2.5 px-5" href="/wallet/redpacket">
+    <span class="material-symbols-outlined">card_giftcard</span>
+    <span class="font-headline font-medium text-[10px] mt-0.5">红包</span>
   </a>
-  <a class="nav-item <%= activeNav === 'history' ? 'active' : '' %>" href="/wallet/history">
-    <div class="nav-icon">&#x1F4C8;</div>
-    <div>历史</div>
+  <a class="flex flex-col items-center justify-center <%= activeNav === 'history' ? 'bg-gradient-to-br from-purple-600 to-purple-400 text-white rounded-full px-5 py-2.5 shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-purple-500' %> active:scale-90 transition-all duration-300 ease-out py-2.5 px-5" href="/wallet/history">
+    <span class="material-symbols-outlined">history</span>
+    <span class="font-headline font-medium text-[10px] mt-0.5">记录</span>
   </a>
-  <a class="nav-item <%= activeNav === 'about' ? 'active' : '' %>" href="/wallet/about">
-    <div class="nav-icon">&#x1F4E2;</div>
-    <div>关于</div>
+  <a class="flex flex-col items-center justify-center <%= activeNav === 'about' ? 'bg-gradient-to-br from-purple-600 to-purple-400 text-white rounded-full px-5 py-2.5 shadow-lg shadow-purple-500/30' : 'text-slate-400 hover:text-purple-500' %> active:scale-90 transition-all duration-300 ease-out py-2.5 px-5" href="/wallet/about">
+    <span class="material-symbols-outlined">info</span>
+    <span class="font-headline font-medium text-[10px] mt-0.5">关于</span>
   </a>
 </nav>
