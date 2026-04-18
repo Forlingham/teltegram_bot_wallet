@@ -155,6 +155,7 @@ export class PagesController {
       pageSubtitle: '',
       activeNav: 'redpacket',
       requireFullWallet: true,
+      env: this.configService.get<string>('NODE_ENV') || 'development',
     }));
   }
 

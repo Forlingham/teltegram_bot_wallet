@@ -42,4 +42,9 @@ export class RedpacketCreateDto {
 
   @IsString()
   feeReserve!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  expireSeconds?: number;
 }

@@ -1,3 +1,21 @@
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box { background:#fff; border-radius:14px; padding:24px 20px; width:88vw; max-width:340px; box-shadow:0 12px 40px rgba(0,0,0,.25); }
+  .modal-title { font-size:16px; font-weight:700; margin-bottom:14px; text-align:center; }
+  .modal-body { font-size:13px; color:#444; margin-bottom:16px; white-space:pre-line; line-height:1.7; }
+  .modal-input { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box; outline:none; }
+  .modal-input:focus { border-color:var(--brand); }
+  .modal-input.error { border-color:#c0392b; }
+  .modal-pw-error { color:#c0392b; font-size:12px; margin-top:6px; min-height:18px; }
+  .modal-actions { display:flex; gap:8px; }
+  .modal-actions .btn { flex:1; }
+  .expire-radio-group { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .expire-radio { display:none; }
+  .expire-label { padding:6px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:12px; font-weight:600; color:#666; cursor:pointer; transition:all .15s; text-align:center; }
+  .expire-radio:checked + .expire-label { border-color:var(--brand); color:var(--brand); background:rgba(46,125,50,.06); }
+</style>
+
 <div class="card">
   <div class="label">红包类型</div>
   <div class="row" style="margin-bottom:12px; gap:8px;">
@@ -13,6 +31,20 @@
 
   <div class="label">祝福语（选填）</div>
   <input id="message" type="text" placeholder="恭喜发财，大吉大利" autocomplete="off" maxlength="12" style="margin-bottom:12px;" />
+
+  <div class="label">红包有效期</div>
+  <div class="expire-radio-group" id="expireGroup">
+    <% if (typeof env !== 'undefined' && env !== 'production') { %>
+    <input class="expire-radio" type="radio" name="expireTime" id="expire180" value="180" checked />
+    <label class="expire-label" for="expire180">3 分钟</label>
+    <% } %>
+    <input class="expire-radio" type="radio" name="expireTime" id="expire86400" value="86400" <%= (typeof env === 'undefined' || env === 'production') ? 'checked' : '' %> />
+    <label class="expire-label" for="expire86400">24 小时</label>
+    <input class="expire-radio" type="radio" name="expireTime" id="expire604800" value="604800" />
+    <label class="expire-label" for="expire604800">7 天</label>
+    <input class="expire-radio" type="radio" name="expireTime" id="expire31536000" value="31536000" />
+    <label class="expire-label" for="expire31536000">永不过期</label>
+  </div>
 
   <div class="label">选择封面</div>
   <div id="coverList" style="margin-bottom:12px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
@@ -35,6 +67,31 @@
 
   <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x1F4E5; 确认创建</button>
   <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+</div>
+
+<!-- 确认弹窗 -->
+<div id="confirmModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">确认红包信息</div>
+    <div class="modal-body" id="confirmBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-soft" id="confirmCancel">取消</button>
+      <button class="btn btn-brand" id="confirmOk">确认发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- 密码弹窗 -->
+<div id="pwModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">输入钱包密码</div>
+    <input id="pwInput" class="modal-input" type="password" placeholder="请输入钱包密码以签署交易" autocomplete="off" />
+    <div class="modal-pw-error" id="pwError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-soft" id="pwCancel">取消</button>
+      <button class="btn btn-brand" id="pwOk">确认</button>
+    </div>
+  </div>
 </div>
 
 <div id="successSection" style="display:none;">
@@ -113,18 +170,20 @@
   let defaultCoverBotPath = 'open1';
   const FEE_RESERVE_PER_PACKET_SAT = 100000n; // 0.001 SCASH
   const NETWORK_FEE_SAT = 10000n; // 0.0001 SCASH
-  const PACKET_EXPIRE_SECONDS = (window.SCASH && window.SCASH.ENV) === 'production' ? 86400 : 300;
   const MAX_PACKET_COUNT = 200;
   const MAX_TOTAL_SCASH = 1000000;
   let cachedBalanceSat = null;
   let latestDapCostSat = 0n;
   let latestEstimateTotalSat = null;
   let estimateSeq = 0;
-  let submitLocked = false;
-  let lastSubmitAt = 0;
   let isEstimating = false;
   let isSubmitting = false;
   let loadingText = '处理中…';
+
+  function getSelectedExpireSeconds() {
+    var checked = document.querySelector('input[name="expireTime"]:checked');
+    return checked ? parseInt(checked.value, 10) : 86400;
+  }
 
   function scashNetwork() {
     var net = (window.SCASH && window.SCASH.NETWORK) || {};
@@ -140,11 +199,11 @@
 
   function refreshSubmitState() {
     var btn = document.getElementById('submitBtn');
-    btn.disabled = isEstimating || isSubmitting || submitLocked;
+    btn.disabled = isEstimating || isSubmitting;
     if (isSubmitting) {
       btn.innerHTML = '<span class="spinner"></span>' + loadingText;
     } else {
-      btn.textContent = '确认创建';
+      btn.textContent = '\u{1F4E5} 确认创建';
     }
   }
 
@@ -168,8 +227,6 @@
   function normalizeError(err) {
     if (!err) return '未知错误';
     if (typeof err === 'string') return err;
-    if (err && err.name && err.message) return err.name + ': ' + err.message;
-    if (err && err.stack) return String(err.stack);
     if (err.message) return err.message;
     try { return JSON.stringify(err); } catch (_) { return String(err); }
   }
@@ -375,7 +432,7 @@
       } catch (_) {}
     }
 
-    throw new Error('钱包密码错误，或备份密文格式不兼容');
+    throw new Error('钱包密码错误');
   }
 
   async function broadcast(hex) {
@@ -448,6 +505,66 @@
     return psbt.extractTransaction().toHex();
   }
 
+  // --- Modal helpers ---
+  function showConfirmModal(text) {
+    return new Promise(function (resolve) {
+      document.getElementById('confirmBody').textContent = text;
+      var modal = document.getElementById('confirmModal');
+      modal.classList.add('active');
+      function cleanup(val) {
+        modal.classList.remove('active');
+        document.getElementById('confirmOk').removeEventListener('click', onOk);
+        document.getElementById('confirmCancel').removeEventListener('click', onCancel);
+        resolve(val);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      document.getElementById('confirmOk').addEventListener('click', onOk);
+      document.getElementById('confirmCancel').addEventListener('click', onCancel);
+    });
+  }
+
+  function showPasswordModal(initError) {
+    return new Promise(function (resolve) {
+      var modal = document.getElementById('pwModal');
+      var input = document.getElementById('pwInput');
+      var errEl = document.getElementById('pwError');
+      var okBtn = document.getElementById('pwOk');
+      input.value = '';
+      okBtn.disabled = false;
+      okBtn.textContent = '确认';
+      if (initError) {
+        errEl.textContent = initError;
+        input.classList.add('error');
+      } else {
+        errEl.textContent = '';
+        input.classList.remove('error');
+      }
+      modal.classList.add('active');
+      setTimeout(function () { input.focus(); }, 100);
+      function cleanup(val) {
+        modal.classList.remove('active');
+        okBtn.removeEventListener('click', onOk);
+        document.getElementById('pwCancel').removeEventListener('click', onCancel);
+        input.removeEventListener('keydown', onKey);
+        resolve(val);
+      }
+      function onOk() { cleanup(input.value || ''); }
+      function onCancel() { cleanup(null); }
+      function onKey(e) { if (e.key === 'Enter') onOk(); }
+      okBtn.addEventListener('click', onOk);
+      document.getElementById('pwCancel').addEventListener('click', onCancel);
+      input.addEventListener('keydown', onKey);
+    });
+  }
+
+  function showPwError(msg) {
+    var errEl = document.getElementById('pwError');
+    var input = document.getElementById('pwInput');
+    errEl.textContent = msg || '';
+    if (msg) { input.classList.add('error'); } else { input.classList.remove('error'); }
+  }
+
   document.querySelectorAll('.type-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.type-btn').forEach(function (b) { b.classList.remove('btn-brand'); b.classList.add('btn-soft'); });
@@ -502,11 +619,7 @@
   }
 
   document.getElementById('submitBtn').addEventListener('click', async function () {
-    var now = Date.now();
-    if (submitLocked || now - lastSubmitAt < 1500) return;
-    submitLocked = true;
-    lastSubmitAt = now;
-    refreshSubmitState();
+    if (isSubmitting) return;
 
     var total = document.getElementById('totalAmount').value.trim();
     var count = document.getElementById('count').value.trim();
@@ -519,30 +632,54 @@
       var check = validateForm();
       if (!check.ok) {
         showError(check.message);
-        submitLocked = false;
-        refreshSubmitState();
         return;
       }
 
+      var expireSec = getSelectedExpireSeconds();
+      var expireLabel = { 180: '3 分钟', 86400: '24 小时', 604800: '7 天', 31536000: '永不过期' }[expireSec] || (expireSec + ' 秒');
+
       var confirmText = [
-        '请确认红包信息：',
         '类型：' + (selectedType === 'RANDOM' ? '拼手气' : '均分'),
         '金额：' + check.total + ' SCASH',
         '个数：' + check.countInt,
         '祝福语：' + blessMessage,
+        '有效期：' + expireLabel,
         '预计总支出：' + (latestEstimateTotalSat ? satoshiToScashString(latestEstimateTotalSat) : satoshiToScashString(check.totalNeedSat)) + ' SCASH',
       ].join('\n');
-      if (!window.confirm(confirmText)) {
-        submitLocked = false;
-        refreshSubmitState();
-        return;
-      }
 
-      var pw = prompt('请输入钱包密码以签署交易：');
-      if (!pw) {
-        submitLocked = false;
-        refreshSubmitState();
-        return;
+      var confirmed = await showConfirmModal(confirmText);
+      if (!confirmed) return;
+
+      // 密码输入循环：允许重试（最多2次）
+      var mnemonic = null;
+      var pwRetries = 2;
+      var pwErrMsg = null;
+      while (pwRetries > 0) {
+        var pw = await showPasswordModal(pwErrMsg);
+        if (pw === null) return; // 用户取消
+        if (!pw) {
+          pwErrMsg = '请输入密码';
+          continue;
+        }
+        try {
+          document.getElementById('pwOk').disabled = true;
+          document.getElementById('pwOk').innerHTML = '<span class="spinner"></span>验证中…';
+          mnemonic = await decryptMnemonic(pw);
+          document.getElementById('pwOk').disabled = false;
+          document.getElementById('pwOk').textContent = '确认';
+          document.getElementById('pwModal').classList.remove('active');
+          break;
+        } catch (pwErr) {
+          document.getElementById('pwOk').disabled = false;
+          document.getElementById('pwOk').textContent = '确认';
+          pwRetries--;
+          if (pwRetries <= 0) {
+            document.getElementById('pwModal').classList.remove('active');
+            showError('密码多次错误，请确认后重试');
+            return;
+          }
+          pwErrMsg = '密码错误，请重新输入';
+        }
       }
 
       setLoading(true, '创建中…');
@@ -553,7 +690,6 @@
       var effectiveCoverId = selectedCoverId || defaultCoverId;
       var effectiveCoverBotPath = selectedCoverBotPath || defaultCoverBotPath || 'open1';
 
-      var mnemonic = await decryptMnemonic(pw);
       var myAddress = deriveScashAddress(mnemonic);
       var senderUsername = '';
       if (window.SCASH && window.SCASH.TG && window.SCASH.TG.initDataUnsafe && window.SCASH.TG.initDataUnsafe.user) {
@@ -610,9 +746,13 @@
         throw new Error('余额不足（需要 ' + satoshiToScashString(neededSat) + ' SCASH，包含红包金额 + 统筹手续费预留 + 手续费 + DAP 上链费用）');
       }
 
+      setLoading(true, '签名交易…');
       var hex = await buildSingleTx(mnemonic, candidateUtxos, allOutputs, feeSat, network);
+
+      setLoading(true, '广播交易…');
       var txid = await broadcast(hex);
 
+      setLoading(true, '提交红包…');
       await window.SCASH.request('/api/redpacket/create', {
         method: 'POST',
         body: JSON.stringify({
@@ -625,10 +765,11 @@
            packetHash: packetHash,
            senderAddress: myAddress,
            feeReserve: feeReserveScash,
+           expireSeconds: expireSec,
          }),
        });
 
-      alert('红包已发出！');
+      setLoading(false);
       var startParam = 'rp_' + packetHash;
       var shareUrl = 'https://t.me/scash_red_envelope_bot/' + effectiveCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
       document.getElementById('successPacketHash').textContent = packetHash;
@@ -638,7 +779,7 @@
 
       document.getElementById('shareBtn').onclick = function () {
         var tg = window.SCASH && window.SCASH.TG;
-        var shareText = '我发了一个SCASH红包，快来领取！';
+        var shareText = '\u{1F9E7} 我发了一个SCASH红包，快来领取！';
         var shareIntent = 'https://t.me/share/url?url=' + encodeURIComponent(shareUrl) + '&text=' + encodeURIComponent(shareText);
         if (tg && tg.openTelegramLink) {
           tg.openTelegramLink(shareIntent);
@@ -650,27 +791,11 @@
       document.getElementById('backBtn').onclick = function () {
         location.href = '/wallet/redpacket';
       };
-      submitLocked = false;
-      refreshSubmitState();
     } catch (e) {
       console.error('[redpacket/create] submit failed:', e);
       showError(normalizeError(e));
       setLoading(false);
-      submitLocked = false;
-      refreshSubmitState();
     }
-  });
-
-  window.addEventListener('unhandledrejection', function (event) {
-    console.error('[redpacket/create] unhandledrejection:', event.reason);
-    showError(normalizeError(event.reason));
-    setLoading(false);
-  });
-
-  window.addEventListener('error', function (event) {
-    console.error('[redpacket/create] error:', event.error || event.message);
-    showError(normalizeError(event.error || event.message));
-    setLoading(false);
   });
 
   loadBalance();

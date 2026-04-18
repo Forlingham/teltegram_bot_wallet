@@ -38,7 +38,10 @@ export class RedpacketService {
     }
 
     const packetHash = payload.packetHash || this.buildPacketHash(userId, payload.txid);
-    const expiresAt = new Date(Date.now() + this.getPacketExpiryMs());
+    const expiryMs = payload.expireSeconds
+      ? payload.expireSeconds * 1000
+      : this.getPacketExpiryMs();
+    const expiresAt = new Date(Date.now() + expiryMs);
     const sender = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!sender) {
       throw new AppException('User not found', 'USER_NOT_FOUND', HttpStatus.NOT_FOUND);
