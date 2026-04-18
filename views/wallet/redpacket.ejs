@@ -14,37 +14,66 @@
   .lb-amount { font-size:13px; font-weight:700; color:var(--brand); white-space:nowrap; }
 </style>
 
-<div style="margin-bottom:16px;">
-  <a href="/wallet/redpacket/create" class="btn btn-brand" style="display:block; text-align:center; text-decoration:none;">
-    &#x1F4E5; 发红包
-  </a>
-</div>
+<div class="max-w-2xl mx-auto space-y-8">
+  <section class="relative group overflow-hidden rounded-lg">
+    <div class="absolute -top-8 -right-8 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
+    <a href="/wallet/redpacket/create" class="relative w-full text-white py-6 px-8 rounded-lg flex items-center justify-between shadow-[0px_12px_32px_rgba(142,36,170,0.15)] active:scale-[0.98] transition-all duration-200 fluid-gradient-bg block">
+      <div class="flex items-center gap-4">
+        <div class="bg-white/20 p-3 rounded-full backdrop-blur-md">
+          <span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">featured_seasonal_and_gifts</span>
+        </div>
+        <span class="text-2xl font-headline font-extrabold tracking-tight">发红包</span>
+      </div>
+      <span class="material-symbols-outlined text-white/80">chevron_right</span>
+    </a>
+  </section>
 
-<div class="card" style="margin-bottom:12px; text-align:center; padding:24px;">
-  <div style="font-size:32px; margin-bottom:8px;">&#x1F3AB;</div>
-  <div class="label">红包封面功能还在开发中</div>
-</div>
+  <section>
+    <div class="bg-surface-container-lowest rounded-lg p-5 flex items-center gap-4 shadow-[0px_12px_32px_rgba(44,47,49,0.04)] border border-outline-variant/10">
+      <div class="w-12 h-12 flex-shrink-0 bg-[#FFF9C4] rounded-full flex items-center justify-center">
+        <span class="material-symbols-outlined text-[#FBC02D]" style="font-variation-settings: 'FILL' 1;">confirmation_number</span>
+      </div>
+      <div class="flex-1">
+        <p class="text-on-surface-variant text-sm font-semibold leading-snug">红包封面功能还在开发中</p>
+        <p class="text-on-surface-variant/60 text-xs mt-0.5">敬请期待更多个性化定制选项</p>
+      </div>
+    </div>
+  </section>
 
-<div class="card lb-card">
-  <div class="lb-title">&#x1F3C6; 红包发送排行榜</div>
-  <div id="leaderboard">
-    <div style="text-align:center; padding:16px; color:var(--muted); font-size:13px;">加载中…</div>
-  </div>
+  <section class="space-y-6">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-headline font-bold text-on-background">🏆 红包发送排行榜</h2>
+      <span class="text-primary text-xs font-bold uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full">实时数据</span>
+    </div>
+    <div id="leaderboard" class="space-y-3">
+      <div class="text-center py-8 text-on-surface-variant">加载中…</div>
+    </div>
+  </section>
 </div>
 
 <script>
   function rankClass(rank) {
-    if (rank === 1) return 'lb-rank top1';
-    if (rank === 2) return 'lb-rank top2';
-    if (rank === 3) return 'lb-rank top3';
-    return 'lb-rank';
+    if (rank === 1) return 'absolute -top-1 -right-1 bg-yellow-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white';
+    if (rank === 2) return 'absolute -top-1 -right-1 bg-slate-300 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white';
+    if (rank === 3) return 'absolute -top-1 -right-1 bg-on-surface-variant/20 text-on-surface-variant w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold';
+    return 'absolute -top-1 -right-1 bg-on-surface-variant/20 text-on-surface-variant w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold';
   }
 
-  function rankIcon(rank) {
-    if (rank === 1) return '\u{1F947}';
-    if (rank === 2) return '\u{1F948}';
-    if (rank === 3) return '\u{1F949}';
-    return rank;
+  function rankStyle(rank) {
+    if (rank === 1) return 'w-14 h-14 rounded-full object-cover';
+    if (rank === 2) return 'w-14 h-14 rounded-full object-cover';
+    return 'w-12 h-12 rounded-full object-cover opacity-80';
+  }
+
+  function rowBg(rank) {
+    if (rank === 1 || rank === 2) return 'bg-surface-container-lowest';
+    return 'bg-surface-container-low/50';
+  }
+
+  function formatAmount(amount) {
+    var num = parseFloat(amount);
+    if (isNaN(num)) return amount;
+    return Math.round(num).toLocaleString();
   }
 
   async function loadLeaderboard() {
@@ -52,23 +81,29 @@
     try {
       var data = await window.SCASH.request('/api/redpacket/leaderboard');
       if (!data || data.length === 0) {
-        el.innerHTML = '<div style="text-align:center; padding:16px; color:var(--muted); font-size:13px;">暂无发送记录</div>';
+        el.innerHTML = '<div class="text-center py-8 text-on-surface-variant">暂无发送记录</div>';
         return;
       }
       el.innerHTML = data.map(function (item) {
         var avatar = item.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(item.displayName));
-        return '<div class="lb-row">' +
-          '<div class="' + rankClass(item.rank) + '">' + rankIcon(item.rank) + '</div>' +
-          '<img class="lb-avatar" src="' + avatar + '" alt="avatar" />' +
-          '<div class="lb-info">' +
-            '<div class="lb-name">' + item.displayName + '</div>' +
-            '<div class="lb-count">发送 ' + item.totalCount + ' 次</div>' +
+        return '<div class="' + rowBg(item.rank) + ' p-4 rounded-lg flex items-center gap-4 shadow-[0px_12px_32px_rgba(44,47,49,0.04)] relative overflow-hidden">' +
+          '<div class="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -translate-y-8 translate-x-8 pointer-events-none"></div>' +
+          '<div class="relative">' +
+            '<img class="' + rankStyle(item.rank) + '" src="' + avatar + '" alt="avatar" />' +
+            '<div class="' + rankClass(item.rank) + '">' + item.rank + '</div>' +
           '</div>' +
-          '<div class="lb-amount">' + item.totalAmount + ' SCASH</div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<h3 class="text-on-background font-bold font-headline truncate">' + item.displayName + '</h3>' +
+            '<p class="text-on-surface-variant text-sm">发送 ' + item.totalCount + ' 次</p>' +
+          '</div>' +
+          '<div class="text-right flex-shrink-0">' +
+            '<p class="text-primary font-headline font-extrabold text-lg">' + formatAmount(item.totalAmount) + '</p>' +
+            '<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-tighter">SCASH</p>' +
+          '</div>' +
         '</div>';
       }).join('');
     } catch (e) {
-      el.innerHTML = '<div style="text-align:center; padding:16px; color:#c0392b; font-size:13px;">加载失败</div>';
+      el.innerHTML = '<div class="text-center py-8 text-error">加载失败</div>';
     }
   }
 
