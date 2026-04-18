@@ -19,18 +19,18 @@
   .env-flap { position:absolute; top:0; left:0; right:0; height:42%; background:var(--cover-flap); border-radius:12px 12px 50% 50%/12px 12px 35% 35%; transform-origin:top center; z-index:4; box-shadow:0 8px 20px rgba(0,0,0,.2); transition:transform .6s cubic-bezier(.4,0,.2,1), z-index 0s .3s; border-bottom:2px solid rgba(255,255,255,.2); }
   .sender-info { transition:opacity .3s ease; }
   .env-wrapper.open .sender-info { opacity:0; pointer-events:none; }
-  .env-coin { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:92px; height:92px; background:#fff; border-radius:50%; border:1px solid rgba(0,0,0,.05); z-index:5; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .4s cubic-bezier(.175,.885,.32,1.275); box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 20px rgba(var(--glow-color), .5); animation:coin-pulse 2s infinite alternate ease-in-out; }
-  .env-coin.loading { pointer-events:none!important; animation:coin-spin 1s linear infinite!important; }
-  .env-coin.loading .coin-inner { opacity:.5; }
-  @keyframes coin-spin { 0% { transform:translate(-50%,-50%) rotateY(0deg); } 100% { transform:translate(-50%,-50%) rotateY(360deg); } }
+  .env-coin { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); width:92px; height:92px; background:#fff; border-radius:50%; border:1px solid rgba(0,0,0,.05); z-index:10; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .4s cubic-bezier(.175,.885,.32,1.275); box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 20px rgba(var(--glow-color), .5); animation:coin-pulse 2s infinite alternate ease-in-out; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .env-coin.loading { pointer-events:none!important; animation:none!important; }
+  .env-coin.loading .coin-inner img { animation:logo-spin .9s linear infinite; }
+  @keyframes logo-spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
   @keyframes coin-pulse { 0% { box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 10px rgba(var(--glow-color), .2);} 100% { box-shadow:0 8px 24px rgba(0,0,0,.15), inset 0 4px 6px rgba(255,255,255,1), inset 0 -2px 6px rgba(0,0,0,.05), 0 0 34px rgba(var(--glow-color), .8);} }
-  .coin-inner { position:relative; width:78px; height:78px; border-radius:50%; overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.1); background:#fff; }
-  .coin-inner img { width:100%; height:100%; object-fit:cover; transform:scale(1.03); }
-  .coin-reflection { position:absolute; inset:0; border-radius:50%; background:linear-gradient(135deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.1) 100%); }
+  .coin-inner { position:relative; width:78px; height:78px; border-radius:50%; overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.1); background:#fff; pointer-events:none; }
+  .coin-inner img { width:100%; height:100%; object-fit:cover; pointer-events:none; }
+  .coin-reflection { position:absolute; inset:0; border-radius:50%; background:linear-gradient(135deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.1) 100%); pointer-events:none; }
   .env-wrapper.open { transform:rotateX(0deg) translateY(2vh); }
   .env-wrapper.open .env-flap { transform:rotateX(180deg); z-index:1; }
   .env-wrapper.open .env-letter { transform:translateY(-28%); box-shadow:0 15px 30px rgba(0,0,0,.3); z-index:5; }
-  .env-wrapper.open .env-coin { animation:none!important; transform:translate(-50%,-50%) rotateY(720deg) scale(0)!important; opacity:0; pointer-events:none; }
+  .env-wrapper.open .env-coin { animation:none!important; transform:translate(-50%,-50%) scale(0)!important; opacity:0; pointer-events:none; }
   .tone-main { color: var(--text-main); }
   .tone-sub { color: var(--text-sub); }
   .status-tip { margin-top:10px; font-size:12px; color:rgba(255,255,255,.85); text-align:center; }
@@ -93,7 +93,7 @@
         </div>
         <div class="env-coin" id="coin">
           <div class="coin-inner">
-            <img src="https://scash.tv/img/page-title-img.png" alt="Open" />
+            <img src="/img/logo-256x256.png" alt="Open" />
             <div class="coin-reflection"></div>
           </div>
         </div>
