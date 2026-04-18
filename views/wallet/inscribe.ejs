@@ -1,29 +1,86 @@
-<div class="card">
-  <div class="label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <span>刻字内容</span>
-    <button id="btnPreview" class="btn btn-soft" style="padding:4px 10px; font-size:12px;">&#x1F440; 预览</button>
-  </div>
-  <textarea id="dapContent" rows="6" placeholder="输入文本内容..." autocomplete="off" style="margin-bottom:12px; font-family: ui-monospace, monospace; resize:vertical;"></textarea>
+<div class="space-y-10" style="margin: 0;">
+  <section class="relative overflow-hidden bg-surface-container-lowest p-8 rounded-lg shadow-[0px_12px_32px_rgba(44,47,49,0.06)] border border-outline-variant/10">
+    <div class="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>
+    <div class="relative z-10 flex flex-col">
+      <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">可用余额</span>
+      <div class="flex items-baseline gap-2">
+        <span id="availBalance" class="text-2xl font-extrabold text-primary font-headline">-</span>
+        <span class="text-sm font-bold text-on-surface-variant">SCASH</span>
+      </div>
+    </div>
+  </section>
 
-  <div id="previewBox" style="display:none; margin-bottom:12px; padding:12px; border-radius:10px; background:#f4f8f1; border:1px dashed #d6e1d2;">
-    <div class="label" style="margin-bottom:8px;">预览效果</div>
-    <div id="previewHtml" style="font-size:14px; line-height:1.6; word-break:break-all;"></div>
-  </div>
+  <section class="space-y-4">
+    <div class="flex justify-between items-end px-2">
+      <h2 class="text-sm font-bold text-on-surface-variant uppercase tracking-wider">刻字内容</h2>
+      <button id="btnPreview" class="text-xs font-bold text-primary flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all active:scale-95">
+        <span class="material-symbols-outlined text-sm">visibility</span>
+        预览
+      </button>
+    </div>
+    <div class="relative">
+      <textarea id="dapContent" rows="6" class="w-full h-48 p-6 bg-surface-container-low border-0 rounded-lg text-on-surface font-body text-base focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-outline/50 resize-none" placeholder="在这里输入您想刻在链上的内容..." autocomplete="off"></textarea>
+      <div class="absolute bottom-4 right-6 text-[10px] font-bold text-on-surface-variant/40 tracking-tighter uppercase">
+        Supported Format: Text / JSON
+      </div>
+    </div>
 
-  <div class="row" style="margin-bottom:8px;">
-    <span class="label" style="margin:0;">可用余额：</span>
-    <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
-  </div>
+    
+  </section>
 
-  <div class="card warn" style="margin-bottom:12px;">
-    <div class="label" style="margin-bottom:6px;">费用预估（实时）</div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">链上手续费</span><span id="estFee" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:6px;"><span class="label" style="margin:0;">DAP 上链 (按字节)</span><span id="estDap" class="mono">-</span></div>
-    <div class="row" style="padding-top:6px; border-top:1px dashed #e3d2b7;"><span style="font-size:13px; font-weight:700;">预计总支出</span><span id="estTotal" class="mono" style="font-weight:700;">-</span></div>
-  </div>
+  <section class="bg-surface-container-low p-1 rounded-lg">
+    <div class="bg-surface-container-lowest p-6 rounded-[1.5rem] shadow-sm">
+      <div class="flex items-center gap-2 mb-6">
+        <span class="material-symbols-outlined text-tertiary">query_stats</span>
+        <h3 class="text-sm font-extrabold text-on-background">费用预估</h3>
+      </div>
+      <div class="space-y-4">
+        <div class="flex justify-between items-center px-1">
+          <span class="text-sm text-on-surface-variant font-medium">链上手续费</span>
+          <span id="estFee" class="text-sm font-bold text-on-surface font-headline">-</span>
+        </div>
+        <div class="flex justify-between items-center px-1">
+          <span class="text-sm text-on-surface-variant font-medium">DAP 上链 (按字节)</span>
+          <span id="estDap" class="text-sm font-bold text-on-surface font-headline">-</span>
+        </div>
+        <div class="pt-4 border-t border-surface-container-high">
+          <div class="flex justify-between items-end px-1">
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">预计总支出</span>
+            <div class="text-right">
+              <span id="estTotal" class="text-xl font-extrabold text-on-background font-headline">-</span>
+              <span class="text-xs font-extrabold text-primary ml-1 uppercase">SCASH</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x270D; 确认刻字并上链</button>
-  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+  <section class="pt-6">
+    <button id="submitBtn" class="w-full signature-gradient py-6 rounded-full flex items-center justify-center gap-3 text-white shadow-[0px_20px_40px_rgba(145,40,173,0.25)] hover:shadow-[0px_24px_48px_rgba(145,40,173,0.35)] transition-all active:scale-[0.98]">
+      <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">history_edu</span>
+      <span class="text-lg font-bold tracking-tight font-headline">确认刻字并上链</span>
+    </button>
+    <p class="text-center text-[10px] text-outline mt-6 px-12 leading-relaxed">
+      By clicking "Confirm", you agree that the inscribed content is immutable and publicly visible to anyone on the blockchain.
+    </p>
+    <div id="errorMsg" class="error text-center mt-4" style="display:none;"></div>
+  </section>
+</div>
+
+<div id="previewModal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="previewOverlay"></div>
+  <div class="absolute inset-4 md:inset-8 lg:inset-16 bg-surface-container-lowest rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+      <h3 class="font-headline font-extrabold text-lg text-on-surface">预览效果</h3>
+      <button id="btnClosePreview" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors active:scale-95">
+        <span class="material-symbols-outlined text-on-surface-variant">close</span>
+      </button>
+    </div>
+    <div class="flex-1 overflow-auto p-6">
+      <div id="previewContent" class="text-sm leading-relaxed break-all"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -107,9 +164,9 @@
     var btn = document.getElementById('submitBtn');
     btn.disabled = isEstimating || isSubmitting || submitLocked;
     if (isSubmitting) {
-      btn.innerHTML = '<span class="spinner"></span>上链中…';
+      btn.innerHTML = '<span class="spinner"></span><span class="text-lg font-bold tracking-tight font-headline">上链中…</span>';
     } else {
-      btn.innerHTML = '&#x270D; 确认刻字并上链';
+      btn.innerHTML = '<span class="material-symbols-outlined text-xl" style="font-variation-settings: \'FILL\' 1;">history_edu</span><span class="text-lg font-bold tracking-tight font-headline">确认刻字并上链</span>';
     }
   }
 
@@ -175,14 +232,14 @@
     if (!content) {
       latestEstimateTotalSat = null;
       latestDapCostSat = 0n;
-      renderEstimate({ fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
+      renderEstimate({ fee: satoshiToScashString(NETWORK_FEE_SAT), dap: '-', total: '-' });
       isEstimating = false;
       refreshSubmitState();
       return;
     }
 
     renderEstimate({
-      fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+      fee: satoshiToScashString(NETWORK_FEE_SAT),
       dap: '计算中…',
       total: '计算中…',
     });
@@ -199,16 +256,16 @@
       latestEstimateTotalSat = NETWORK_FEE_SAT + latestDapCostSat;
 
       renderEstimate({
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
-        dap: satoshiToScashString(latestDapCostSat) + ' SCASH',
-        total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
+        fee: satoshiToScashString(NETWORK_FEE_SAT) ,
+        dap: satoshiToScashString(latestDapCostSat) ,
+        total: satoshiToScashString(latestEstimateTotalSat),
       });
     } catch (e) {
       if (seq !== estimateSeq) return;
       latestDapCostSat = 0n;
       latestEstimateTotalSat = null;
       renderEstimate({
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        fee: satoshiToScashString(NETWORK_FEE_SAT),
         dap: '计算失败',
         total: '-',
       });
@@ -341,7 +398,7 @@
   async function loadBalance() {
     try {
       var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
-      document.getElementById('availBalance').textContent = bal.balance + ' SCASH';
+      document.getElementById('availBalance').textContent = bal.balance;
       cachedBalanceSat = parseScashToSats(bal.balance);
       return bal;
     } catch (e) {
@@ -353,18 +410,25 @@
   // 预览 Markdown
   document.getElementById('btnPreview').addEventListener('click', function() {
     var content = document.getElementById('dapContent').value.trim();
-    var box = document.getElementById('previewBox');
-    var htmlWrap = document.getElementById('previewHtml');
-    
+    var modal = document.getElementById('previewModal');
+    var previewContent = document.getElementById('previewContent');
+
     if (!content) {
-      box.style.display = 'none';
-      return;
+      previewContent.innerHTML = '<div class="text-on-surface-variant text-center py-8">请先输入刻字内容</div>';
+    } else {
+      var html = marked.parse(content);
+      previewContent.innerHTML = html;
     }
 
-    var html = marked.parse(noImageContent);
-    
-    htmlWrap.innerHTML = html;
-    box.style.display = 'block';
+    modal.classList.remove('hidden');
+  });
+
+  document.getElementById('btnClosePreview').addEventListener('click', function() {
+    document.getElementById('previewModal').classList.add('hidden');
+  });
+
+  document.getElementById('previewOverlay').addEventListener('click', function() {
+    document.getElementById('previewModal').classList.add('hidden');
   });
 
   document.getElementById('submitBtn').addEventListener('click', async function () {
