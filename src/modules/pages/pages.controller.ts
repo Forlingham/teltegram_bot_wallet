@@ -178,4 +178,15 @@ export class PagesController {
       hideBottomNav: true,
     }));
   }
+
+  @Get('wallet/about')
+  walletAboutPage(@Res() res: Response) {
+    return renderPage(res, 'wallet/about.ejs', this.buildViewData({
+      pageTitle: '关于钱包',
+      pageSubtitle: '',
+      activeNav: 'about',
+      hideBottomNav: false,
+      backAsClose: true,
+    }));
+  }
 }
