@@ -49,8 +49,12 @@
         <div class="label" style="margin-bottom:8px;">总余额</div>
         <div id="walletTotalBalance" class="value" style="font-size: 32px; color: var(--brand); margin-top: 0;">0.00000000</div>
         <div style="font-size: 13px; font-weight: 700; color: var(--brand);">SCASH</div>
+        <div id="balanceFiat" style="display:none; font-size:12px; color:var(--muted); margin-top:4px;"></div>
       </div>
-      <button id="btnRefresh" class="btn btn-soft" style="padding: 8px 12px;">&#x21BB; 刷新</button>
+      <div style="text-align:right;">
+        <button id="btnRefresh" class="btn btn-soft" style="padding: 8px 12px; margin-bottom:6px;">&#x21BB; 刷新</button>
+        <div id="priceTag" style="display:none; font-size:11px; color:var(--muted); white-space:nowrap;"></div>
+      </div>
     </div>
     
     <div style="background: #f8fbf7; border: 1px dashed #d8e8d8; border-radius: 10px; padding: 12px;">
@@ -86,7 +90,23 @@
       </a>
     </div>
   </div>
+
+  <div id="priceChartCard" class="card" style="display:none; padding:14px 14px 6px;">
+    <div class="row" style="margin-bottom:8px; align-items:flex-start;">
+      <div>
+        <div class="label" style="margin:0 0 2px;">SCASH 7日走势</div>
+        <div id="chartPriceChange" style="font-size:11px; font-weight:700;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div id="chartCurrentPrice" style="font-size:16px; font-weight:800; color:var(--brand);"></div>
+        <div id="chartCrosshairPrice" style="font-size:11px; color:var(--muted); min-height:16px;"></div>
+      </div>
+    </div>
+    <div id="priceChartContainer" style="width:100%; height:200px;"></div>
+  </div>
 </section>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
 <script>
   function satoshiToScashString(sats) {
@@ -114,6 +134,7 @@
       }
       document.getElementById('noWallet').style.display = 'none';
       document.getElementById('walletHome').style.display = 'block';
+      homeReady = true;
       document.getElementById('walletAddress').textContent = home.address || '-';
       
       if (home.avatarUrl) {
@@ -156,10 +177,13 @@
       }
       
       var totalSats = confirmedSats + unconfirmedSats;
+      cachedTotalSats = totalSats;
       
       document.getElementById('walletTotalBalance').textContent = satoshiToScashString(totalSats);
       document.getElementById('walletConfirmedBalance').textContent = satoshiToScashString(confirmedSats) + ' SCASH';
       document.getElementById('walletUnconfirmedBalance').textContent = satoshiToScashString(unconfirmedSats) + ' SCASH';
+      
+      updatePriceDisplay();
     } catch (e) {
       document.getElementById('walletTotalBalance').textContent = '获取失败';
       document.getElementById('walletConfirmedBalance').textContent = '-';
@@ -186,7 +210,170 @@
     }
   });
 
+  var cachedTotalSats = null;
+  var homeReady = false;
+  var lwChart = null;
+  var lwSeries = null;
+
+  function updatePriceDisplay() {
+    var pd = window.SCASH.priceData;
+    if (!pd || !pd.price) return;
+    if (!homeReady) return;
+    var priceUsd = parseFloat(pd.price.price || 0);
+    if (!priceUsd) return;
+
+    // 价格标签
+    var priceTag = document.getElementById('priceTag');
+    var pct24 = parseFloat(pd.price.changePercent24h || 0);
+    var pctSign = pct24 >= 0 ? '+' : '';
+    var pctColor = pct24 >= 0 ? '#2f7a42' : '#c0392b';
+    priceTag.innerHTML = '$' + priceUsd.toFixed(6) + ' <span style="color:' + pctColor + ';">' + pctSign + pct24.toFixed(2) + '%</span>';
+    priceTag.style.display = 'block';
+
+    // 余额法币估值
+    if (cachedTotalSats !== null) {
+      var balScash = Number(cachedTotalSats) / 1e8;
+      var fiatVal = balScash * priceUsd;
+      var fiatEl = document.getElementById('balanceFiat');
+      fiatEl.textContent = '\u2248 $' + fiatVal.toFixed(2) + ' USD';
+      fiatEl.style.display = 'block';
+    }
+
+    // 图表右上角当前价格
+    document.getElementById('chartCurrentPrice').textContent = '$' + priceUsd.toFixed(6);
+
+    // 7日走势图
+    var chartData = pd.priceChart;
+    if (chartData && chartData.length > 1 && typeof LightweightCharts !== 'undefined') {
+      // 去重：每30分钟只保留第一个数据点
+      var seen = {};
+      var deduped = [];
+      for (var ci = 0; ci < chartData.length; ci++) {
+        var ts = chartData[ci].timestamp;
+        var key = ts.slice(0, 16);
+        if (!seen[key]) {
+          seen[key] = true;
+          deduped.push(chartData[ci]);
+        }
+      }
+
+      var pct7 = parseFloat(pd.price.changePercent7d || 0);
+      var sign7 = pct7 >= 0 ? '+' : '';
+      var color7 = pct7 >= 0 ? '#2f7a42' : '#c0392b';
+      document.getElementById('chartPriceChange').innerHTML = '<span style="color:' + color7 + ';">7d ' + sign7 + pct7.toFixed(2) + '%</span>';
+
+      document.getElementById('priceChartCard').style.display = 'block';
+      requestAnimationFrame(function () {
+        renderLWChart(deduped, priceUsd);
+      });
+    }
+  }
+
+  function renderLWChart(data, currentPrice) {
+    var container = document.getElementById('priceChartContainer');
+    if (!container) return;
+    var cw = container.clientWidth;
+    if (cw <= 0) return;
+
+    // 清理旧图表
+    if (lwChart) {
+      lwChart.remove();
+      lwChart = null;
+      lwSeries = null;
+    }
+
+    var isUp = parseFloat(data[data.length - 1].price) >= parseFloat(data[0].price);
+    var lineColor = isUp ? '#2f7a42' : '#c0392b';
+    var topColor = isUp ? 'rgba(47,122,66,0.28)' : 'rgba(192,57,43,0.20)';
+    var bottomColor = isUp ? 'rgba(47,122,66,0.02)' : 'rgba(192,57,43,0.02)';
+
+    lwChart = LightweightCharts.createChart(container, {
+      width: cw,
+      height: 200,
+      layout: {
+        background: { type: 'solid', color: 'transparent' },
+        textColor: '#999',
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: '#f0f0f0', style: 2 },
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Magnet,
+        vertLine: { width: 1, color: 'rgba(47,122,66,0.3)', style: 0, labelVisible: false },
+        horzLine: { visible: false, labelVisible: false },
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+      },
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.1, bottom: 0.05 },
+      },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
+    });
+
+    lwSeries = lwChart.addAreaSeries({
+      lineColor: lineColor,
+      topColor: topColor,
+      bottomColor: bottomColor,
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: '#fff',
+      crosshairMarkerBackgroundColor: lineColor,
+      priceFormat: { type: 'price', precision: 6, minMove: 0.000001 },
+    });
+
+    var seriesData = data.map(function (d) {
+      return {
+        time: Math.floor(new Date(d.timestamp).getTime() / 1000),
+        value: parseFloat(d.price),
+      };
+    });
+    lwSeries.setData(seriesData);
+    lwChart.timeScale().fitContent();
+
+    // Crosshair tooltip
+    var crosshairEl = document.getElementById('chartCrosshairPrice');
+    var currentPriceEl = document.getElementById('chartCurrentPrice');
+    lwChart.subscribeCrosshairMove(function (param) {
+      if (!param || !param.time || !param.seriesData || !param.seriesData.size) {
+        crosshairEl.textContent = '';
+        currentPriceEl.textContent = '$' + currentPrice.toFixed(6);
+        return;
+      }
+      var val = param.seriesData.get(lwSeries);
+      if (val && typeof val.value === 'number') {
+        var t = new Date(param.time * 1000);
+        var timeStr = (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+        currentPriceEl.textContent = '$' + val.value.toFixed(6);
+        crosshairEl.textContent = timeStr;
+      }
+    });
+
+    // 监听容器大小变化
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () {
+        if (lwChart) {
+          lwChart.applyOptions({ width: container.clientWidth });
+        }
+      }).observe(container);
+    }
+  }
+
   loadHome();
+
+  // 价格加载
+  if (window.SCASH.priceLoading) {
+    window.SCASH.priceLoading.then(function () { updatePriceDisplay(); });
+  }
 
   /* QR scan from homepage */
   var tg = window.SCASH && window.SCASH.TG;
