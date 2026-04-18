@@ -24,7 +24,8 @@
   </div>
 
   <div class="label">红包总金额 (SCASH)</div>
-  <input id="totalAmount" type="text" placeholder="例如：10" autocomplete="off" style="margin-bottom:12px;" />
+  <input id="totalAmount" type="text" placeholder="例如：10" autocomplete="off" style="margin-bottom:2px;" />
+  <div id="fiatEstimate" style="font-size:12px; color:var(--muted); margin-bottom:12px; min-height:16px;"></div>
 
   <div class="label">红包个数</div>
   <input id="count" type="number" placeholder="例如：5" autocomplete="off" min="1" style="margin-bottom:12px;" />
@@ -295,11 +296,28 @@
     document.getElementById('estTotal').textContent = data.total;
   }
 
+  function updateFiatEstimate(amountSat) {
+    var fiatEl = document.getElementById('fiatEstimate');
+    var pd = window.SCASH.priceData;
+    if (!pd || !pd.price) {
+      fiatEl.textContent = '';
+      return;
+    }
+    var priceUsd = parseFloat(pd.price.price || 0);
+    if (!priceUsd || !amountSat || amountSat <= 0n) {
+      fiatEl.textContent = '';
+      return;
+    }
+    var scashVal = Number(amountSat) / 1e8;
+    fiatEl.textContent = '\u2248 $' + (scashVal * priceUsd).toFixed(2) + ' USD';
+  }
+
   async function updateEstimate() {
     isEstimating = true;
     refreshSubmitState();
 
     var v = validateForm();
+    updateFiatEstimate(v.totalSat);
     if (!v.ok && !String(v.message || '').startsWith('余额不足')) {
       latestEstimateTotalSat = null;
       renderEstimate({ amount: '-', reserve: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', dap: '-', total: '-' });

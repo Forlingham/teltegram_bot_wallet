@@ -74,7 +74,8 @@
             <h2 id="packetMessage" style="font-size:22px; font-weight:800; color:#dc2626; margin-top:6px; letter-spacing:.06em;">恭喜发财，大吉大利</h2>
           </div>
           <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%;">
-            <div id="packetAmount" class="amount-main" style="margin-bottom:8px;"><span class="amount-int">-</span></div>
+            <div id="packetAmount" class="amount-main" style="margin-bottom:4px;"><span class="amount-int">-</span></div>
+            <div id="fiatAmount" style="font-size:12px; color:rgba(0,0,0,.65); margin-bottom:8px; display:none; font-weight:600;"></div>
             <div id="resultHint" class="result-hint"></div>
           </div>
           <div id="claimStatus" style="display:block; padding-top:10px; border-top:1px dashed #fca5a5; width:100%; text-align:center; font-size:13px; color:#6b7280;"></div>
@@ -175,6 +176,24 @@
     document.getElementById('errorMsg').textContent = msg;
   }
 
+  function showFiatValue(amountStr) {
+    var fiatEl = document.getElementById('fiatAmount');
+    var pd = window.SCASH.priceData;
+    if (!pd || !pd.price || !amountStr) {
+      fiatEl.style.display = 'none';
+      return;
+    }
+    var priceUsd = parseFloat(pd.price.price || 0);
+    var amount = parseFloat(amountStr);
+    if (!priceUsd || !amount || amount <= 0) {
+      fiatEl.style.display = 'none';
+      return;
+    }
+    fiatEl.style.color = 'rgba(0,0,0,0.65)';
+    fiatEl.textContent = '\u2248 $' + (amount * priceUsd).toFixed(2) + ' USD';
+    fiatEl.style.display = 'block';
+  }
+
   function showPacket(data) {
     var packet = data && data.redPacket ? data.redPacket : (data || {});
     var hasClaimed = typeof data.hasClaimed === 'boolean' ? data.hasClaimed : !!packet.hasClaimed;
@@ -229,12 +248,15 @@
     var hintEl = document.getElementById('resultHint');
     hintEl.style.display = 'none';
     hintEl.textContent = '';
+    document.getElementById('fiatAmount').style.display = 'none';
+    
     if (packet.status === 'ACTIVE' && !hasClaimed) {
       coin.style.pointerEvents = 'auto';
       wrapper.classList.remove('open');
       wrapper.classList.remove('settled');
     } else if (hasClaimed) {
       amountEl.innerHTML = formatAmountWithLogo(claimedAmount || '0');
+      showFiatValue(claimedAmount || '0');
       wrapper.classList.add('open');
       wrapper.classList.add('settled');
       coin.style.pointerEvents = 'none';
@@ -293,6 +315,7 @@
       wrapper.classList.add('open');
       setTimeout(function () { wrapper.classList.add('settled'); }, 600);
       document.getElementById('packetAmount').innerHTML = formatAmountWithLogo(result.amount || '0');
+      showFiatValue(result.amount || '0');
       hintEl.style.display = 'block';
       hintEl.textContent = '领取成功';
 
