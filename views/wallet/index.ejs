@@ -31,7 +31,7 @@
   </nav>
 </section>
 
-<section id="walletHome" style="display: none">
+<section id="walletHome" style="display: none;margin-top: 0;">
   <div id="backupReminder" class="rounded-lg p-4 mb-4" style="display: none; background: var(--warn-bg); border: 1px solid var(--warn-border);">
     <div class="font-bold mb-2" style="color: var(--warn-text);">请尽快备份助记词</div>
     <div class="text-sm mb-3" style="color: var(--warn-text); line-height: 1.5;">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</div>
@@ -41,16 +41,16 @@
     </div>
   </div>
 
-  <section class="relative overflow-hidden pt-4">
+  <section class="relative overflow-hidden">
     <div class="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl"></div>
     <div class="relative z-10 space-y-1">
       <div id="homeAvatarArea" class="flex justify-center mb-3" style="display: none;">
-        <img id="homeAvatar" src="" class="w-14 h-14 rounded-full object-cover border-2 border-primary/20" />
+        <img id="homeAvatar" src="" class="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
       </div>
       <div class="flex justify-between items-start">
         <p class="text-on-surface-variant font-label text-sm font-medium">总余额</p>
-        <button id="btnRefresh" class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-          <span class="material-symbols-outlined text-lg">refresh</span>
+        <button id="btnRefresh" class="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-primary active:scale-90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <span id="refreshIcon" class="material-symbols-outlined text-lg block transition-transform duration-500">refresh</span>
         </button>
       </div>
       <div class="flex flex-col items-start">
@@ -73,7 +73,7 @@
       </div>
       <div class="overflow-hidden">
         <p class="text-[10px] text-on-surface-variant font-label uppercase tracking-wider mb-0.5">我的钱包地址</p>
-        <p id="walletAddress" class="text-xs font-mono text-on-surface truncate pr-4">-</p>
+        <p id="walletAddress" class="text-[9px] font-mono text-on-surface truncate pr-4">-</p>
       </div>
     </div>
     <div class="flex-shrink-0 flex items-center gap-2">
@@ -203,8 +203,11 @@
 
   async function loadBalance() {
     var btn = document.getElementById('btnRefresh');
-    btn.innerHTML = '<span class="spinner" style="border-color:var(--brand); border-top-color:transparent;"></span> 刷新中…';
+    var icon = document.getElementById('refreshIcon');
     btn.disabled = true;
+    icon.classList.add('spin-anim');
+    icon.classList.remove('text-on-surface-variant');
+    icon.classList.add('text-primary');
     
     try {
       var bal = await window.SCASH.request('/api/wallet/balance?includeUnconfirmed=true');
@@ -235,8 +238,11 @@
       document.getElementById('walletConfirmedBalance').textContent = '-';
       document.getElementById('walletUnconfirmedBalance').textContent = '-';
     } finally {
-      btn.innerHTML = '&#x21BB; 刷新';
+      var icon = document.getElementById('refreshIcon');
       btn.disabled = false;
+      icon.classList.remove('spin-anim');
+      icon.classList.remove('text-primary');
+      icon.classList.add('text-on-surface-variant');
     }
   }
 
@@ -444,4 +450,21 @@
       tg.showScanQrPopup({ text: '扫描收款地址二维码' });
     });
   }
+
+  document.getElementById('btnCopyAddress').addEventListener('click', function () {
+    var addr = document.getElementById('walletAddress').textContent;
+    if (!addr || addr === '-') return;
+    navigator.clipboard.writeText(addr).then(function () {
+      var btn = document.getElementById('btnCopyAddress');
+      var icon = btn.querySelector('.material-symbols-outlined');
+      icon.textContent = 'check';
+      btn.classList.remove('text-slate-400');
+      btn.classList.add('text-primary');
+      setTimeout(function () {
+        icon.textContent = 'content_copy';
+        btn.classList.remove('text-primary');
+        btn.classList.add('text-slate-400');
+      }, 1500);
+    });
+  });
 </script>
