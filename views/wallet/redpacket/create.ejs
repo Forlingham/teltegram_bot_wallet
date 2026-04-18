@@ -1,111 +1,297 @@
 <style>
-  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
-  .modal-overlay.active { display:flex; }
-  .modal-box { background:#fff; border-radius:14px; padding:24px 20px; width:88vw; max-width:340px; box-shadow:0 12px 40px rgba(0,0,0,.25); }
-  .modal-title { font-size:16px; font-weight:700; margin-bottom:14px; text-align:center; }
-  .modal-body { font-size:13px; color:#444; margin-bottom:16px; white-space:pre-line; line-height:1.7; }
-  .modal-input { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box; outline:none; }
-  .modal-input:focus { border-color:var(--brand); }
-  .modal-input.error { border-color:#c0392b; }
-  .modal-pw-error { color:#c0392b; font-size:12px; margin-top:6px; min-height:18px; }
-  .modal-actions { display:flex; gap:8px; }
-  .modal-actions .btn { flex:1; }
-  .expire-radio-group { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .expire-radio { display:none; }
-  .expire-label { padding:6px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:12px; font-weight:600; color:#666; cursor:pointer; transition:all .15s; text-align:center; }
-  .expire-radio:checked + .expire-label { border-color:var(--brand); color:var(--brand); background:rgba(46,125,50,.06); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .signature-gradient { background: linear-gradient(135deg, #9128ad 0%, #e67aff 100%); }
+  
+  .type-btn.active { background: var(--surface-container-lowest); border-color: rgba(145, 40, 173, 0.2); box-shadow: 0px 8px 24px rgba(0,0,0,0.04); opacity: 1; }
+  .type-btn.active .type-icon { color: var(--primary); }
+  .type-btn.active .type-text { color: var(--on-surface); }
+  
+  .expire-btn.active { background: linear-gradient(135deg, #9128ad 0%, #e67aff 100%); color: var(--on-primary); border-color: transparent; }
+  
+  #coverList .cover-item.active { border-color: var(--primary); }
 </style>
 
-<div class="card">
-  <div class="label">红包类型</div>
-  <div class="row" style="margin-bottom:12px; gap:8px;">
-    <button id="typeRandom" class="btn btn-brand type-btn" data-type="RANDOM" style="flex:1;">&#x1F3B2; 拼手气</button>
-    <button id="typeEqual" class="btn btn-soft type-btn" data-type="EQUAL" style="flex:1;">&#x2694; 均分</button>
-  </div>
 
-  <div class="label">红包总金额 (SCASH)</div>
-  <input id="totalAmount" type="text" placeholder="例如：10" autocomplete="off" style="margin-bottom:2px;" />
-  <div id="fiatEstimate" style="font-size:12px; color:var(--muted); margin-bottom:12px; min-height:16px;"></div>
+<main id="createForm" class=" space-y-4" style="margin: 0;">
+  <section class="relative overflow-hidden p-4 rounded-lg bg-surface-container-low">
+    <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+    <div class="relative z-10 flex justify-between items-center">
+      <div>
+        <span class="font-label text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mb-0.5 block">可用余额</span>
+        <div class="flex items-baseline gap-1">
+          <span id="availBalance" class="font-headline text-xl font-bold text-on-surface">-</span>
+          <span class="font-label text-xs font-medium text-primary">SCASH</span>
+        </div>
+      </div>
+      <div class="p-2.5 bg-surface-container-lowest rounded-full shadow-[0px_4px_16px_rgba(145,40,173,0.06)]">
+        <span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+      </div>
+    </div>
+  </section>
 
-  <div class="label">红包个数</div>
-  <input id="count" type="number" placeholder="例如：5" autocomplete="off" min="1" style="margin-bottom:12px;" />
+  <section class="grid grid-cols-2 gap-3">
+    <button class="type-btn active flex flex-col items-center justify-center p-3.5 rounded-lg bg-surface-container-lowest shadow-[0px_8px_24px_rgba(0,0,0,0.04)] border-2 border-primary/20 transition-all" data-type="RANDOM">
+      <span class="type-icon material-symbols-outlined text-primary mb-1.5 text-2xl">casino</span>
+      <span class="type-text font-label text-xs font-bold text-on-surface">拼手气红包</span>
+    </button>
+    <button class="type-btn flex flex-col items-center justify-center p-3.5 rounded-lg bg-surface-container-low border-2 border-transparent opacity-60 hover:opacity-80 transition-all" data-type="EQUAL">
+      <span class="type-icon material-symbols-outlined text-on-surface-variant mb-1.5 text-2xl">equalizer</span>
+      <span class="type-text font-label text-xs font-bold text-on-surface-variant">普通红包</span>
+    </button>
+  </section>
 
-  <div class="label">祝福语（选填）</div>
-  <input id="message" type="text" placeholder="恭喜发财，大吉大利" autocomplete="off" maxlength="12" style="margin-bottom:12px;" />
+  <section class="space-y-3">
+    <div class="p-4 rounded-lg bg-surface-container-lowest shadow-[0px_4px_16px_rgba(44,47,49,0.02)]">
+      <div class="flex justify-between items-center mb-2">
+        <label class="font-label text-xs font-bold text-on-surface-variant">总金额</label>
+        <span class="font-label text-[10px] font-semibold text-primary uppercase">SCASH</span>
+      </div>
+      <div class="flex items-center gap-3 relative">
+        <input id="totalAmount" class="w-full bg-transparent border-none focus:ring-0 p-0 font-headline text-3xl font-bold text-on-surface placeholder:text-surface-variant" placeholder="0.00" type="text" autocomplete="off" />
+        <div id="fiatEstimate" class="absolute right-0 bottom-1 font-label text-xs text-on-surface-variant"></div>
+      </div>
+    </div>
+    
+    <div class="p-4 rounded-lg bg-surface-container-lowest shadow-[0px_4px_16px_rgba(44,47,49,0.02)]">
+      <div class="flex justify-between items-center mb-2">
+        <label class="font-label text-xs font-bold text-on-surface-variant">红包个数</label>
+        <span class="font-label text-[10px] font-semibold text-on-surface-variant">个</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <input id="count" class="w-full bg-transparent border-none focus:ring-0 p-0 font-headline text-3xl font-bold text-on-surface placeholder:text-surface-variant" placeholder="0" type="number" autocomplete="off" min="1" />
+      </div>
+    </div>
+  </section>
 
-  <div class="label">红包有效期</div>
-  <div class="expire-radio-group" id="expireGroup">
-    <% if (typeof env !== 'undefined' && env !== 'production') { %>
-    <input class="expire-radio" type="radio" name="expireTime" id="expire180" value="180" checked />
-    <label class="expire-label" for="expire180">3 分钟</label>
-    <% } %>
-    <input class="expire-radio" type="radio" name="expireTime" id="expire86400" value="86400" <%= (typeof env === 'undefined' || env === 'production') ? 'checked' : '' %> />
-    <label class="expire-label" for="expire86400">24 小时</label>
-    <input class="expire-radio" type="radio" name="expireTime" id="expire604800" value="604800" />
-    <label class="expire-label" for="expire604800">7 天</label>
-    <input class="expire-radio" type="radio" name="expireTime" id="expire31536000" value="31536000" />
-    <label class="expire-label" for="expire31536000">永不过期</label>
-  </div>
+  <section class="space-y-3">
+    <div class="flex flex-col gap-1 px-1">
+      <span class="font-label text-[9px] font-extrabold uppercase tracking-widest text-on-surface-variant/70">红包设置</span>
+    </div>
+    
+    <div class="rounded-lg bg-surface-container-low overflow-hidden">
+      <div class="flex items-center justify-between p-4 bg-surface-container-lowest mb-[1px]">
+        <span class="font-label text-xs font-semibold text-on-surface">留言</span>
+        <div class="flex items-center gap-2 flex-1 ml-4">
+          <input id="message" class="w-full text-right bg-transparent border-none focus:ring-0 p-0 font-body text-xs text-on-surface placeholder:text-on-surface-variant/40" placeholder="恭喜发财，万事如意" type="text" autocomplete="off" maxlength="12"/>
+        </div>
+      </div>
 
-  <div class="label">选择封面</div>
-  <div id="coverList" style="margin-bottom:12px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
-    <div style="color:var(--muted); font-size:12px; padding:8px 0;">加载中…</div>
-  </div>
+      <div class="p-4 bg-surface-container-lowest mb-[1px]">
+        <div class="flex items-center justify-between mb-3">
+          <span class="font-label text-xs font-semibold text-on-surface">有效期</span>
+          <span id="expireDisplay" class="font-label text-[10px] text-primary font-bold">24小时</span>
+        </div>
+        <div id="expireGroup" class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          <% if (typeof env !== 'undefined' && env !== 'production') { %>
+          <button class="expire-btn whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label text-[10px] font-bold" data-val="180">3分钟</button>
+          <% } %>
+          <button class="expire-btn active whitespace-nowrap px-3.5 py-1.5 rounded-full signature-gradient text-white text-on-primary font-label text-[10px] font-bold" data-val="86400">24小时</button>
+          <button class="expire-btn whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label text-[10px] font-bold" data-val="604800">7天</button>
+          <button class="expire-btn whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label text-[10px] font-bold" data-val="31536000">永久</button>
+        </div>
+      </div>
 
-  <div class="row" style="margin-bottom:8px;">
-    <span class="label" style="margin:0;">可用余额：</span>
-    <span id="availBalance" class="value" style="font-size:14px;">- SCASH</span>
-  </div>
+      <div class="p-4 bg-surface-container-lowest">
+        <span class="font-label text-xs font-semibold text-on-surface block mb-3">红包封面</span>
+        <div id="coverList" class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+          <div class="text-on-surface-variant text-xs">加载中…</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <div class="card warn" style="margin-bottom:12px;">
-    <div class="label" style="margin-bottom:6px;">费用预估</div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">红包金额</span><span id="estAmount" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">统筹预留</span><span id="estReserve" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:4px;"><span class="label" style="margin:0;">链上手续费</span><span id="estFee" class="mono">-</span></div>
-    <div class="row" style="margin-bottom:6px;"><span class="label" style="margin:0;">DAP 上链</span><span id="estDap" class="mono">计算中…</span></div>
-    <div class="row" style="padding-top:6px; border-top:1px dashed #e3d2b7;"><span style="font-size:13px; font-weight:700;">预计总支出</span><span id="estTotal" class="mono" style="font-weight:700;">-</span></div>
-  </div>
+  <section class="p-4 rounded-lg bg-surface-container-low/50 border border-outline-variant/20">
+    <div class="mb-3">
+      <h3 class="font-label text-xs font-bold text-on-surface-variant">费用预估</h3>
+    </div>
+    <div class="space-y-2">
+      <div class="flex justify-between items-center">
+        <span class="font-label text-[10px] text-on-surface-variant">红包金额</span>
+        <span id="estAmount" class="font-label text-[10px] font-medium text-on-surface">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="font-label text-[10px] text-on-surface-variant">统筹预留</span>
+        <span id="estReserve" class="font-label text-[10px] font-medium text-on-surface">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="font-label text-[10px] text-on-surface-variant">链上手续费</span>
+        <span id="estFee" class="font-label text-[10px] font-medium text-on-surface">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="font-label text-[10px] text-on-surface-variant">DAP 上链</span>
+        <span id="estDap" class="font-label text-[10px] font-medium text-on-surface">计算中…</span>
+      </div>
+      <div class="pt-2 mt-1 border-t border-outline-variant/10 flex justify-between items-baseline">
+        <span class="font-headline text-xs font-bold text-on-surface">预计总支出</span>
+        <span id="estTotal" class="font-headline text-base font-black text-primary">-</span>
+      </div>
+    </div>
+  </section>
+  
+  <div id="errorMsg" class="error text-center" style="display:none;"></div>
+</main>
 
-  <button id="submitBtn" class="btn btn-brand" style="width:100%;">&#x1F4E5; 确认创建</button>
-  <div id="errorMsg" class="error" style="display:none; margin-top:10px;"></div>
+<div id="bottomBar" class="w-full  backdrop-blur-xl z-40">
+  <button id="submitBtn" class="w-full h-14 rounded-full signature-gradient flex items-center justify-center gap-3 shadow-[0px_12px_24px_rgba(145,40,173,0.25)] active:scale-95 transition-transform duration-200 disabled:opacity-50">
+    <span class="material-symbols-outlined text-white text-on-primary text-xl" style="font-variation-settings: 'FILL' 1;">send</span>
+    <span id="submitBtnText" class="font-headline font-bold text-white text-on-primary text-base tracking-wide">确认生成红包</span>
+  </button>
 </div>
 
 <!-- 确认弹窗 -->
-<div id="confirmModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-title">确认红包信息</div>
-    <div class="modal-body" id="confirmBody"></div>
-    <div class="modal-actions">
-      <button class="btn btn-soft" id="confirmCancel">取消</button>
-      <button class="btn btn-brand" id="confirmOk">确认发送</button>
+<div id="confirmModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-on-background/20 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-surface-container-lowest rounded-lg shadow-[0px_12px_32px_rgba(44,47,49,0.06)] overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 text-center shrink-0">
+        <div class="inline-flex items-center justify-center w-10 h-10 bg-primary/5 rounded-full mb-2">
+          <span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">redeem</span>
+        </div>
+        <h1 class="text-lg font-headline font-bold text-on-surface">确认红包信息</h1>
+      </div>
+      <div class="px-6 py-2 space-y-3 overflow-y-auto">
+        <div class="bg-surface-container-low rounded-lg p-4 flex flex-col items-center justify-center">
+          <div class="text-on-surface-variant text-[10px] font-label uppercase tracking-widest mb-1">转账金额</div>
+          <div class="flex items-baseline gap-1">
+            <span id="confirmTotal" class="text-2xl font-headline font-extrabold text-on-surface">-</span>
+            <span class="text-sm font-headline font-bold text-primary">SCASH</span>
+          </div>
+        </div>
+        <div class="space-y-2 bg-surface p-3 rounded-lg text-xs">
+          <div class="flex justify-between items-center">
+            <span class="text-on-surface-variant">红包类型</span>
+            <span id="confirmType" class="text-on-surface font-semibold">-</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-on-surface-variant">红包数量</span>
+            <span id="confirmCount" class="text-on-surface font-semibold">-</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-on-surface-variant">祝福语</span>
+            <span id="confirmMessage" class="text-on-surface font-semibold">-</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-on-surface-variant">有效期</span>
+            <span id="confirmExpire" class="text-on-surface font-semibold">-</span>
+          </div>
+        </div>
+        <div class="flex justify-between items-center px-2 pb-2">
+          <span class="text-on-surface-variant text-[10px]">合计支出 (含手续费)</span>
+          <span id="confirmTotalNeed" class="text-on-surface font-headline font-bold text-sm">-</span>
+        </div>
+      </div>
+      <div class="p-4 shrink-0 flex flex-col gap-2">
+        <button id="confirmOk" class="w-full h-12 bg-gradient-to-r from-primary to-primary-container text-white rounded-full font-headline font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+          确认发送
+        </button>
+        <button id="confirmCancel" class="w-full h-12 bg-surface-container-high text-on-surface-variant rounded-full font-headline font-semibold active:scale-[0.98] transition-transform">
+          取消
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- 密码弹窗 -->
-<div id="pwModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-title">输入钱包密码</div>
-    <input id="pwInput" class="modal-input" type="password" placeholder="请输入钱包密码以签署交易" autocomplete="off" />
-    <div class="modal-pw-error" id="pwError"></div>
-    <div class="modal-actions">
-      <button class="btn btn-soft" id="pwCancel">取消</button>
-      <button class="btn btn-brand" id="pwOk">确认</button>
+<div id="pwModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-on-background/20 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-6">
+    <div class="w-full max-w-md bg-surface-container-lowest rounded-lg shadow-[0px_24px_64px_rgba(44,47,49,0.12)] p-8 overflow-hidden relative">
+      <div class="absolute top-0 left-0 w-full h-1 signature-gradient"></div>
+      <div class="flex flex-col items-center mb-8">
+        <div class="w-16 h-16 rounded-full bg-primary-container/10 flex items-center justify-center mb-6">
+          <span class="material-symbols-outlined text-primary text-4xl" style="font-variation-settings: 'FILL' 1;">lock</span>
+        </div>
+        <h2 class="text-2xl font-headline font-bold text-on-surface tracking-tight">输入钱包密码</h2>
+      </div>
+      <div class="space-y-6">
+        <div class="space-y-2">
+          <label class="text-xs font-label font-bold uppercase tracking-widest text-on-surface-variant ml-1">钱包密码</label>
+          <div class="relative">
+            <input id="pwInput" class="w-full bg-surface-container-high border-none rounded-lg px-4 py-4 text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all duration-300 font-body outline-none" placeholder="请输入密码以签署交易" type="password" autocomplete="off"/>
+            <div id="pwError" class="absolute left-1 -bottom-6 text-xs text-error"></div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-3 pt-6">
+          <button id="pwOk" class="w-full signature-gradient text-white font-headline font-bold py-4 rounded-full shadow-lg shadow-primary/20 active:scale-95 transition-all duration-200">
+            确认交易
+          </button>
+          <button id="pwCancel" class="w-full bg-transparent text-outline font-headline font-semibold py-3 rounded-full hover:bg-surface-container-low transition-colors active:scale-95 duration-200">
+            取消
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<div id="successSection" style="display:none;">
-  <div class="card" style="text-align:center;">
-    <div style="font-size:48px; margin-bottom:12px;">&#x1F389;</div>
-    <div style="font-size:18px; font-weight:700; margin-bottom:8px;">红包已发出！</div>
-    <div class="label" style="margin-bottom:16px;" id="successPacketHash">-</div>
-    <div class="card warn" style="margin-bottom:16px; text-align:left;">
-      <div class="label" style="margin-bottom:4px;">分享链接</div>
-      <div id="shareUrl" class="mono" style="font-size:11px; word-break:break-all; color:var(--brand); margin-bottom:8px;">-</div>
+<!-- 成功界面 -->
+<div id="successSection" class="fixed inset-0 z-50 bg-surface hidden">
+  <div class="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[500px] bg-[radial-gradient(circle,rgba(145,40,173,0.15)_0%,rgba(245,247,249,0)_70%)] -z-10"></div>
+    
+    <div class="text-center mb-6 relative">
+      <div class="w-16 h-16 mx-auto mb-4 bg-surface-container-lowest rounded-full shadow-[0px_12px_32px_rgba(44,47,49,0.06)] flex items-center justify-center relative">
+        <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">celebration</span>
+        <div class="absolute -top-1 -left-2 w-3 h-3 bg-tertiary-fixed rounded-full opacity-60"></div>
+        <div class="absolute top-2 -right-3 w-2 h-2 bg-primary-container rounded-full opacity-60"></div>
+        <div class="absolute -bottom-1 right-0 w-4 h-4 bg-secondary-container rounded-full opacity-40"></div>
+      </div>
+      <h1 class="font-headline font-extrabold text-2xl tracking-tight text-on-surface mb-1">红包已发送!</h1>
+      <p class="font-label text-on-surface-variant font-semibold uppercase tracking-widest text-[9px]">Red Packet Sent Successfully</p>
     </div>
-    <button id="shareBtn" class="btn btn-brand" style="width:100%;">&#x1F4E4; 分享到聊天</button>
-    <button id="backBtn" class="btn btn-soft" style="width:100%; margin-top:8px;">返回红包</button>
+    
+    <div class="w-full max-w-md space-y-4">
+      <div class="bg-surface-container-low p-6 rounded-lg text-center">
+        <div class="mb-4">
+          <span class="font-label text-on-surface-variant text-xs block mb-1">红包总额</span>
+          <div class="flex items-center justify-center gap-1">
+            <span id="successTotal" class="font-headline font-bold text-xl text-primary">-</span>
+            <span class="font-headline font-extrabold text-sm text-on-surface">SCASH</span>
+          </div>
+        </div>
+        <div class="pt-4 border-t border-outline-variant/10">
+          <span class="font-label text-on-surface-variant text-[10px] uppercase tracking-wider block mb-2">红包id</span>
+          <div class="flex items-center justify-center gap-2 bg-surface-container-lowest py-1.5 px-3 rounded-full">
+            <span id="successPacketHash" class="font-body text-[10px] text-on-surface-variant truncate max-w-[200px]">-</span>
+            <button id="copyHashBtn" class="text-primary hover:scale-110 active:scale-95 transition-transform">
+              <span class="material-symbols-outlined text-sm">content_copy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-surface-container-lowest p-4 rounded-lg shadow-[0px_12px_32px_rgba(44,47,49,0.04)] relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 signature-gradient opacity-[0.03] rounded-bl-full"></div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 flex-shrink-0 bg-primary-container/20 rounded-full flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">link</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-headline font-bold text-on-surface text-sm mb-1">专属领取链接</h3>
+            <p class="font-body text-[10px] text-on-surface-variant leading-tight mb-2">
+              分享此链接给好友，即可让他们领取您的红包。
+            </p>
+            <div id="copyUrlBtn" class="bg-surface p-2 rounded-lg flex items-center justify-between group cursor-pointer hover:bg-surface-container-high transition-colors">
+              <span id="shareUrl" class="font-body text-[10px] text-primary font-medium truncate flex-1 pr-2">-</span>
+              <span class="material-symbols-outlined text-primary text-xs">open_in_new</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex flex-col gap-3 pt-2">
+        <button id="shareBtn" class="w-full h-12 signature-gradient text-white font-headline font-bold rounded-full flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform">
+          <span class="material-symbols-outlined text-lg">send</span>
+          分享到聊天
+        </button>
+        <button id="backBtn" class="w-full h-12 bg-transparent border-2 border-outline-variant/20 text-on-surface-variant font-headline font-bold rounded-full flex items-center justify-center hover:bg-surface-container-low active:scale-[0.98] transition-all">
+          返回红包中心
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -182,8 +368,8 @@
   let loadingText = '处理中…';
 
   function getSelectedExpireSeconds() {
-    var checked = document.querySelector('input[name="expireTime"]:checked');
-    return checked ? parseInt(checked.value, 10) : 86400;
+    var activeBtn = document.querySelector('.expire-btn.active');
+    return activeBtn ? parseInt(activeBtn.dataset.val, 10) : 86400;
   }
 
   function scashNetwork() {
@@ -202,9 +388,9 @@
     var btn = document.getElementById('submitBtn');
     btn.disabled = isEstimating || isSubmitting;
     if (isSubmitting) {
-      btn.innerHTML = '<span class="spinner"></span>' + loadingText;
+      btn.innerHTML = '<span class="spinner"></span><span class="font-headline font-bold text-white text-on-primary text-base tracking-wide">' + loadingText + '</span>';
     } else {
-      btn.textContent = '\u{1F4E5} 确认创建';
+      btn.innerHTML = '<span class="material-symbols-outlined text-white text-on-primary text-xl" style="font-variation-settings: \'FILL\' 1;">send</span><span id="submitBtnText" class="font-headline font-bold text-white text-on-primary text-base tracking-wide">确认生成红包</span>';
     }
   }
 
@@ -524,13 +710,12 @@
   }
 
   // --- Modal helpers ---
-  function showConfirmModal(text) {
+  function showConfirmModal() {
     return new Promise(function (resolve) {
-      document.getElementById('confirmBody').textContent = text;
       var modal = document.getElementById('confirmModal');
-      modal.classList.add('active');
+      modal.classList.remove('hidden');
       function cleanup(val) {
-        modal.classList.remove('active');
+        modal.classList.add('hidden');
         document.getElementById('confirmOk').removeEventListener('click', onOk);
         document.getElementById('confirmCancel').removeEventListener('click', onCancel);
         resolve(val);
@@ -542,34 +727,65 @@
     });
   }
 
-  function showPasswordModal(initError) {
+  function showPasswordModal(initError, validateCb) {
     return new Promise(function (resolve) {
       var modal = document.getElementById('pwModal');
       var input = document.getElementById('pwInput');
       var errEl = document.getElementById('pwError');
       var okBtn = document.getElementById('pwOk');
+      
       input.value = '';
       okBtn.disabled = false;
-      okBtn.textContent = '确认';
-      if (initError) {
-        errEl.textContent = initError;
-        input.classList.add('error');
-      } else {
-        errEl.textContent = '';
-        input.classList.remove('error');
-      }
-      modal.classList.add('active');
+      okBtn.textContent = '确认交易';
+      errEl.textContent = initError || '';
+      
+      modal.classList.remove('hidden');
       setTimeout(function () { input.focus(); }, 100);
-      function cleanup(val) {
-        modal.classList.remove('active');
+      
+      function cleanup() {
+        modal.classList.add('hidden');
         okBtn.removeEventListener('click', onOk);
         document.getElementById('pwCancel').removeEventListener('click', onCancel);
         input.removeEventListener('keydown', onKey);
-        resolve(val);
       }
-      function onOk() { cleanup(input.value || ''); }
-      function onCancel() { cleanup(null); }
+      
+      async function onOk() {
+        var val = input.value || '';
+        if (!val) {
+          errEl.textContent = '请输入密码';
+          return;
+        }
+        
+        okBtn.disabled = true;
+        okBtn.innerHTML = '<span class="spinner"></span>验证中…';
+        
+        if (validateCb) {
+          var isValid = await validateCb(val);
+          if (isValid === true) {
+            cleanup();
+            resolve(val);
+          } else {
+            okBtn.disabled = false;
+            okBtn.textContent = '确认交易';
+            errEl.textContent = typeof isValid === 'string' ? isValid : '密码错误，请重新输入';
+            if (isValid === 'TOO_MANY_ERRORS') {
+              cleanup();
+              resolve(null);
+            }
+          }
+        } else {
+          cleanup();
+          resolve(val);
+        }
+      }
+      
+      function onCancel() { 
+        cleanup(); 
+        resolve(null); 
+      }
+      
       function onKey(e) { if (e.key === 'Enter') onOk(); }
+      
       okBtn.addEventListener('click', onOk);
       document.getElementById('pwCancel').addEventListener('click', onCancel);
       input.addEventListener('keydown', onKey);
@@ -585,10 +801,34 @@
 
   document.querySelectorAll('.type-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      document.querySelectorAll('.type-btn').forEach(function (b) { b.classList.remove('btn-brand'); b.classList.add('btn-soft'); });
-      btn.classList.remove('btn-soft'); btn.classList.add('btn-brand');
+      document.querySelectorAll('.type-btn').forEach(function (b) {
+        b.classList.remove('active', 'bg-surface-container-lowest', 'shadow-[0px_8px_24px_rgba(0,0,0,0.04)]', 'border-primary/20');
+        b.classList.add('bg-surface-container-low', 'border-transparent', 'opacity-60');
+        b.querySelector('.type-icon').classList.remove('text-primary');
+        b.querySelector('.type-icon').classList.add('text-on-surface-variant');
+        b.querySelector('.type-text').classList.remove('text-on-surface');
+        b.querySelector('.type-text').classList.add('text-on-surface-variant');
+      });
+      btn.classList.remove('bg-surface-container-low', 'border-transparent', 'opacity-60');
+      btn.classList.add('active', 'bg-surface-container-lowest', 'shadow-[0px_8px_24px_rgba(0,0,0,0.04)]', 'border-primary/20', 'opacity-100');
+      btn.querySelector('.type-icon').classList.remove('text-on-surface-variant');
+      btn.querySelector('.type-icon').classList.add('text-primary');
+      btn.querySelector('.type-text').classList.remove('text-on-surface-variant');
+      btn.querySelector('.type-text').classList.add('text-on-surface');
       selectedType = btn.dataset.type;
       debouncedEstimate();
+    });
+  });
+
+  document.querySelectorAll('.expire-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.expire-btn').forEach(function(b) {
+        b.classList.remove('active', 'signature-gradient', 'text-white', 'text-on-primary');
+        b.classList.add('bg-surface-container-low', 'text-on-surface-variant');
+      });
+      btn.classList.remove('bg-surface-container-low', 'text-on-surface-variant');
+      btn.classList.add('active', 'signature-gradient', 'text-white', 'text-on-primary');
+      document.getElementById('expireDisplay').textContent = btn.textContent;
     });
   });
 
@@ -654,50 +894,39 @@
       }
 
       var expireSec = getSelectedExpireSeconds();
-      var expireLabel = { 180: '3 分钟', 86400: '24 小时', 604800: '7 天', 31536000: '永不过期' }[expireSec] || (expireSec + ' 秒');
+      var expireLabel = { 180: '3 分钟', 86400: '24 小时', 604800: '7 天', 31536000: '永久' }[expireSec] || (expireSec + ' 秒');
 
-      var confirmText = [
-        '类型：' + (selectedType === 'RANDOM' ? '拼手气' : '均分'),
-        '金额：' + check.total + ' SCASH',
-        '个数：' + check.countInt,
-        '祝福语：' + blessMessage,
-        '有效期：' + expireLabel,
-        '预计总支出：' + (latestEstimateTotalSat ? satoshiToScashString(latestEstimateTotalSat) : satoshiToScashString(check.totalNeedSat)) + ' SCASH',
-      ].join('\n');
+      document.getElementById('confirmTotal').textContent = check.total;
+      document.getElementById('confirmType').textContent = selectedType === 'RANDOM' ? '拼手气红包 (Random)' : '普通红包 (Equal)';
+      document.getElementById('confirmCount').textContent = check.countInt + ' 个';
+      document.getElementById('confirmMessage').textContent = blessMessage;
+      document.getElementById('confirmExpire').textContent = expireLabel;
+      document.getElementById('confirmTotalNeed').textContent = (latestEstimateTotalSat ? satoshiToScashString(latestEstimateTotalSat) : satoshiToScashString(check.totalNeedSat)) + ' SCASH';
 
-      var confirmed = await showConfirmModal(confirmText);
+      var confirmed = await showConfirmModal();
       if (!confirmed) return;
 
       // 密码输入循环：允许重试（最多2次）
       var mnemonic = null;
       var pwRetries = 2;
-      var pwErrMsg = null;
-      while (pwRetries > 0) {
-        var pw = await showPasswordModal(pwErrMsg);
-        if (pw === null) return; // 用户取消
-        if (!pw) {
-          pwErrMsg = '请输入密码';
-          continue;
-        }
+      
+      var pw = await showPasswordModal(null, async function(val) {
         try {
-          document.getElementById('pwOk').disabled = true;
-          document.getElementById('pwOk').innerHTML = '<span class="spinner"></span>验证中…';
-          mnemonic = await decryptMnemonic(pw);
-          document.getElementById('pwOk').disabled = false;
-          document.getElementById('pwOk').textContent = '确认';
-          document.getElementById('pwModal').classList.remove('active');
-          break;
+          mnemonic = await decryptMnemonic(val);
+          return true; // 验证成功，关闭弹窗
         } catch (pwErr) {
-          document.getElementById('pwOk').disabled = false;
-          document.getElementById('pwOk').textContent = '确认';
           pwRetries--;
           if (pwRetries <= 0) {
-            document.getElementById('pwModal').classList.remove('active');
             showError('密码多次错误，请确认后重试');
-            return;
+            return 'TOO_MANY_ERRORS'; // 关闭弹窗并中断
           }
-          pwErrMsg = '密码错误，请重新输入';
+          return '密码错误，您还有 ' + pwRetries + ' 次重试机会'; // 验证失败，显示错误不关闭弹窗
         }
+      });
+      
+      if (!pw || !mnemonic) {
+        submitLocked = false; refreshSubmitState();
+        return; // 用户取消或多次错误
       }
 
       setLoading(true, '创建中…');
@@ -790,10 +1019,31 @@
       setLoading(false);
       var startParam = 'rp_' + packetHash;
       var shareUrl = 'https://t.me/scash_red_envelope_bot/' + effectiveCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
-      document.getElementById('successPacketHash').textContent = packetHash;
-      document.getElementById('shareUrl').textContent = shareUrl;
-      document.getElementById('submitBtn').closest('.card').style.display = 'none';
+      document.getElementById('successPacketHash').textContent = '0x' + packetHash.substring(0, 4) + '...' + packetHash.substring(packetHash.length - 4);
+      var shareUrlDisplay = shareUrl.replace('https://', '');
+      document.getElementById('shareUrl').textContent = shareUrlDisplay.length > 30 ? shareUrlDisplay.substring(0, 27) + '...' : shareUrlDisplay;
+      document.getElementById('successTotal').textContent = total;
+      document.getElementById('createForm').style.display = 'none';
+      document.getElementById('bottomBar').style.display = 'none';
       document.getElementById('successSection').style.display = 'block';
+
+      document.getElementById('copyHashBtn').onclick = function() {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(packetHash);
+          var icon = this.querySelector('.material-symbols-outlined');
+          icon.textContent = 'check';
+          setTimeout(function() { icon.textContent = 'content_copy'; }, 1500);
+        }
+      };
+
+      document.getElementById('copyUrlBtn').onclick = function() {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl);
+          var icon = this.querySelector('.material-symbols-outlined');
+          icon.textContent = 'check';
+          setTimeout(function() { icon.textContent = 'open_in_new'; }, 1500);
+        }
+      };
 
       document.getElementById('shareBtn').onclick = function () {
         var tg = window.SCASH && window.SCASH.TG;
