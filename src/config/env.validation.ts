@@ -16,6 +16,8 @@ export const envValidationSchema = Joi.object({
   ZMQ_BLOCK_URL: Joi.string().required(),
   ZMQ_TX_URL: Joi.string().required(),
 
+  BLOCK_SYNC_START_HEIGHT: Joi.number().integer().min(0).optional(),
+
   MASTER_KEY: Joi.string().min(16).required(),
   COORDINATION_ACCOUNT_MNEMONIC: Joi.string().min(20).required(),
 });

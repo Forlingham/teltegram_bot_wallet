@@ -50,7 +50,15 @@ export class UtxoSyncService implements OnModuleInit {
   private async catchUpBlocks(): Promise<void> {
     const tip = await this.blockchain.call<number>('getblockcount');
     const blockSync = await this.prisma.blockSync.findFirst();
-    const startHeight = blockSync ? blockSync.lastBlockHeight + 1 : 0;
+    const envStartHeight = this.configService.get<number>('BLOCK_SYNC_START_HEIGHT');
+
+    let startHeight: number;
+    if (envStartHeight !== undefined && envStartHeight !== null) {
+      startHeight = envStartHeight;
+      this.logger.log(`Using BLOCK_SYNC_START_HEIGHT from env: ${startHeight}`);
+    } else {
+      startHeight = blockSync ? blockSync.lastBlockHeight + 1 : 0;
+    }
 
     if (startHeight > tip) {
       return;
