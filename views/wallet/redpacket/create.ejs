@@ -1038,7 +1038,9 @@
 
       setLoading(false);
       var startParam = 'rp_' + packetHash;
-      var shareUrl = 'https://t.me/scash_red_envelope_bot/' + effectiveCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
+      var nodeEnv = (window.SCASH && window.SCASH.ENV) || 'development';
+      var botUsername = nodeEnv === 'production' ? 'SCASH_Wallet_bot' : 'scash_red_envelope_bot';
+      var shareUrl = 'https://t.me/' + botUsername + '/' + effectiveCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
       document.getElementById('successPacketHash').textContent = packetHash;
       document.getElementById('shareUrl').textContent = shareUrl;
       document.getElementById('successTotal').textContent = total;

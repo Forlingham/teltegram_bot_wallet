@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletEncryptedPayloadDto } from './dto/wallet-encrypted-payload.dto';
 import { BindWalletDto } from './dto/bind-wallet.dto';
@@ -31,7 +32,10 @@ type WalletHistoryItem = {
 
 @Injectable()
 export class WalletService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
+  ) {}
 
   async getHistory(userId: number): Promise<{
     transactions: WalletHistoryItem[];
@@ -212,7 +216,7 @@ export class WalletService {
           remainingAmount: createPacket.remainingAmount,
           canShare: isActive,
           shareUrl: isActive
-            ? `https://t.me/scash_red_envelope_bot/${createPacket.botPath}?startapp=${encodeURIComponent(`rp_${createPacket.packetHash}`)}`
+            ? this.buildShareUrl(createPacket.botPath, createPacket.packetHash)
             : undefined,
         };
         continue;
@@ -510,5 +514,11 @@ export class WalletService {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+
+  private buildShareUrl(botPath: string, packetHash: string): string {
+    const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+    const botUsername = nodeEnv === 'production' ? 'SCASH_Wallet_bot' : 'scash_red_envelope_bot';
+    return `https://t.me/${botUsername}/${botPath}?startapp=${encodeURIComponent(`rp_${packetHash}`)}`;
   }
 }
