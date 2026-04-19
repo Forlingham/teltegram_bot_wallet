@@ -26,7 +26,8 @@ export class RedpacketScheduler {
     });
 
     for (const packet of expired) {
-      await this.prisma.$transaction(async (trx) => {
+      try {
+        await this.prisma.$transaction(async (trx) => {
         const refreshed = await trx.redPacket.findUnique({ where: { id: packet.id } });
         if (!refreshed || refreshed.status !== 'ACTIVE') {
           return;
@@ -69,6 +70,10 @@ export class RedpacketScheduler {
           },
         });
       });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to expire packet ${packet.id}: ${reason}`);
+      }
     }
   }
 

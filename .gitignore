@@ -7,3 +7,4 @@ coverage/
 prisma/migrations/
 tsconfig.build.tsbuildinfo
 tsconfig.tsbuildinfo
+tsconfig.build.tsbuildinfo
