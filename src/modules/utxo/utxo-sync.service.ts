@@ -53,11 +53,11 @@ export class UtxoSyncService implements OnModuleInit {
     const envStartHeight = this.configService.get<number>('BLOCK_SYNC_START_HEIGHT');
 
     let startHeight: number;
-    if (envStartHeight !== undefined && envStartHeight !== null) {
-      startHeight = envStartHeight;
-      this.logger.log(`Using BLOCK_SYNC_START_HEIGHT from env: ${startHeight}`);
+    if (!blockSync) {
+      startHeight = envStartHeight ?? 0;
+      this.logger.log(`No checkpoint found, using start height: ${startHeight}`);
     } else {
-      startHeight = blockSync ? blockSync.lastBlockHeight + 1 : 0;
+      startHeight = blockSync.lastBlockHeight + 1;
     }
 
     if (startHeight > tip) {
@@ -187,10 +187,8 @@ export class UtxoSyncService implements OnModuleInit {
     trx?: any,
   ): Promise<void> {
     const txid = tx.txid;
-    const client = trx ?? this.prisma;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await client.$transaction(async (db: any) => {
+    const executeOperations = async (db: typeof this.prisma) => {
       for (const vin of tx.vin) {
         if (!vin.txid || typeof vin.vout !== 'number') {
           continue;
@@ -252,7 +250,15 @@ export class UtxoSyncService implements OnModuleInit {
           },
         });
       }
-    });
+    };
+
+    if (trx) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await executeOperations(trx as any);
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await this.prisma.$transaction(async (db: any) => executeOperations(db));
+    }
   }
 
 }
