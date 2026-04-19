@@ -31,6 +31,9 @@ export class PagesController {
     const network = getScashNetwork(nodeEnv);
     const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
     const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
+    const ARR_FEE_ADDRESS_MAINNET = 'scash1qdq0sa4wxav36k7a4gwxq3k6dk0ahpqfsz8xpvg';
+    const ARR_FEE_ADDRESS_TESTNET = 'bcrt1q8zlevurcf7ht49v7m83jz9v8uvqyturrg2w96t';
+    const arrFeeAddress = nodeEnv === 'production' ? ARR_FEE_ADDRESS_MAINNET : ARR_FEE_ADDRESS_TESTNET;
     return {
       hideBottomNav: true,
       requireFullWallet: false, // 默认不强制，需要签名的页面设为 true
@@ -43,6 +46,7 @@ export class PagesController {
         scriptHash: network.scriptHash,
       },
       poolAddress,
+      arrFeeAddress,
     };
   }
 

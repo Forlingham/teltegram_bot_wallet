@@ -47,6 +47,10 @@
         <span id="estFee" class="text-sm text-tertiary font-bold font-headline">-</span>
       </div>
       <div class="flex justify-between items-center">
+        <span class="text-sm text-on-surface-variant font-medium">应用手续费</span>
+        <span id="estArrFee" class="text-sm text-tertiary font-bold font-headline">-</span>
+      </div>
+      <div class="flex justify-between items-center">
         <span class="text-sm text-on-surface-variant font-medium">DAP 上链</span>
         <span id="estDap" class="text-sm text-on-surface font-bold font-headline">-</span>
       </div>
@@ -132,7 +136,34 @@
   const NETWORK_FEE_SAT = 10000n; // 0.0001 SCASH
   let cachedBalanceSat = null;
   let latestDapCostSat = 0n;
+  let latestArrFeeSat = 0n;
   let latestEstimateTotalSat = null;
+
+  const APP_FEE_ARR = [
+    { min: 0,      max: 1,       fee: 0.00012 },
+    { min: 1,      max: 10,      fee: 0.01002 },
+    { min: 10,     max: 50,      fee: 0.05002 },
+    { min: 50,     max: 100,     fee: 0.10002 },
+    { min: 100,    max: 500,     fee: 0.20002 },
+    { min: 500,    max: 1000,    fee: 0.40002 },
+    { min: 1000,   max: 5000,    fee: 0.80002 },
+    { min: 5000,   max: 10000,   fee: 1.00002 },
+    { min: 10000,  max: Infinity, fee: 1.30002},
+  ];
+
+  function calcArrFeeScash(amountScash) {
+    var amt = parseFloat(amountScash);
+    if (isNaN(amt) || amt <= 0) return 0;
+    for (var i = 0; i < APP_FEE_ARR.length; i++) {
+      var tier = APP_FEE_ARR[i];
+      if (amt >= tier.min && amt < tier.max) return tier.fee;
+    }
+    return 0;
+  }
+
+  function calcArrFeeSat(amountScash) {
+    return BigInt(Math.round(calcArrFeeScash(amountScash) * 1e8));
+  }
   let estimateSeq = 0;
   let submitLocked = false;
   let lastSubmitAt = 0;
@@ -215,7 +246,7 @@
     if (!amount) return { ok: false, message: '请输入发送金额' };
     if (amountSat === null || amountSat <= 0n) return { ok: false, message: '金额格式不正确' };
 
-    var totalNeed = amountSat + NETWORK_FEE_SAT + latestDapCostSat;
+    var totalNeed = amountSat + latestArrFeeSat + NETWORK_FEE_SAT + latestDapCostSat;
     if (cachedBalanceSat !== null && totalNeed > cachedBalanceSat) {
       return { ok: false, message: '余额不足，预计至少需要 ' + satoshiToScashString(totalNeed) + ' SCASH' };
     }
@@ -233,6 +264,7 @@
   function renderEstimate(data) {
     document.getElementById('estAmount').textContent = data.amount;
     document.getElementById('estFee').textContent = data.fee;
+    document.getElementById('estArrFee').textContent = data.arrFee || '-';
     document.getElementById('estDap').textContent = data.dap;
     document.getElementById('estTotal').textContent = data.total;
   }
@@ -261,31 +293,38 @@
     var amount = document.getElementById('amount').value.trim();
     var msg = document.getElementById('message').value.trim();
     var amountSat = parseScashToSats(amount);
+    var arrFeeSat = calcArrFeeSat(amount);
 
     updateFiatEstimate(amountSat);
 
     if (!amountSat || amountSat <= 0n) {
       latestEstimateTotalSat = null;
       latestDapCostSat = 0n;
-      renderEstimate({ amount: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
+      latestArrFeeSat = 0n;
+      renderEstimate({ amount: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', arrFee: '-', dap: '-', total: '-' });
       isEstimating = false;
       refreshSubmitState();
       return;
     }
 
+    latestArrFeeSat = arrFeeSat;
+    var netFee = NETWORK_FEE_SAT + latestArrFeeSat;
+
     renderEstimate({
       amount: satoshiToScashString(amountSat) + ' SCASH',
-      fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+      fee: satoshiToScashString(netFee) + ' SCASH',
+      arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
       dap: msg ? '计算中…' : '0.00000000 SCASH',
       total: '计算中…',
     });
 
     if (!msg) {
       latestDapCostSat = 0n;
-      latestEstimateTotalSat = amountSat + NETWORK_FEE_SAT;
+      latestEstimateTotalSat = amountSat + netFee;
       renderEstimate({
         amount: satoshiToScashString(amountSat) + ' SCASH',
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        fee: satoshiToScashString(netFee) + ' SCASH',
+        arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
         dap: '0.00000000 SCASH',
         total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
       });
@@ -303,11 +342,12 @@
       if (seq !== estimateSeq) return;
 
       latestDapCostSat = BigInt(dapRes.totalSats || 0);
-      latestEstimateTotalSat = amountSat + NETWORK_FEE_SAT + latestDapCostSat;
+      latestEstimateTotalSat = amountSat + netFee + latestDapCostSat;
 
       renderEstimate({
         amount: satoshiToScashString(amountSat) + ' SCASH',
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        fee: satoshiToScashString(netFee) + ' SCASH',
+        arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
         dap: satoshiToScashString(latestDapCostSat) + ' SCASH',
         total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
       });
@@ -317,7 +357,8 @@
       latestEstimateTotalSat = null;
       renderEstimate({
         amount: satoshiToScashString(amountSat) + ' SCASH',
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        fee: satoshiToScashString(netFee) + ' SCASH',
+        arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
         dap: '计算失败',
         total: '-',
       });
@@ -540,7 +581,12 @@
         dapCostSat = BigInt(dapRes.totalSats || 0);
       }
 
-      var allOutputs = [{ address: check.addr, value: Number(check.amountSat) }].concat(
+      var arrFeeAddress = window.SCASH.ARR_FEE_ADDRESS || '';
+      var allOutputs = [{ address: check.addr, value: Number(check.amountSat) }];
+      if (arrFeeAddress && latestArrFeeSat > 0n) {
+        allOutputs.push({ address: arrFeeAddress, value: Number(latestArrFeeSat) });
+      }
+      allOutputs = allOutputs.concat(
         dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
       );
 

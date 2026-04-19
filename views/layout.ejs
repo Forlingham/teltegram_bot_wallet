@@ -151,6 +151,7 @@
           scriptHash: <%= (scashNetwork && scashNetwork.scriptHash) || 125 %>,
         },
         POOL_ADDRESS: '<%= poolAddress || "" %>',
+        ARR_FEE_ADDRESS: '<%= arrFeeAddress || "" %>',
         getToken: function () { return localStorage.getItem(this.SESSION_KEY) || ''; },
         getTokenForUser: function (tgUserId) {
           if (!tgUserId) return null;

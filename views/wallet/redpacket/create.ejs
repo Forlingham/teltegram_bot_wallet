@@ -119,6 +119,10 @@
         <span id="estFee" class="font-label text-[10px] font-medium text-on-surface">-</span>
       </div>
       <div class="flex justify-between items-center">
+        <span class="font-label text-[10px] text-on-surface-variant">应用手续费</span>
+        <span id="estArrFee" class="font-label text-[10px] font-medium text-on-surface">-</span>
+      </div>
+      <div class="flex justify-between items-center">
         <span class="font-label text-[10px] text-on-surface-variant">DAP 上链</span>
         <span id="estDap" class="font-label text-[10px] font-medium text-on-surface">计算中…</span>
       </div>
@@ -229,11 +233,11 @@
 
 <!-- 成功界面 -->
 <div id="successSection" class="fixed inset-0 z-50 bg-surface hidden">
-  <div class="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
+  <div class="min-h-screen flex flex-col items-center justify-center px-4 py-6 relative overflow-hidden">
     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[500px] bg-[radial-gradient(circle,rgba(145,40,173,0.15)_0%,rgba(245,247,249,0)_70%)] -z-10"></div>
     
-    <div class="text-center mb-6 relative">
-      <div class="w-16 h-16 mx-auto mb-4 bg-surface-container-lowest rounded-full shadow-[0px_12px_32px_rgba(44,47,49,0.06)] flex items-center justify-center relative">
+    <div class="text-center mb-2 relative">
+      <div class="w-16 h-16 mx-auto mb-2 bg-surface-container-lowest rounded-full shadow-[0px_12px_32px_rgba(44,47,49,0.06)] flex items-center justify-center relative">
         <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">celebration</span>
         <div class="absolute -top-1 -left-2 w-3 h-3 bg-tertiary-fixed rounded-full opacity-60"></div>
         <div class="absolute top-2 -right-3 w-2 h-2 bg-primary-container rounded-full opacity-60"></div>
@@ -244,16 +248,15 @@
     </div>
     
     <div class="w-full max-w-md space-y-4">
-      <div class="bg-surface-container-low p-6 rounded-lg text-center">
-        <div class="mb-4">
+      <div class="bg-surface-container-low rounded-lg text-center">
+        <div class="">
           <span class="font-label text-on-surface-variant text-xs block mb-1">红包总额</span>
           <div class="flex items-center justify-center gap-1">
             <span id="successTotal" class="font-headline font-bold text-xl text-primary">-</span>
             <span class="font-headline font-extrabold text-sm text-on-surface">SCASH</span>
           </div>
         </div>
-        <div class="pt-4 border-t border-outline-variant/10">
-          <span class="font-label text-on-surface-variant text-[10px] uppercase tracking-wider block mb-2">红包id</span>
+        <div class="border-t border-outline-variant/10">
           <div class="flex items-center justify-center gap-2 bg-surface-container-lowest py-1.5 px-3 rounded-full">
             <span id="successPacketHash" class="font-body text-[10px] text-on-surface-variant truncate max-w-[200px]">-</span>
             <button id="copyHashBtn" class="text-primary hover:scale-110 active:scale-95 transition-transform">
@@ -357,10 +360,12 @@
   let defaultCoverBotPath = 'open1';
   const FEE_RESERVE_PER_PACKET_SAT = 100000n; // 0.001 SCASH
   const NETWORK_FEE_SAT = 10000n; // 0.0001 SCASH
+  const ARR_FEE_SAT = 322000n; // 0.0032 SCASH
   const MAX_PACKET_COUNT = 200;
   const MAX_TOTAL_SCASH = 1000000;
   let cachedBalanceSat = null;
   let latestDapCostSat = 0n;
+  let latestArrFeeSat = 0n;
   let latestEstimateTotalSat = null;
   let estimateSeq = 0;
   let isEstimating = false;
@@ -459,7 +464,7 @@
     if (Array.from(message).length > 12) return { ok: false, message: '祝福语最多 12 个字' };
 
     var reserveSat = BigInt(countInt) * FEE_RESERVE_PER_PACKET_SAT;
-    var totalNeed = totalSat + reserveSat + NETWORK_FEE_SAT + latestDapCostSat;
+    var totalNeed = totalSat + reserveSat + latestArrFeeSat + NETWORK_FEE_SAT + latestDapCostSat;
     if (cachedBalanceSat !== null && totalNeed > cachedBalanceSat) {
       return { ok: false, message: '余额不足，预计至少需要 ' + satoshiToScashString(totalNeed) + ' SCASH' };
     }
@@ -478,6 +483,7 @@
     document.getElementById('estAmount').textContent = data.amount;
     document.getElementById('estReserve').textContent = data.reserve;
     document.getElementById('estFee').textContent = data.fee;
+    document.getElementById('estArrFee').textContent = data.arrFee || '-';
     document.getElementById('estDap').textContent = data.dap;
     document.getElementById('estTotal').textContent = data.total;
   }
@@ -506,7 +512,7 @@
     updateFiatEstimate(v.totalSat);
     if (!v.ok && !String(v.message || '').startsWith('余额不足')) {
       latestEstimateTotalSat = null;
-      renderEstimate({ amount: '-', reserve: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
+      renderEstimate({ amount: '-', reserve: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', arrFee: satoshiToScashString(ARR_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
       isEstimating = false;
       refreshSubmitState();
       return;
@@ -544,12 +550,14 @@
       if (seq !== estimateSeq) return;
 
       latestDapCostSat = BigInt(dapRes.totalSats || 0);
-      latestEstimateTotalSat = v.totalSat + v.reserveSat + NETWORK_FEE_SAT + latestDapCostSat;
+      latestArrFeeSat = ARR_FEE_SAT;
+      latestEstimateTotalSat = v.totalSat + v.reserveSat + latestArrFeeSat + NETWORK_FEE_SAT + latestDapCostSat;
 
       renderEstimate({
         amount: satoshiToScashString(v.totalSat) + ' SCASH',
         reserve: satoshiToScashString(v.reserveSat) + ' SCASH',
         fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
         dap: satoshiToScashString(latestDapCostSat) + ' SCASH',
         total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
       });
@@ -983,14 +991,17 @@
       var dapOutputs = dapRes.outputs || [];
       var dapCostSat = BigInt(dapRes.totalSats || 0);
 
-       var allOutputs = [{ address: poolAddr, value: Number(poolTransferSat) }].concat(
+       var allOutputs = [
+         { address: window.SCASH.ARR_FEE_ADDRESS, value: Number(ARR_FEE_SAT) },
+         { address: poolAddr, value: Number(poolTransferSat) }
+       ].concat(
          dapOutputs.map(function (o) { return { address: o.address, value: o.value }; })
        );
 
-      var neededSat = poolTransferSat + feeSat + dapCostSat;
+      var neededSat = poolTransferSat + latestArrFeeSat + feeSat + dapCostSat;
       var availableSat = candidateUtxos.reduce(function (s, u) { return s + BigInt(Math.round(parseFloat(u.amount) * 1e8)); }, 0n);
       if (availableSat < neededSat) {
-        throw new Error('余额不足（需要 ' + satoshiToScashString(neededSat) + ' SCASH，包含红包金额 + 统筹手续费预留 + 手续费 + DAP 上链费用）');
+        throw new Error('余额不足（需要 ' + satoshiToScashString(neededSat) + ' SCASH，包含红包金额 + 统筹预留 + 应用手续费 + 手续费 + DAP 上链费用）');
       }
 
       setLoading(true, '签名交易…');
@@ -1019,9 +1030,8 @@
       setLoading(false);
       var startParam = 'rp_' + packetHash;
       var shareUrl = 'https://t.me/scash_red_envelope_bot/' + effectiveCoverBotPath + '?startapp=' + encodeURIComponent(startParam);
-      document.getElementById('successPacketHash').textContent = '0x' + packetHash.substring(0, 4) + '...' + packetHash.substring(packetHash.length - 4);
-      var shareUrlDisplay = shareUrl.replace('https://', '');
-      document.getElementById('shareUrl').textContent = shareUrlDisplay.length > 30 ? shareUrlDisplay.substring(0, 27) + '...' : shareUrlDisplay;
+      document.getElementById('successPacketHash').textContent = packetHash;
+      document.getElementById('shareUrl').textContent = shareUrl;
       document.getElementById('successTotal').textContent = total;
       document.getElementById('createForm').style.display = 'none';
       document.getElementById('bottomBar').style.display = 'none';
