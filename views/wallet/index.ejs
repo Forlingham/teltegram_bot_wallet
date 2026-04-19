@@ -189,23 +189,23 @@
     </a>
   </nav>
 
-  <div id="priceChartCard"  class="mt-6 pt-2">
-    <div class="flex justify-between items-end mb-4">
+  <div id="priceChartCard" class="mt-4">
+    <div class="flex justify-between items-end mb-2">
       <div>
-        <h2 class="text-lg font-headline font-bold text-on-surface">SCASH 7日走势</h2>
-        <p id="chartPriceTag" class="text-xs text-on-surface-variant font-medium">市场价格：<span id="chartCurrentPrice">$0.000000</span></p>
+        <h2 class="text-base font-headline font-bold text-on-surface">SCASH 7日走势</h2>
+        <p id="chartPriceTag" class="text-xs text-on-surface-variant font-medium">市场价格：<span id="chartCurrentPrice">$0.000</span></p>
       </div>
       <div class="text-right">
         <span id="chartPriceChange" class="font-bold font-headline text-lg"></span>
       </div>
     </div>
-    <div class=" w-full relative overflow-hidden bg-surface-container-lowest rounded-lg p-4 border border-outline-variant/10">
-      <div class="absolute inset-0 opacity-10 flex items-center justify-center">
+    <div class="w-full relative overflow-hidden bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+      <div class="absolute inset-0 opacity-10 flex items-center justify-center pointer-events-none">
         <div class="w-full h-[1px] bg-outline-variant absolute top-1/4"></div>
         <div class="w-full h-[1px] bg-outline-variant absolute top-2/4"></div>
         <div class="w-full h-[1px] bg-outline-variant absolute top-3/4"></div>
       </div>
-      <div id="priceChartContainer" style="width:100%; height:100%;"></div>
+      <div id="priceChartContainer" style="width:100%; height:180px;"></div>
       <div id="chartCrosshairPrice" class="absolute top-2 right-2 text-[10px] text-on-surface-variant"></div>
     </div>
   </div>
@@ -352,7 +352,7 @@
     var pct24 = parseFloat(pd.price.changePercent24h || 0);
     var pctSign = pct24 >= 0 ? '+' : '';
     var pctColor = pct24 >= 0 ? '#2f7a42' : '#c0392b';
-    priceTag.innerHTML = '$' + priceUsd.toFixed(6) + ' <span style="color:' + pctColor + ';">' + pctSign + pct24.toFixed(2) + '%</span>';
+    priceTag.innerHTML = '$' + priceUsd.toFixed(3) + ' <span style="color:' + pctColor + ';">' + pctSign + pct24.toFixed(2) + '%</span>';
     priceTag.style.display = 'block';
 
     // 余额法币估值
@@ -365,7 +365,7 @@
     }
 
     // 图表右上角当前价格
-    document.getElementById('chartCurrentPrice').textContent = '$' + priceUsd.toFixed(6);
+    document.getElementById('chartCurrentPrice').textContent = '$' + priceUsd.toFixed(3);
 
     // 7日走势图
     var chartData = pd.priceChart;
@@ -385,7 +385,7 @@
       var pct7 = parseFloat(pd.price.changePercent7d || 0);
       var sign7 = pct7 >= 0 ? '+' : '';
       var color7 = pct7 >= 0 ? '#2f7a42' : '#c0392b';
-      document.getElementById('chartPriceChange').innerHTML = '<span style="color:' + color7 + ';">7d ' + sign7 + pct7.toFixed(2) + '%</span>';
+      document.getElementById('chartPriceChange').innerHTML = '<span style="color:' + color7 + ';"> ' + sign7 + pct7.toFixed(2) + '%</span>';
 
       document.getElementById('priceChartCard').style.display = 'block';
       requestAnimationFrame(function () {
@@ -418,7 +418,7 @@
       layout: {
         background: { type: 'solid', color: 'transparent' },
         textColor: '#999',
-        fontSize: 11,
+        fontSize: 10,
       },
       grid: {
         vertLines: { visible: false },
@@ -438,7 +438,7 @@
       },
       rightPriceScale: {
         borderVisible: false,
-        scaleMargins: { top: 0.1, bottom: 0.05 },
+        scaleMargins: { top: 0.1, bottom: 0.1 },
       },
       handleScroll: { vertTouchDrag: false },
       handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
@@ -453,7 +453,7 @@
       crosshairMarkerRadius: 4,
       crosshairMarkerBorderColor: '#fff',
       crosshairMarkerBackgroundColor: lineColor,
-      priceFormat: { type: 'price', precision: 6, minMove: 0.000001 },
+      priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
     });
 
     var seriesData = data.map(function (d) {
@@ -471,14 +471,14 @@
     lwChart.subscribeCrosshairMove(function (param) {
       if (!param || !param.time || !param.seriesData || !param.seriesData.size) {
         crosshairEl.textContent = '';
-        currentPriceEl.textContent = '$' + currentPrice.toFixed(6);
+        currentPriceEl.textContent = '$' + currentPrice.toFixed(3);
         return;
       }
       var val = param.seriesData.get(lwSeries);
       if (val && typeof val.value === 'number') {
         var t = new Date(param.time * 1000);
         var timeStr = (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
-        currentPriceEl.textContent = '$' + val.value.toFixed(6);
+        currentPriceEl.textContent = '$' + val.value.toFixed(3);
         crosshairEl.textContent = timeStr;
       }
     });
