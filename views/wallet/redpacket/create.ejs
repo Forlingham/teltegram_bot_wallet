@@ -435,6 +435,15 @@
     return sign + whole.toString() + '.' + frac;
   }
 
+  function satoshiToScashTrimmed(sats) {
+    var sign = sats < 0n ? '-' : '';
+    var abs = sats < 0n ? -sats : sats;
+    var whole = abs / 100000000n;
+    var frac = (abs % 100000000n).toString().padStart(8, '0').replace(/0+$/, '');
+    if (frac === '') return sign + whole.toString();
+    return sign + whole.toString() + '.' + frac;
+  }
+
   function parseScashToSats(value) {
     var s = String(value || '').trim();
     if (!/^\d+(\.\d{1,8})?$/.test(s)) return null;
@@ -512,7 +521,7 @@
     updateFiatEstimate(v.totalSat);
     if (!v.ok && !String(v.message || '').startsWith('余额不足')) {
       latestEstimateTotalSat = null;
-      renderEstimate({ amount: '-', reserve: '-', fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH', arrFee: satoshiToScashString(ARR_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
+      renderEstimate({ amount: '-', reserve: '-', fee: satoshiToScashTrimmed(NETWORK_FEE_SAT) + ' SCASH', arrFee: satoshiToScashTrimmed(ARR_FEE_SAT) + ' SCASH', dap: '-', total: '-' });
       isEstimating = false;
       refreshSubmitState();
       return;
@@ -521,7 +530,7 @@
     renderEstimate({
       amount: satoshiToScashString(v.totalSat) + ' SCASH',
       reserve: satoshiToScashString(v.reserveSat) + ' SCASH',
-      fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+      fee: satoshiToScashTrimmed(NETWORK_FEE_SAT) + ' SCASH',
       dap: '计算中…',
       total: '计算中…',
     });
@@ -556,10 +565,10 @@
       renderEstimate({
         amount: satoshiToScashString(v.totalSat) + ' SCASH',
         reserve: satoshiToScashString(v.reserveSat) + ' SCASH',
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
-        arrFee: satoshiToScashString(latestArrFeeSat) + ' SCASH',
-        dap: satoshiToScashString(latestDapCostSat) + ' SCASH',
-        total: satoshiToScashString(latestEstimateTotalSat) + ' SCASH',
+        fee: satoshiToScashTrimmed(NETWORK_FEE_SAT) + ' SCASH',
+        arrFee: satoshiToScashTrimmed(latestArrFeeSat) + ' SCASH',
+        dap: satoshiToScashTrimmed(latestDapCostSat) + ' SCASH',
+        total: satoshiToScashTrimmed(latestEstimateTotalSat) + ' SCASH',
       });
     } catch (e) {
       if (seq !== estimateSeq) return;
@@ -568,7 +577,7 @@
       renderEstimate({
         amount: satoshiToScashString(v.totalSat) + ' SCASH',
         reserve: satoshiToScashString(v.reserveSat) + ' SCASH',
-        fee: satoshiToScashString(NETWORK_FEE_SAT) + ' SCASH',
+        fee: satoshiToScashTrimmed(NETWORK_FEE_SAT) + ' SCASH',
         dap: '计算失败',
         total: '-',
       });
@@ -909,7 +918,7 @@
       document.getElementById('confirmCount').textContent = check.countInt + ' 个';
       document.getElementById('confirmMessage').textContent = blessMessage;
       document.getElementById('confirmExpire').textContent = expireLabel;
-      document.getElementById('confirmTotalNeed').textContent = (latestEstimateTotalSat ? satoshiToScashString(latestEstimateTotalSat) : satoshiToScashString(check.totalNeedSat)) + ' SCASH';
+      document.getElementById('confirmTotalNeed').textContent = (latestEstimateTotalSat ? satoshiToScashTrimmed(latestEstimateTotalSat) : satoshiToScashTrimmed(check.totalNeedSat)) + ' SCASH';
 
       var confirmed = await showConfirmModal();
       if (!confirmed) return;
