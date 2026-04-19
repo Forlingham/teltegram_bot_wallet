@@ -57,20 +57,33 @@ export class UtxoSyncService implements OnModuleInit {
     }
 
     for (let height = startHeight; height <= tip; height += 1) {
-      const hash = await this.blockchain.call<string>('getblockhash', [height]);
-      await this.processBlockByHash(hash, height);
-      await this.prisma.blockSync.upsert({
-        where: { id: blockSync?.id ?? 1 },
-        create: {
-          id: 1,
-          lastBlockHeight: height,
-          lastBlockHash: hash,
-        },
-        update: {
-          lastBlockHeight: height,
-          lastBlockHash: hash,
-        },
-      });
+      try {
+        const hash = await this.blockchain.call<string>('getblockhash', [height]);
+        const block = await this.blockchain.call<{ tx: RawTransaction[] }>('getblock', [hash, 2]);
+
+        await this.prisma.$transaction(async (trx) => {
+          for (const tx of block.tx) {
+            await this.processDecodedTransaction(tx, false, height, trx);
+          }
+
+          await trx.blockSync.upsert({
+            where: { id: blockSync?.id ?? 1 },
+            create: {
+              id: 1,
+              lastBlockHeight: height,
+              lastBlockHash: hash,
+            },
+            update: {
+              lastBlockHeight: height,
+              lastBlockHash: hash,
+            },
+          });
+        });
+
+        this.logger.log(`Synced block ${height} (${hash})`);
+      } catch (error) {
+        this.logger.error(`Failed to sync block ${height}: ${String(error)}, continuing to next block`);
+      }
     }
   }
 
@@ -135,14 +148,6 @@ export class UtxoSyncService implements OnModuleInit {
     }
   }
 
-  private async processBlockByHash(hash: string, height: number): Promise<void> {
-    this.logger.log(`Processing block ${height} (${hash})`);
-    const block = await this.blockchain.call<{ tx: RawTransaction[] }>('getblock', [hash, 2]);
-    for (const tx of block.tx) {
-      await this.processDecodedTransaction(tx, false, height);
-    }
-  }
-
   private async processRawTransaction(
     rawTxHex: string,
     isUnconfirmed: boolean,
@@ -170,16 +175,20 @@ export class UtxoSyncService implements OnModuleInit {
     tx: RawTransaction,
     isUnconfirmed: boolean,
     blockHeight: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    trx?: any,
   ): Promise<void> {
     const txid = tx.txid;
+    const client = trx ?? this.prisma;
 
-    await this.prisma.$transaction(async (trx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.$transaction(async (db: any) => {
       for (const vin of tx.vin) {
         if (!vin.txid || typeof vin.vout !== 'number') {
           continue;
         }
 
-        await trx.utxo.updateMany({
+        await db.utxo.updateMany({
           where: {
             txid: vin.txid,
             vout: vin.vout,
@@ -197,7 +206,7 @@ export class UtxoSyncService implements OnModuleInit {
           continue;
         }
 
-        await trx.utxo.upsert({
+        await db.utxo.upsert({
           where: {
             txid_vout: {
               txid,
@@ -224,7 +233,7 @@ export class UtxoSyncService implements OnModuleInit {
       }
 
       if (!isUnconfirmed && blockHeight > 0) {
-        await trx.utxo.updateMany({
+        await db.utxo.updateMany({
           where: {
             txid,
             isUnconfirmed: true,
