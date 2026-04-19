@@ -276,6 +276,16 @@
     document.getElementById('estArrFee').textContent = data.arrFee || '-';
     document.getElementById('estDap').textContent = data.dap;
     document.getElementById('estTotal').textContent = data.total;
+
+    var totalFiatEl = document.getElementById('estTotalFiat');
+    var pd = window.SCASH.priceData;
+    if (!pd || !pd.price || !latestEstimateTotalSat || latestEstimateTotalSat <= 0n) {
+      totalFiatEl.textContent = '≈ - USD';
+    } else {
+      var priceUsd = parseFloat(pd.price.price || 0);
+      var scashVal = Number(latestEstimateTotalSat) / 1e8;
+      totalFiatEl.textContent = '\u2248 $' + (scashVal * priceUsd).toFixed(2) + ' USD';
+    }
   }
 
   function updateFiatEstimate(amountSat) {
