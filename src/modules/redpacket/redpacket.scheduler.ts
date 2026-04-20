@@ -77,15 +77,14 @@ export class RedpacketScheduler {
     }
   }
 
-  @Cron('*/20 * * * * *')
+  @Cron('*/40 * * * * *')
   async processPendingTransfers(): Promise<void> {
     const pendings = await this.prisma.pendingTransfer.findMany({
       where: {
         status: 'PENDING',
         // 排除掉那些没有钱包地址且已经被标记为等待地址的记录，防止队列堵死
         NOT: {
-          errorMessage: 'Waiting for user wallet address',
-          targetAddress: null,
+          errorMessage: 'Waiting for user wallet address'
         },
       },
       orderBy: { createdAt: 'asc' },
