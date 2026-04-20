@@ -77,7 +77,7 @@ export class RedpacketScheduler {
     }
   }
 
-  @Cron('*/20 * * * * *')
+  @Cron('*/40 * * * * *')
   async processPendingTransfers(): Promise<void> {
     const pendings = await this.prisma.pendingTransfer.findMany({
       where: {
@@ -90,6 +90,7 @@ export class RedpacketScheduler {
       orderBy: { createdAt: 'asc' },
       take: 20,
     });
+console.log(pendings,'pendings');
 
     if (pendings.length > 0) {
       this.logger.log(`Found ${pendings.length} pending transfers to process`);
