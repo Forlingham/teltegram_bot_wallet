@@ -87,11 +87,19 @@ export class RedpacketScheduler {
       take: 20,
     });
 
+    if (pendings.length > 0) {
+      this.logger.log(`Found ${pendings.length} pending transfers to process`);
+    }
+
     for (const pending of pendings) {
+      this.logger.log(`Processing pending transfer ${pending.id} (type: ${pending.type}, amount: ${pending.amount})`);
       let targetAddress = pending.targetAddress;
+      
       if (!targetAddress) {
+        this.logger.log(`Pending transfer ${pending.id} has no targetAddress, querying user wallet`);
         const wallet = await this.prisma.wallet.findUnique({ where: { userId: pending.userId } });
         if (!wallet?.address) {
+          this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet`);
           await this.prisma.pendingTransfer.update({
             where: { id: pending.id },
             data: {
@@ -103,6 +111,7 @@ export class RedpacketScheduler {
         }
 
         targetAddress = wallet.address;
+        this.logger.log(`Found wallet address ${targetAddress} for user ${pending.userId}`);
         await this.prisma.pendingTransfer.update({
           where: { id: pending.id },
           data: {
@@ -113,6 +122,8 @@ export class RedpacketScheduler {
       }
 
       const nextRetryCount = pending.retryCount + 1;
+      this.logger.log(`Pending transfer ${pending.id} set to PROCESSING, retryCount: ${nextRetryCount}`);
+      
       await this.prisma.pendingTransfer.update({
         where: { id: pending.id },
         data: {
@@ -123,12 +134,16 @@ export class RedpacketScheduler {
 
       try {
         let transferTxid: string | null = null;
+        this.logger.log(`Calling transferToAddress for pending ${pending.id} to ${targetAddress}`);
+        
         const transfer = await this.transferService.transferToAddress(
           pending.id,
           pending.amount.toString(),
           targetAddress,
         );
         transferTxid = transfer.txid;
+        
+        this.logger.log(`Transfer ${pending.id} success! txid: ${transferTxid}`);
 
         await this.prisma.pendingTransfer.update({
           where: { id: pending.id },
@@ -150,7 +165,7 @@ export class RedpacketScheduler {
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Pending transfer ${pending.id} failed: ${reason}`);
+        this.logger.error(`Pending transfer ${pending.id} failed during transferToAddress: ${reason}`, error instanceof Error ? error.stack : undefined);
 
         await this.prisma.pendingTransfer.update({
           where: { id: pending.id },

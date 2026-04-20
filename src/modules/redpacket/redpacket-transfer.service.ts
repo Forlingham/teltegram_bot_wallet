@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bip39 from 'bip39';
 import { HDKey } from '@scure/bip32';
@@ -20,6 +20,8 @@ const DEFAULT_TRANSFER_FEE_SATS = 10_000n;
 
 @Injectable()
 export class RedpacketTransferService {
+  private readonly logger = new Logger(RedpacketTransferService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(BlockchainService) private readonly blockchain: BlockchainService,
@@ -31,6 +33,8 @@ export class RedpacketTransferService {
     amount: string,
     toAddress: string,
   ): Promise<{ txid: string }> {
+    this.logger.log(`Starting transferToAddress: pendingId=${pendingId}, amount=${amount}, to=${toAddress}`);
+
     if (!toAddress) {
       throw new AppException('Target address required', 'TRANSFER_ADDRESS_REQUIRED', HttpStatus.BAD_REQUEST);
     }
@@ -74,7 +78,10 @@ export class RedpacketTransferService {
     const dap = buildDapOutputs(nodeEnv, dapMessage);
     const dapCostSat = BigInt(dap.totalSats || 0);
 
+    this.logger.log(`Need total sats: amountSat=${amountSat}, feeSat=${feeSat}, dapCostSat=${dapCostSat}`);
+
     const { selected, totalSat } = await this.selectFundingUtxos(poolAddress, amountSat + feeSat + dapCostSat);
+    this.logger.log(`Selected ${selected.length} UTXOs, total available: ${totalSat} sats`);
 
     const seed = bip39.mnemonicToSeedSync(mnemonic);
     const root = HDKey.fromMasterSeed(seed);
@@ -127,7 +134,10 @@ export class RedpacketTransferService {
     psbt.finalizeAllInputs();
 
     const txHex = psbt.extractTransaction().toHex();
+    this.logger.log(`Broadcasting tx... (length: ${txHex.length})`);
+    
     const txid = await this.blockchain.broadcastTransaction(txHex);
+    this.logger.log(`Broadcast success, txid: ${txid}`);
 
     await this.prisma.$transaction(async (trx) => {
       for (const utxo of selected) {
@@ -189,6 +199,7 @@ export class RedpacketTransferService {
       }
     }
 
+    this.logger.error(`Insufficient funds for pool ${address}. Need: ${neededSat}, Have: ${totalSat}`);
     throw new AppException(
       `Coordination balance insufficient: need ${satoshiToScash(neededSat)} SCASH`,
       'COORDINATION_BALANCE_INSUFFICIENT',
