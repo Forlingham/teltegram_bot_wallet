@@ -261,6 +261,17 @@ export class WalletService {
       },
     });
 
+    await this.prisma.pendingTransfer.updateMany({
+      where: {
+        userId,
+        status: 'PENDING',
+        errorMessage: 'Waiting for user wallet address',
+      },
+      data: {
+        errorMessage: null,
+      },
+    });
+
     return { address: payload.address };
   }
 
@@ -289,6 +300,17 @@ export class WalletService {
         isWatchOnly: true,
         isMnemonicBackedUp: true,
         backupCompletedAt: new Date(),
+      },
+    });
+
+    await this.prisma.pendingTransfer.updateMany({
+      where: {
+        userId,
+        status: 'PENDING',
+        errorMessage: 'Waiting for user wallet address',
+      },
+      data: {
+        errorMessage: null,
       },
     });
 

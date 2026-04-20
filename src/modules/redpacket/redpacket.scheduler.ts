@@ -82,6 +82,11 @@ export class RedpacketScheduler {
     const pendings = await this.prisma.pendingTransfer.findMany({
       where: {
         status: 'PENDING',
+        // 排除掉那些没有钱包地址且已经被标记为等待地址的记录，防止队列堵死
+        NOT: {
+          errorMessage: 'Waiting for user wallet address',
+          targetAddress: null,
+        },
       },
       orderBy: { createdAt: 'asc' },
       take: 20,
@@ -101,21 +106,18 @@ export class RedpacketScheduler {
       }
       
       let targetAddress = pending.targetAddress;
-      
+
       if (!targetAddress) {
         const wallet = await this.prisma.wallet.findUnique({ where: { userId: pending.userId } });
         if (!wallet?.address) {
-          // 只在第一次失败时打印日志，避免每 20 秒刷屏
-          if (pending.errorMessage !== 'Waiting for user wallet address') {
-            this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet. Will retry when wallet is created.`);
-            await this.prisma.pendingTransfer.update({
-              where: { id: pending.id },
-              data: {
-                status: 'PENDING',
-                errorMessage: 'Waiting for user wallet address',
-              },
-            });
-          }
+          this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet. Will check again later.`);
+          await this.prisma.pendingTransfer.update({
+            where: { id: pending.id },
+            data: {
+              status: 'PENDING',
+              errorMessage: 'Waiting for user wallet address',
+            },
+          });
           continue;
         }
 
