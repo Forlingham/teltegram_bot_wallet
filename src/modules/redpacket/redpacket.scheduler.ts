@@ -88,30 +88,39 @@ export class RedpacketScheduler {
     });
 
     if (pendings.length > 0) {
-      this.logger.log(`Found ${pendings.length} pending transfers to process`);
+      // 过滤掉因为没有钱包地址而挂起的，不要每次都打印总数，只打印真正要处理的
+      const actionablePendings = pendings.filter(p => p.errorMessage !== 'Waiting for user wallet address' || p.targetAddress);
+      if (actionablePendings.length > 0) {
+        this.logger.log(`Found ${actionablePendings.length} actionable pending transfers to process`);
+      }
     }
 
     for (const pending of pendings) {
-      this.logger.log(`Processing pending transfer ${pending.id} (type: ${pending.type}, amount: ${pending.amount})`);
+      if (pending.errorMessage !== 'Waiting for user wallet address' || pending.targetAddress) {
+        this.logger.log(`Processing pending transfer ${pending.id} (type: ${pending.type}, amount: ${pending.amount})`);
+      }
+      
       let targetAddress = pending.targetAddress;
       
       if (!targetAddress) {
-        this.logger.log(`Pending transfer ${pending.id} has no targetAddress, querying user wallet`);
         const wallet = await this.prisma.wallet.findUnique({ where: { userId: pending.userId } });
         if (!wallet?.address) {
-          this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet`);
-          await this.prisma.pendingTransfer.update({
-            where: { id: pending.id },
-            data: {
-              status: 'PENDING',
-              errorMessage: 'Waiting for user wallet address',
-            },
-          });
+          // 只在第一次失败时打印日志，避免每 20 秒刷屏
+          if (pending.errorMessage !== 'Waiting for user wallet address') {
+            this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet. Will retry when wallet is created.`);
+            await this.prisma.pendingTransfer.update({
+              where: { id: pending.id },
+              data: {
+                status: 'PENDING',
+                errorMessage: 'Waiting for user wallet address',
+              },
+            });
+          }
           continue;
         }
 
         targetAddress = wallet.address;
-        this.logger.log(`Found wallet address ${targetAddress} for user ${pending.userId}`);
+        this.logger.log(`Found wallet address ${targetAddress} for user ${pending.userId}, updating pending transfer ${pending.id}`);
         await this.prisma.pendingTransfer.update({
           where: { id: pending.id },
           data: {
