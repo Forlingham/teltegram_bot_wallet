@@ -269,6 +269,7 @@ export class WalletService {
       },
       data: {
         errorMessage: null,
+        targetAddress: payload.address,
       },
     });
 
@@ -311,6 +312,7 @@ export class WalletService {
       },
       data: {
         errorMessage: null,
+        targetAddress: payload.address,
       },
     });
 

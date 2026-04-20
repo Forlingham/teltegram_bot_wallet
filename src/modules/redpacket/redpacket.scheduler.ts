@@ -77,14 +77,14 @@ export class RedpacketScheduler {
     }
   }
 
-  @Cron('*/40 * * * * *')
+  @Cron('*/20 * * * * *')
   async processPendingTransfers(): Promise<void> {
     const pendings = await this.prisma.pendingTransfer.findMany({
       where: {
         status: 'PENDING',
         // 排除掉那些没有钱包地址且已经被标记为等待地址的记录，防止队列堵死
         NOT: {
-          errorMessage: 'Waiting for user wallet address'
+          errorMessage: 'Waiting for user wallet address',
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -92,17 +92,11 @@ export class RedpacketScheduler {
     });
 
     if (pendings.length > 0) {
-      // 过滤掉因为没有钱包地址而挂起的，不要每次都打印总数，只打印真正要处理的
-      const actionablePendings = pendings.filter(p => p.errorMessage !== 'Waiting for user wallet address' || p.targetAddress);
-      if (actionablePendings.length > 0) {
-        this.logger.log(`Found ${actionablePendings.length} actionable pending transfers to process`);
-      }
+      this.logger.log(`Found ${pendings.length} pending transfers to process`);
     }
 
     for (const pending of pendings) {
-      if (pending.errorMessage !== 'Waiting for user wallet address' || pending.targetAddress) {
-        this.logger.log(`Processing pending transfer ${pending.id} (type: ${pending.type}, amount: ${pending.amount})`);
-      }
+      this.logger.log(`Processing pending transfer ${pending.id} (type: ${pending.type}, amount: ${pending.amount})`);
       
       let targetAddress = pending.targetAddress;
 
