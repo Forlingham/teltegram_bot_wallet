@@ -26,6 +26,12 @@ function renderPage(res: Response, template: string, data: Record<string, unknow
 export class PagesController {
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
+  @Get('api/app/env')
+  getAppEnv() {
+    const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+    return { env: nodeEnv };
+  }
+
   private buildViewData(data: Record<string, unknown>) {
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
     const network = getScashNetwork(nodeEnv);

@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import './assets/main.css'
 import App from './App.vue'
 import router from './router'
-import { getAppEnv } from './api/app'
+import { getAppEnv, getWalletHome } from './api/app'
 import { useAppStore } from './store/app'
 
 const app = createApp(App)
@@ -14,12 +14,29 @@ app.use(router)
 
 const appStore = useAppStore()
 
-getAppEnv()
-  .then((data) => {
-    appStore.setEnv(data.env || 'development')
-  })
-  .catch(() => {
-    appStore.setEnv('development')
-  })
+async function initApp() {
+  appStore.initTelegram()
 
-app.mount('#app')
+  const token = appStore.getSessionToken()
+  if (token) {
+    appStore.setSessionToken(token)
+  }
+
+  try {
+    const envData = await getAppEnv()
+    appStore.setEnv(envData.env || 'development')
+  } catch {
+    appStore.setEnv('development')
+  }
+
+  try {
+    const homeData = await getWalletHome()
+    appStore.setWalletData(homeData)
+  } catch (e) {
+    console.error('Failed to load wallet home:', e)
+  }
+}
+
+initApp().then(() => {
+  app.mount('#app')
+})
