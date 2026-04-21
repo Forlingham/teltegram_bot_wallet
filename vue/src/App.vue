@@ -1,6 +1,9 @@
 <script setup>
+import TelegramEnvCheck from './components/TelegramEnvCheck.vue'
 </script>
 
 <template>
-  <router-view />
+  <TelegramEnvCheck>
+    <router-view />
+  </TelegramEnvCheck>
 </template>

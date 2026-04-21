@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import Icon from '../components/Icon.vue'
@@ -9,8 +8,6 @@ import { useAppStore } from '../store/app'
 
 const router = useRouter()
 const appStore = useAppStore()
-
-const hasWallet = computed(() => appStore.hasWallet)
 
 const menuItems = [
   {
@@ -50,15 +47,11 @@ const navigate = (path) => {
 const copyAddress = () => {
   navigator.clipboard.writeText(appStore.walletAddress)
 }
-
-const goToSettings = () => {
-  router.push('/wallet/settings')
-}
 </script>
 
 <template>
-  <AppLayout title="SCASH 钱包" :active-nav="hasWallet ? 'home' : ''" :show-settings="hasWallet">
-    <template v-if="!hasWallet">
+  <AppLayout title="SCASH 钱包" :active-nav="appStore.hasWallet ? 'home' : ''" :show-settings="appStore.hasWallet">
+    <template v-if="!appStore.hasWallet">
       <div v-if="appStore.pendingAirdrop" class="mb-6">
         <Card padding="p-4" class="flex items-center gap-3 border border-warning/20">
           <div class="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center shrink-0">

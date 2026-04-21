@@ -14,18 +14,22 @@ export const useAppStore = defineStore('app', () => {
   const pendingAirdrop = ref(null)
 
   const tg = ref(null)
+  const isTelegram = ref(false)
 
   const setEnv = (newEnv) => {
     env.value = newEnv
   }
 
   const initTelegram = () => {
-    tg.value = window.Telegram?.WebApp
-    if (tg.value) {
+    const tgWebApp = window.Telegram?.WebApp
+    if (tgWebApp?.initDataUnsafe?.user) {
+      tg.value = tgWebApp
+      isTelegram.value = true
       tg.value.ready()
-      if (tg.value.initDataUnsafe?.user) {
-        tgUser.value = tg.value.initDataUnsafe.user
-      }
+      tgUser.value = tgWebApp.initDataUnsafe.user
+    } else {
+      tg.value = null
+      isTelegram.value = false
     }
   }
 
@@ -70,6 +74,7 @@ export const useAppStore = defineStore('app', () => {
     tgUser,
     sessionToken,
     tg,
+    isTelegram,
     hasWallet,
     isWatchOnly,
     walletAddress,

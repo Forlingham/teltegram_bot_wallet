@@ -22,21 +22,23 @@ async function initApp() {
     appStore.setSessionToken(token)
   }
 
-  try {
-    const envData = await getAppEnv()
-    appStore.setEnv(envData.env || 'development')
-  } catch {
-    appStore.setEnv('development')
+  if (appStore.isTelegram) {
+    try {
+      const envData = await getAppEnv()
+      appStore.setEnv(envData.env || 'development')
+    } catch {
+      appStore.setEnv('development')
+    }
+
+    try {
+      const homeData = await getWalletHome()
+      appStore.setWalletData(homeData)
+    } catch (e) {
+      console.error('Failed to load wallet home:', e)
+    }
   }
 
-  try {
-    const homeData = await getWalletHome()
-    appStore.setWalletData(homeData)
-  } catch (e) {
-    console.error('Failed to load wallet home:', e)
-  }
+  app.mount('#app')
 }
 
-initApp().then(() => {
-  app.mount('#app')
-})
+initApp()
