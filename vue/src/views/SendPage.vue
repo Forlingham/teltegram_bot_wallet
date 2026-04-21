@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import Icon from '../components/Icon.vue'
@@ -15,6 +15,22 @@ const errorMsg = ref('')
 const goBack = () => {
   router.back()
 }
+
+onMounted(() => {
+  const tg = window.Telegram?.WebApp
+  if (tg) {
+    tg.BackButton.show()
+    tg.onEvent('backButtonClicked', goBack)
+  }
+})
+
+onUnmounted(() => {
+  const tg = window.Telegram?.WebApp
+  if (tg) {
+    tg.BackButton.hide()
+    tg.offEvent('backButtonClicked', goBack)
+  }
+})
 </script>
 
 <template>
