@@ -17,3 +17,10 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// Hide pre-Vue loading screen after mount
+const loader = document.getElementById('app-loading')
+if (loader) {
+  loader.classList.add('fade-out')
+  setTimeout(() => loader.remove(), 350)
+}

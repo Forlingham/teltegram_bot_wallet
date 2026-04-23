@@ -1,52 +1,53 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
-import { useAuthStore, useWalletStore, useNetworkStore } from '@/stores'
+import { useAuthStore, useWalletStore, useNetworkStore, usePriceStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
 import { onMounted, watch } from 'vue'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
-const { setupBackButton, hideBackButton } = useTelegram()
+const priceStore = usePriceStore()
+const { setupBackButton, hideBackButton, showAlert } = useTelegram()
 
 const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
 
-onMounted(async () => {
-  await networkStore.fetchEnv()
+// Non-blocking init: let Vue render immediately with persisted data,
+// then refresh in background.
+onMounted(() => {
+  networkStore.fetchEnv().catch(() => {})
 
-  try {
-    await authStore.ensureSession()
-    await authStore.handleUserSwitch()
+  // Restore session & user info in background (non-blocking)
+  authStore.ensureSession().catch(() => {})
+  authStore.handleUserSwitch().catch(() => {})
 
-    const requireFull = route.meta.requireFullWallet as boolean | undefined
-    const requireAny = route.meta.requireAnyWallet as boolean | undefined
-
-    if (requireFull || requireAny) {
-      const permitted = await walletStore.checkPermission(requireFull, requireAny)
-      if (!permitted) {
-        const tg = useTelegram()
-        if (requireFull && walletStore.isWatchOnly) {
-          await tg.showAlert('观察钱包仅支持接收，无法进行发送或签名操作')
-        } else {
-          await tg.showAlert('该操作需要先创建钱包')
-        }
-        window.location.href = '/wallet'
-        return
-      }
-    }
-
-    if (walletStore.hasWallet) {
-      walletStore.fetchBalance()
-    }
-  } catch (e: any) {
-    console.error('Init failed:', e)
+  // Fetch wallet home in background. If persisted data exists, render it immediately
+  // and silently refresh balance; otherwise fetch from server.
+  if (!walletStore.home) {
+    walletStore.fetchHome()
+      .then(() => {
+        walletStore.fetchBalance().catch(() => {})
+        if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
+      })
+      .catch(() => {})
+  } else {
+    walletStore.fetchBalance().catch(() => {})
+    if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
   }
+
+  if (!authStore.photoUrl) {
+    authStore.fetchMe().catch(() => {})
+  }
+
+  // Permission check in background (non-blocking)
+  checkRoutePermission()
 
   if (route.meta.backAsClose) {
     hideBackButton()
@@ -54,6 +55,22 @@ onMounted(async () => {
     setupBackButton(() => window.history.back())
   }
 })
+
+async function checkRoutePermission() {
+  const requireFull = route.meta.requireFullWallet as boolean | undefined
+  const requireAny = route.meta.requireAnyWallet as boolean | undefined
+  if (!requireFull && !requireAny) return
+
+  const permitted = await walletStore.checkPermission(requireFull, requireAny)
+  if (!permitted) {
+    if (requireFull && walletStore.isWatchOnly) {
+      await showAlert('观察钱包仅支持接收，无法进行发送或签名操作')
+    } else {
+      await showAlert('该操作需要先创建钱包')
+    }
+    router.push('/wallet')
+  }
+}
 
 watch(() => route.path, () => {
   if (route.meta.backAsClose) {

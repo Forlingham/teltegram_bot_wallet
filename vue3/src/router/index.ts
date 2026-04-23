@@ -1,6 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
+// Top-level pages (no code-splitting for faster initial load)
+import HomePage from '@/views/HomePage.vue'
+import HistoryPage from '@/views/HistoryPage.vue'
+import RedpacketPage from '@/views/RedpacketPage.vue'
+import AboutPage from '@/views/AboutPage.vue'
+import ClaimPage from '@/views/redpacket/ClaimPage.vue'
+
 const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -9,7 +16,7 @@ const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/wallet',
     name: 'home',
-    component: () => import('@/views/HomePage.vue'),
+    component: HomePage,
     meta: { activeNav: 'home', title: 'SCASH 钱包' },
   },
   {
@@ -63,13 +70,13 @@ const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/wallet/history',
     name: 'wallet-history',
-    component: () => import('@/views/HistoryPage.vue'),
+    component: HistoryPage,
     meta: { activeNav: 'history', title: '交易记录' },
   },
   {
     path: '/wallet/redpacket',
     name: 'wallet-redpacket',
-    component: () => import('@/views/RedpacketPage.vue'),
+    component: RedpacketPage,
     meta: { activeNav: 'redpacket', title: '红包' },
   },
   {
@@ -81,7 +88,7 @@ const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/wallet/about',
     name: 'wallet-about',
-    component: () => import('@/views/AboutPage.vue'),
+    component: AboutPage,
     meta: { activeNav: 'about', title: '关于' },
   },
 ]
@@ -90,7 +97,7 @@ const claimRoutes: RouteRecordRaw[] = [
   {
     path: '/open',
     name: 'redpacket-claim',
-    component: () => import('@/views/redpacket/ClaimPage.vue'),
+    component: ClaimPage,
     meta: { layout: 'claim', backAsClose: true, title: '领取红包' },
   },
 ]

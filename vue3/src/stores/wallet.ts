@@ -193,4 +193,8 @@ export const useWalletStore = defineStore('wallet', () => {
     checkPermission,
     $reset,
   }
+}, {
+  persist: {
+    pick: ['home', 'balance', 'backup'],
+  },
 })
