@@ -13,7 +13,7 @@ const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const { setupBackButton, hideBackButton } = useTelegram()
 
-const showBottomNav = computed(() => route.meta.layout !== 'claim')
+const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
 

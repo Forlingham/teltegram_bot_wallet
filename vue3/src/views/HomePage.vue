@@ -13,7 +13,6 @@ const authStore = useAuthStore()
 const { showScanQr, showAlert } = useTelegram()
 
 const refreshing = ref(false)
-const pageLoading = ref(true)
 const pageError = ref('')
 
 const hasWallet = computed(() => walletStore.hasWallet)
@@ -24,7 +23,6 @@ const pendingAirdrop = computed(() => walletStore.home?.pendingAirdrop ?? null)
 const userPhotoUrl = computed(() => authStore.photoUrl || '')
 
 async function initHome() {
-  pageLoading.value = true
   pageError.value = ''
   try {
     await walletStore.fetchHome()
@@ -38,12 +36,16 @@ async function initHome() {
   } catch (e: any) {
     console.error('[HomePage] init failed:', e)
     pageError.value = e?.message || e?.status?.message || '加载失败，请重试'
-  } finally {
-    pageLoading.value = false
   }
 }
 
-onMounted(initHome)
+onMounted(() => {
+  // Only fetch on first visit; when returning from other pages,
+  // Pinia persisted state already has the data.
+  if (!walletStore.home) {
+    initHome()
+  }
+})
 
 const handleRefresh = async () => {
   refreshing.value = true
@@ -80,29 +82,15 @@ const handleScanQr = async () => {
 </script>
 
 <template>
-  <!-- Loading -->
-  <section v-if="pageLoading" class="flex flex-col items-center justify-center py-20 space-y-4">
-    <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-    <p class="text-on-surface-variant text-sm font-medium">正在加载钱包信息…</p>
-  </section>
-
-  <!-- Error -->
-  <section v-else-if="pageError" class="flex flex-col items-center justify-center py-16 space-y-4 px-4">
-    <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center">
-      <span class="material-symbols-outlined text-3xl text-error" style="font-variation-settings: 'FILL' 1;">error</span>
-    </div>
-    <h1 class="font-headline text-lg font-bold text-on-surface">加载失败</h1>
-    <p class="text-on-surface-variant text-sm text-center max-w-[280px]">{{ pageError }}</p>
-    <button
-      class="mt-2 px-6 py-2.5 bg-primary text-white rounded-full font-bold text-sm shadow-lg active:scale-[0.98] transition-transform"
-      @click="initHome"
-    >
-      重新加载
-    </button>
-  </section>
+  <!-- Error banner -->
+  <div v-if="pageError" class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-center gap-3">
+    <span class="material-symbols-outlined text-error text-sm">error</span>
+    <p class="text-error text-sm flex-1">{{ pageError }}</p>
+    <button class="text-error text-xs font-bold underline" @click="initHome">重试</button>
+  </div>
 
   <!-- No wallet state -->
-  <section v-else-if="!hasWallet" class="space-y-6">
+  <section v-if="!hasWallet" class="space-y-6">
     <!-- Pending airdrop -->
     <div v-if="pendingAirdrop" class="mb-6">
       <div class="bg-surface-container-lowest rounded-lg p-4 ambient-shadow border border-warning/20">
