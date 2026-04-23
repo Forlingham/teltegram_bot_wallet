@@ -8,11 +8,23 @@ import * as secp from '@noble/secp256k1'
 import * as bitcoin from 'bitcoinjs-lib'
 import { Buffer } from 'buffer'
 import { useNetworkStore } from '@/stores/network'
+import { createDapOutputs, estimateDapCost } from '@/utils/scashDap'
 
 // @noble/secp256k1 v2.x: enable deterministic k generation (RFC6979)
-// This makes sign() return Promise<Uint8Array> (64-byte compact sig)
 secp.etc.hmacSha256Sync = (key: Uint8Array, ...msgs: Uint8Array[]) => {
   return hmac(sha256, key, concatBytes(...msgs))
+}
+
+export interface DapOutput {
+  address: string
+  value: number
+}
+
+export function buildDapOutputs(message: string): { outputs: DapOutput[]; totalSats: number; chunkCount: number } {
+  const network = getScashNetwork()
+  const outputs = createDapOutputs(message, network)
+  const cost = estimateDapCost(message)
+  return { outputs, totalSats: cost.totalSats, chunkCount: cost.chunkCount }
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -54,7 +66,7 @@ function toBytes(input: unknown): Uint8Array {
   throw new Error('Unsupported byte type: ' + Object.prototype.toString.call(input))
 }
 
-function getScashNetwork() {
+export function getScashNetwork() {
   const store = useNetworkStore()
   return {
     messagePrefix: '\x18Scash Signed Message:\n',

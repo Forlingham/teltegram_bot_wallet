@@ -4,7 +4,7 @@ import { useWalletStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
 import { usePriceStore } from '@/stores/price'
 import { useTelegram } from '@/composables/useTelegram'
-import { useCrypto } from '@/composables/useCrypto'
+import { useCrypto, buildDapOutputs } from '@/composables/useCrypto'
 import { useTransaction, satsToScash, satsToScashTrimmed, parseScashToSats } from '@/composables/useTransaction'
 import { api } from '@/api'
 import PasswordModal from '@/components/PasswordModal.vue'
@@ -106,7 +106,7 @@ async function updateEstimate() {
   })
 
   try {
-    const dapRes = await api.post<{ outputs: { address: string; value: number }[]; totalSats: number }>('/api/redpacket/dap/outputs', { message: dapMessage })
+    const dapRes = buildDapOutputs(dapMessage)
     const dapCostSat = BigInt(dapRes.totalSats || 0)
     const totalNeedSat = totalSat + reserveSat + arrFeeSat + NETWORK_FEE_SAT + dapCostSat
     estimateData.value = { amountSat: totalSat, reserveSat, arrFeeSat, dapCostSat, totalSat: totalNeedSat }
@@ -189,7 +189,7 @@ async function handlePasswordConfirm(password: string) {
       },
     })
 
-    const dapRes = await api.post<{ outputs: { address: string; value: number }[]; totalSats: number }>('/api/redpacket/dap/outputs', { message: dapMessage })
+    const dapRes = buildDapOutputs(dapMessage)
     const dapOutputs = dapRes.outputs || []
     const arrFeeAddress = networkStore.arrFeeAddress
 

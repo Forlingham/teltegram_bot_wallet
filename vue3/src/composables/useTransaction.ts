@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useWalletStore, type WalletBackup } from '@/stores/wallet'
 import { useNetworkStore } from '@/stores/network'
-import { useCrypto } from '@/composables/useCrypto'
+import { useCrypto, buildDapOutputs } from '@/composables/useCrypto'
 import { api } from '@/api'
 
 const NETWORK_FEE_SAT = 10000n
@@ -93,10 +93,6 @@ export function useTransaction() {
     return decryptMnemonic(backupData, password)
   }
 
-  async function fetchDapOutputs(message: string): Promise<{ outputs: DapOutput[]; totalSats: number }> {
-    return api.post('/api/redpacket/dap/outputs', { message })
-  }
-
   async function estimate(
     amountScash: string,
     message?: string,
@@ -113,7 +109,7 @@ export function useTransaction() {
       let dapCostSat = 0n
       if (message) {
         try {
-          const dapRes = await fetchDapOutputs(message)
+          const dapRes = buildDapOutputs(message)
           dapCostSat = BigInt(dapRes.totalSats || 0)
         } catch {
           dapCostSat = 0n
@@ -162,7 +158,7 @@ export function useTransaction() {
       }
 
       if (message) {
-        const dapRes = await fetchDapOutputs(message)
+        const dapRes = buildDapOutputs(message)
         for (const o of dapRes.outputs) {
           outputs.push({ address: o.address, value: BigInt(o.value) })
         }
@@ -200,7 +196,7 @@ export function useTransaction() {
 
       if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO')
 
-      const dapRes = await fetchDapOutputs(content)
+      const dapRes = buildDapOutputs(content)
 
       const outputs: { address: string; value: bigint }[] = []
       for (const o of dapRes.outputs) {

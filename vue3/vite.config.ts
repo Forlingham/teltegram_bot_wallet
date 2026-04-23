@@ -15,7 +15,10 @@ export default defineConfig({
     'global': 'globalThis',
     'process.env': {},
   },
-server: {
+  optimizeDeps: {
+    include: ['buffer'],
+  },
+ server: {
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: [
