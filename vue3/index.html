@@ -14,4 +14,35 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="/src/main.ts"></script>
   </body>
+
+
+  <script>
+    (function () {
+      var params = new URL(location.href).searchParams;
+      var debugParam = params.get('debug');
+      if (debugParam === '1') localStorage.setItem('DEBUG_CONSOLE', '1');
+      if (debugParam === '0') localStorage.removeItem('DEBUG_CONSOLE');
+
+      var enabled = localStorage.getItem('DEBUG_CONSOLE') === '1';
+      if (!enabled) return;
+
+      document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+        try {
+          var u = new URL(a.href, location.origin);
+          u.searchParams.set('debug', '1');
+          a.href = u.pathname + u.search + u.hash;
+        } catch (_) {}
+      });
+
+      if (window.eruda) {
+        window.eruda.show();
+        return;
+      }
+
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      s.onload = function () { if (window.eruda) window.eruda.init(); };
+      document.head.appendChild(s);
+    })();
+  </script>
 </html>

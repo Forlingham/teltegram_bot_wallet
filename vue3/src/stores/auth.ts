@@ -56,9 +56,21 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('会话已过期，请关闭并重新打开 Mini App')
     }
 
-    const data = await api.post<{ sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }>('/api/auth/telegram/login', {
-      initData,
+    // Use raw fetch here — api.post would call request() which calls ensureSession() again
+    const loginRes = await fetch('/api/auth/telegram/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
     })
+    const loginJson = await loginRes.json()
+    if (!loginRes.ok || !loginJson.success) {
+      const errMsg = loginJson.error?.message || '登录失败'
+      if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
+        throw new Error('会话已过期，请关闭并重新打开 Mini App')
+      }
+      throw new Error(errMsg)
+    }
+    const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
 
     const newToken = data.sessionToken
     if (tgUserId) {

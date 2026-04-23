@@ -40,12 +40,9 @@ function getBackupKey(tgUserId: string): string {
   return BACKUP_PREFIX + tgUserId
 }
 
-function loadBackupFromStorage(): WalletBackup | null {
+function loadBackupFromStorage(tgUserId: string): WalletBackup | null {
   try {
-    const authStore = useAuthStore()
-    const uid = authStore.currentTgUserId
-    if (!uid) return null
-    const raw = localStorage.getItem(getBackupKey(uid))
+    const raw = localStorage.getItem(getBackupKey(tgUserId))
     if (!raw) return null
     return JSON.parse(raw) as WalletBackup
   } catch {
@@ -53,28 +50,15 @@ function loadBackupFromStorage(): WalletBackup | null {
   }
 }
 
-function saveBackupToStorage(backup: WalletBackup) {
-  const authStore = useAuthStore()
-  const uid = authStore.currentTgUserId
-  if (!uid) return
-  localStorage.setItem(getBackupKey(uid), JSON.stringify(backup))
-}
-
-function clearBackupFromStorage() {
-  try {
-    const authStore = useAuthStore()
-    const uid = authStore.currentTgUserId
-    if (uid) {
-      localStorage.removeItem(getBackupKey(uid))
-    }
-  } catch {}
+function saveBackupToStorage(tgUserId: string, backup: WalletBackup) {
+  localStorage.setItem(getBackupKey(tgUserId), JSON.stringify(backup))
 }
 
 export const useWalletStore = defineStore('wallet', () => {
   const home = ref<WalletHome | null>(null)
   const balance = ref<WalletBalance | null>(null)
   const loading = ref(false)
-  const backup = ref<WalletBackup | null>(loadBackupFromStorage())
+  const backup = ref<WalletBackup | null>(null)
 
   const hasWallet = computed(() => home.value?.hasWallet ?? false)
   const isWatchOnly = computed(() => home.value?.isWatchOnly ?? false)
@@ -103,17 +87,31 @@ export const useWalletStore = defineStore('wallet', () => {
       home.value = await api.get<WalletHome>('/api/wallet/home')
       // Auto-fetch backup if we have a wallet and haven't cached it yet
       if (home.value?.hasWallet && !backup.value) {
-        await fetchBackup()
+        const authStore = useAuthStore()
+        const cached = loadBackupFromStorage(authStore.currentTgUserId)
+        if (cached) {
+          backup.value = cached
+        } else {
+          // No localStorage cache, fetch from server in background
+          fetchBackup()
+        }
       }
+    } catch (e: any) {
+      console.error('[wallet] fetchHome failed:', e)
+      throw e
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchBalance() {
+  async function fetchBalance(): Promise<WalletBalance | null> {
     loading.value = true
     try {
       balance.value = await api.get<WalletBalance>('/api/wallet/balance?includeUnconfirmed=true')
+      return balance.value
+    } catch (e: any) {
+      console.error('[wallet] fetchBalance failed:', e)
+      return null
     } finally {
       loading.value = false
     }
@@ -124,7 +122,8 @@ export const useWalletStore = defineStore('wallet', () => {
       const data = await api.post<{ backup: WalletBackup | null }>('/api/wallet/recover', {})
       if (data.backup) {
         backup.value = data.backup
-        saveBackupToStorage(data.backup)
+        const authStore = useAuthStore()
+        saveBackupToStorage(authStore.currentTgUserId, data.backup)
         return data.backup
       }
       return null
@@ -135,7 +134,8 @@ export const useWalletStore = defineStore('wallet', () => {
 
   function saveBackup(b: WalletBackup) {
     backup.value = b
-    saveBackupToStorage(b)
+    const authStore = useAuthStore()
+    saveBackupToStorage(authStore.currentTgUserId, b)
   }
 
   async function completeBackup() {
@@ -167,7 +167,9 @@ export const useWalletStore = defineStore('wallet', () => {
     balance.value = null
     loading.value = false
     backup.value = null
-    clearBackupFromStorage()
+    // Do NOT clear localStorage backup cache.
+    // Multiple Telegram accounts can run concurrently in separate Mini App instances,
+    // each keyed by SCASH_BACKUP_<tgUserId>. Clearing here would break other sessions.
   }
 
   return {

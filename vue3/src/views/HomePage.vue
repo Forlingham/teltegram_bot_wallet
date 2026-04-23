@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useWalletStore, usePriceStore } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
@@ -8,22 +9,41 @@ import PriceTag from '@/components/PriceTag.vue'
 
 const walletStore = useWalletStore()
 const priceStore = usePriceStore()
+const authStore = useAuthStore()
 const { showScanQr, showAlert } = useTelegram()
 
 const refreshing = ref(false)
+const pageLoading = ref(true)
+const pageError = ref('')
 
 const hasWallet = computed(() => walletStore.hasWallet)
 const address = computed(() => walletStore.address)
 const isWatchOnly = computed(() => walletStore.isWatchOnly)
 const showBackupReminder = computed(() => walletStore.showBackupReminder)
 const pendingAirdrop = computed(() => walletStore.home?.pendingAirdrop ?? null)
+const userPhotoUrl = computed(() => authStore.photoUrl || '')
 
-onMounted(async () => {
-  await walletStore.fetchHome()
-  if (hasWallet.value) {
-    priceStore.fetchPrice()
+async function initHome() {
+  pageLoading.value = true
+  pageError.value = ''
+  try {
+    await walletStore.fetchHome()
+    walletStore.fetchBalance()
+    if (hasWallet.value) {
+      priceStore.fetchPrice()
+    }
+    if (!authStore.photoUrl) {
+      authStore.fetchMe().catch(() => {})
+    }
+  } catch (e: any) {
+    console.error('[HomePage] init failed:', e)
+    pageError.value = e?.message || e?.status?.message || '加载失败，请重试'
+  } finally {
+    pageLoading.value = false
   }
-})
+}
+
+onMounted(initHome)
 
 const handleRefresh = async () => {
   refreshing.value = true
@@ -57,12 +77,32 @@ const handleScanQr = async () => {
     }
   } catch {}
 }
-
 </script>
 
 <template>
+  <!-- Loading -->
+  <section v-if="pageLoading" class="flex flex-col items-center justify-center py-20 space-y-4">
+    <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+    <p class="text-on-surface-variant text-sm font-medium">正在加载钱包信息…</p>
+  </section>
+
+  <!-- Error -->
+  <section v-else-if="pageError" class="flex flex-col items-center justify-center py-16 space-y-4 px-4">
+    <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center">
+      <span class="material-symbols-outlined text-3xl text-error" style="font-variation-settings: 'FILL' 1;">error</span>
+    </div>
+    <h1 class="font-headline text-lg font-bold text-on-surface">加载失败</h1>
+    <p class="text-on-surface-variant text-sm text-center max-w-[280px]">{{ pageError }}</p>
+    <button
+      class="mt-2 px-6 py-2.5 bg-primary text-white rounded-full font-bold text-sm shadow-lg active:scale-[0.98] transition-transform"
+      @click="initHome"
+    >
+      重新加载
+    </button>
+  </section>
+
   <!-- No wallet state -->
-  <section v-if="!hasWallet" class="space-y-6">
+  <section v-else-if="!hasWallet" class="space-y-6">
     <!-- Pending airdrop -->
     <div v-if="pendingAirdrop" class="mb-6">
       <div class="bg-surface-container-lowest rounded-lg p-4 ambient-shadow border border-warning/20">
@@ -170,7 +210,15 @@ const handleScanQr = async () => {
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl"></div>
       <div class="relative z-10 space-y-1">
         <div class="flex justify-between items-start">
-          <p class="text-on-surface-variant text-sm font-medium">总余额</p>
+          <div class="flex items-center gap-2">
+            <img
+              v-if="userPhotoUrl"
+              :src="userPhotoUrl"
+              alt="avatar"
+              class="w-7 h-7 rounded-full object-cover border border-outline-variant/30 shadow-sm"
+            />
+            <p class="text-on-surface-variant text-sm font-medium">总余额</p>
+          </div>
           <button
             id="btnRefresh"
             class="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-primary active:scale-90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -9,10 +9,11 @@ import * as bitcoin from 'bitcoinjs-lib'
 import { Buffer } from 'buffer'
 import { useNetworkStore } from '@/stores/network'
 
-secp.hashes.sha256 = sha256 as any
-secp.hashes.hmacSha256 = ((key: Uint8Array, ...msgs: Uint8Array[]) => {
+// @noble/secp256k1 v2.x: enable deterministic k generation (RFC6979)
+// This makes sign() return Promise<Uint8Array> (64-byte compact sig)
+secp.etc.hmacSha256Sync = (key: Uint8Array, ...msgs: Uint8Array[]) => {
   return hmac(sha256, key, concatBytes(...msgs))
-}) as any
+}
 
 function hexToBytes(hex: string): Uint8Array {
   if (!hex || typeof hex !== 'string') throw new Error('Invalid hex string')
@@ -37,18 +38,6 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
   return out
 }
 
-function getScashNetwork() {
-  const store = useNetworkStore()
-  return {
-    messagePrefix: '\x18Scash Signed Message:\n',
-    bech32: store.bech32 || 'bcrt',
-    bip32: { public: 0x0488b21e, private: 0x0488ade4 },
-    pubKeyHash: store.pubKeyHash ?? 0x3c,
-    scriptHash: store.scriptHash ?? 0x7d,
-    wif: 0x80,
-  }
-}
-
 function toBytes(input: unknown): Uint8Array {
   if (!input) throw new Error('Empty signing result')
   if (input instanceof Uint8Array) return input
@@ -63,6 +52,18 @@ function toBytes(input: unknown): Uint8Array {
   if (typeof (input as any).toRawBytes === 'function') return (input as any).toRawBytes()
   if ((input as any).buffer instanceof ArrayBuffer) return new Uint8Array((input as any).buffer, (input as any).byteOffset || 0, (input as any).byteLength || (input as any).length || 0)
   throw new Error('Unsupported byte type: ' + Object.prototype.toString.call(input))
+}
+
+function getScashNetwork() {
+  const store = useNetworkStore()
+  return {
+    messagePrefix: '\x18Scash Signed Message:\n',
+    bech32: store.bech32 || 'bcrt',
+    bip32: { public: 0x0488b21e, private: 0x0488ade4 },
+    pubKeyHash: store.pubKeyHash ?? 0x3c,
+    scriptHash: store.scriptHash ?? 0x7d,
+    wif: 0x80,
+  }
 }
 
 export function useCrypto() {
@@ -179,7 +180,7 @@ export function useCrypto() {
       psbt.addInput({
         hash: u.txid,
         index: u.vout,
-        witnessUtxo: { script, value: uSat as any },
+        witnessUtxo: { script, value: Number(uSat) },
       })
       totalInputSat += uSat
       if (totalInputSat >= outputsTotalSat + feeSat) break
@@ -190,18 +191,18 @@ export function useCrypto() {
     }
 
     for (const output of outputs) {
-      psbt.addOutput({ address: output.address, value: output.value as any })
+      psbt.addOutput({ address: output.address, value: Number(output.value) })
     }
 
     const changeSat = totalInputSat - outputsTotalSat - feeSat
     if (changeSat > 0n) {
-      psbt.addOutput({ address: myAddress, value: changeSat as any })
+      psbt.addOutput({ address: myAddress, value: Number(changeSat) })
     }
 
     const signer = {
       publicKey: Buffer.from(publicKey),
       sign: async (hash: Buffer) => {
-        const sig = await secp.signAsync(new Uint8Array(hash), privateKey)
+        const sig = await secp.sign(new Uint8Array(hash), privateKey)
         return Buffer.from(toBytes(sig))
       },
     }
