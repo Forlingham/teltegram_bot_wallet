@@ -29,7 +29,22 @@ export class PagesController {
   @Get('api/app/env')
   getAppEnv() {
     const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
-    return { env: nodeEnv };
+    const network = getScashNetwork(nodeEnv);
+    const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
+    const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
+    const ARR_FEE_ADDRESS_MAINNET = 'scash1qdq0sa4wxav36k7a4gwxq3k6dk0ahpqfsz8xpvg';
+    const ARR_FEE_ADDRESS_TESTNET = 'bcrt1q8zlevurcf7ht49v7m83jz9v8uvqyturrg2w96t';
+    const arrFeeAddress = nodeEnv === 'production' ? ARR_FEE_ADDRESS_MAINNET : ARR_FEE_ADDRESS_TESTNET;
+    return {
+      env: nodeEnv,
+      network: {
+        bech32: network.bech32,
+        pubKeyHash: network.pubKeyHash,
+        scriptHash: network.scriptHash,
+      },
+      poolAddress,
+      arrFeeAddress,
+    };
   }
 
   private buildViewData(data: Record<string, unknown>) {
