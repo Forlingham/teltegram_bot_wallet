@@ -6,6 +6,24 @@ export function satoshiToScashString(sats: bigint): string {
   return sign + whole.toString() + '.' + frac
 }
 
+export function satoshiToScashTrimmed(sats: bigint): string {
+  const sign = sats < 0n ? '-' : ''
+  const abs = sats < 0n ? -sats : sats
+  const whole = abs / 100000000n
+  let frac = (abs % 100000000n).toString().padStart(8, '0').replace(/0+$/, '')
+  if (frac === '') return sign + whole.toString()
+  return sign + whole.toString() + '.' + frac
+}
+
+export function parseScashToSats(value: string): bigint | null {
+  const s = (value || '').trim()
+  if (!/^\d+(\.\d{1,8})?$/.test(s)) return null
+  const parts = s.split('.')
+  const whole = BigInt(parts[0] || '0')
+  const frac = ((parts[1] || '') + '00000000').slice(0, 8)
+  return whole * 100000000n + BigInt(frac)
+}
+
 export function formatBalanceDisplay(sats: bigint): string {
   const str = satoshiToScashString(sats)
   const parts = str.split('.')

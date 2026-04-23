@@ -1,12 +1,154 @@
 <script setup lang="ts">
+import CopyButton from '@/components/CopyButton.vue'
+
+const donateAddresses = [
+  { label: 'BTC', address: 'bc1qnvdrxs23t6ejuxjs6mswx7cez2rn80wrwjd0u8' },
+  { label: 'BNB', address: '0xD4dB57B007Ad386C2fC4d7DD146f5977c039Fefc' },
+  { label: 'USDT (BEP-20)', address: '0xD4dB57B007Ad386C2fC4d7DD146f5977c039Fefc' },
+  { label: 'SCASH', address: 'scash1qy48v7frkutlthqq7uqs8lk5fam24tghjdxqtf5' },
+]
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center py-8 space-y-6">
-    <div class="w-20 h-20 bg-surface-container-low rounded-2xl flex items-center justify-center shadow-lg">
-      <span class="material-symbols-outlined text-4xl text-primary">info</span>
+  <div class="relative overflow-hidden mb-6">
+    <div class="absolute -top-16 -right-16 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+    <div class="bg-surface-container-lowest rounded-lg p-6 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] relative overflow-hidden">
+      <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-primary-container/10 rounded-full blur-2xl"></div>
+      <div class="relative z-10 text-center">
+        <div class="w-20 h-20 rounded-2xl primary-gradient flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+          <span class="material-symbols-outlined text-on-primary text-4xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+        </div>
+        <h1 class="font-headline text-2xl font-extrabold text-on-surface mb-2">SCASH 非托管钱包</h1>
+        <p class="text-on-surface-variant text-sm font-medium">安全、简洁、链上红包</p>
+      </div>
     </div>
-    <h1 class="font-headline text-2xl font-extrabold tracking-tight text-on-background">关于</h1>
-    <p class="text-on-surface-variant text-center max-w-[280px]">功能开发中...</p>
   </div>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">home</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">项目定位</h2>
+    </div>
+    <p class="text-sm text-on-surface leading-relaxed">
+      SCASH 是一个基于 Scash 区块链的<strong>非托管式钱包</strong>，核心功能是发红包，但本质是一个完整的钱包应用。用户完全掌控私钥，支持发送/接收 SCASH。
+    </p>
+  </section>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lock</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">钱包运行逻辑</h2>
+    </div>
+    <div class="space-y-4">
+      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">完全非托管</strong>：助记词在浏览器本地生成（bip39），签名在浏览器完成（bitcoinjs-lib），私钥从不离开你的设备。</p>
+      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">云端加密备份</strong>：使用 PBKDF2（100000 次迭代）+ AES-256-GCM 加密助记词后上传。服务器仅存储加密密文，永远无法获取你的明文助记词。</p>
+      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">观察钱包</strong>：仅绑定地址，无私钥，只能接收，无法发送。兼顾安全性与便利性。</p>
+    </div>
+  </section>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] border-l-4 border-primary">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">助记词安全说明</h2>
+    </div>
+    <p class="text-sm text-on-surface leading-relaxed mb-3">助记词是你资产的<strong>唯一凭证</strong>。一旦丢失，资产将无法恢复；一旦泄露，资产将被盗取。</p>
+    <p class="text-sm text-on-surface leading-relaxed mb-3"><strong class="text-primary">我们不会在服务器存储你的助记词明文</strong>，也不存储你的私钥。请务必：</p>
+    <ul class="space-y-2 mb-4 ml-4">
+      <li class="flex items-center gap-2 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>使用官方渠道下载或访问钱包
+      </li>
+      <li class="flex items-center gap-2 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>绝不将助记词透露给任何人
+      </li>
+      <li class="flex items-center gap-2 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>绝不在联网设备上存储明文
+      </li>
+      <li class="flex items-center gap-2 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>建议使用硬件钱包或纸质备份
+      </li>
+      <li class="flex items-center gap-2 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>建议在安全的离线环境中备份助记词
+      </li>
+    </ul>
+    <div class="bg-error/5 border border-error/20 rounded-lg p-4">
+      <p class="text-sm text-error font-bold">重要提醒：官方人员永远不会向你索要助记词！</p>
+    </div>
+  </section>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">celebration</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">链上红包说明</h2>
+    </div>
+    <p class="text-sm text-on-surface leading-relaxed mb-3">所有红包操作均通过区块链执行：</p>
+    <ul class="space-y-3 mb-4">
+      <li class="flex items-start gap-3 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">diamond</span>
+        <span><strong>DAP 链上留言</strong>：创建/领取/退款操作均通过 scash-dap 协议写入区块链，永久可验证</span>
+      </li>
+      <li class="flex items-start gap-3 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">hub</span>
+        <span><strong>去中心化</strong>：红包规则由代码执行，无法被任何人控制或干预</span>
+      </li>
+      <li class="flex items-start gap-3 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">visibility</span>
+        <span><strong>公开透明</strong>：红包金额、领取记录全部上链，可随时在区块链浏览器验证</span>
+      </li>
+      <li class="flex items-start gap-3 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+        <span><strong>统账账户托管</strong>：系统归集账户负责红包资金托管和批量发放，确保公平公正</span>
+      </li>
+      <li class="flex items-start gap-3 text-sm text-on-surface">
+        <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+        <span><strong>永久保存</strong>：红包记录将永远保存在 Scash 区块链上，不可磨灭</span>
+      </li>
+    </ul>
+    <p class="text-sm text-on-surface leading-relaxed">支持<strong class="text-primary">平分红包</strong>（每人平均）和<strong class="text-primary">拼手气红包</strong>（随机金额，二倍均值法）两种模式。</p>
+  </section>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">code</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">技术架构</h2>
+    </div>
+    <ul class="space-y-3">
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>后端：</strong>NestJS + TypeScript</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>前端：</strong>Vue3 + TypeScript + Telegram Mini App</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>数据库：</strong>PostgreSQL + Prisma</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>区块链：</strong>Scash (Bitcoin 架构)</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>钱包库：</strong>bitcoinjs-lib + bip39 + bip32</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>DApp 协议：</strong>scash-dap (链上留言)</span></li>
+      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>BIP32 派生路径：</strong>m/84'/0'/0'/0/0 (主地址)</span></li>
+    </ul>
+  </section>
+
+  <section class="bg-surface-container-lowest rounded-lg p-5 mb-6 shadow-[0px_12px_32px_rgba(44,47,49,0.06)] border border-dashed border-outline-variant">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-warning" style="font-variation-settings: 'FILL' 1;">volunteer_activism</span>
+      </div>
+      <h2 class="font-headline text-lg font-bold text-on-surface">支持作者</h2>
+    </div>
+    <p class="text-sm text-on-surface leading-relaxed mb-4">如果你愿意支持本项目的持续开发与维护，欢迎捐助：</p>
+    <div class="space-y-3">
+      <div v-for="item in donateAddresses" :key="item.label" class="bg-surface-container-low rounded-lg p-3 flex items-center justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-on-surface-variant uppercase mb-1">{{ item.label }}</p>
+          <p class="text-xs mono text-primary break-all">{{ item.address }}</p>
+        </div>
+        <CopyButton :text="item.address" />
+      </div>
+    </div>
+    <p class="text-xs text-on-surface-variant mt-4 leading-relaxed">你的支持将用于开源维护与基础设施建设，感谢你为 SCASH 社区的建设与创新助力。</p>
+  </section>
 </template>

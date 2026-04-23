@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api'
+import { useAuthStore } from './auth'
 
 export interface UtxoItem {
   txid: string
@@ -26,10 +27,54 @@ export interface WalletBalance {
   utxos: UtxoItem[]
 }
 
+export interface WalletBackup {
+  encryptedMnemonic: string
+  salt: string
+  iv: string
+  authTag: string
+}
+
+const BACKUP_PREFIX = 'SCASH_BACKUP_'
+
+function getBackupKey(tgUserId: string): string {
+  return BACKUP_PREFIX + tgUserId
+}
+
+function loadBackupFromStorage(): WalletBackup | null {
+  try {
+    const authStore = useAuthStore()
+    const uid = authStore.currentTgUserId
+    if (!uid) return null
+    const raw = localStorage.getItem(getBackupKey(uid))
+    if (!raw) return null
+    return JSON.parse(raw) as WalletBackup
+  } catch {
+    return null
+  }
+}
+
+function saveBackupToStorage(backup: WalletBackup) {
+  const authStore = useAuthStore()
+  const uid = authStore.currentTgUserId
+  if (!uid) return
+  localStorage.setItem(getBackupKey(uid), JSON.stringify(backup))
+}
+
+function clearBackupFromStorage() {
+  try {
+    const authStore = useAuthStore()
+    const uid = authStore.currentTgUserId
+    if (uid) {
+      localStorage.removeItem(getBackupKey(uid))
+    }
+  } catch {}
+}
+
 export const useWalletStore = defineStore('wallet', () => {
   const home = ref<WalletHome | null>(null)
   const balance = ref<WalletBalance | null>(null)
   const loading = ref(false)
+  const backup = ref<WalletBackup | null>(loadBackupFromStorage())
 
   const hasWallet = computed(() => home.value?.hasWallet ?? false)
   const isWatchOnly = computed(() => home.value?.isWatchOnly ?? false)
@@ -56,6 +101,10 @@ export const useWalletStore = defineStore('wallet', () => {
     loading.value = true
     try {
       home.value = await api.get<WalletHome>('/api/wallet/home')
+      // Auto-fetch backup if we have a wallet and haven't cached it yet
+      if (home.value?.hasWallet && !backup.value) {
+        await fetchBackup()
+      }
     } finally {
       loading.value = false
     }
@@ -68,6 +117,25 @@ export const useWalletStore = defineStore('wallet', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function fetchBackup(): Promise<WalletBackup | null> {
+    try {
+      const data = await api.post<{ backup: WalletBackup | null }>('/api/wallet/recover', {})
+      if (data.backup) {
+        backup.value = data.backup
+        saveBackupToStorage(data.backup)
+        return data.backup
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  function saveBackup(b: WalletBackup) {
+    backup.value = b
+    saveBackupToStorage(b)
   }
 
   async function completeBackup() {
@@ -98,12 +166,15 @@ export const useWalletStore = defineStore('wallet', () => {
     home.value = null
     balance.value = null
     loading.value = false
+    backup.value = null
+    clearBackupFromStorage()
   }
 
   return {
     home,
     balance,
     loading,
+    backup,
     hasWallet,
     isWatchOnly,
     address,
@@ -113,6 +184,8 @@ export const useWalletStore = defineStore('wallet', () => {
     totalSats,
     fetchHome,
     fetchBalance,
+    fetchBackup,
+    saveBackup,
     completeBackup,
     unbindWallet,
     checkPermission,
