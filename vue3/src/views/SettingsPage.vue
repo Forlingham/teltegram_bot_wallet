@@ -29,6 +29,16 @@ onMounted(async () => {
 })
 
 const handleUnbind = async () => {
+  // Refresh home state first to avoid stale data
+  try {
+    await walletStore.fetchHome()
+  } catch {}
+  if (!walletStore.hasWallet) {
+    await showAlert('当前没有绑定钱包')
+    router.push('/wallet')
+    return
+  }
+
   const conf1 = confirm('【高危操作】解除绑定会清空您在云端的钱包信息！\n\n请务必确认您已经备份了助记词，否则资金将永久丢失！\n\n确定要解除绑定吗？')
   if (!conf1) return
   const conf2 = confirm('再次确认：\n如果没有备份助记词，解除绑定后将无法找回！\n\n是否继续？')
@@ -184,7 +194,7 @@ const submitNewPassword = async () => {
         <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
       </button>
 
-      <button @click="handleUnbind" class="group mt-4 flex items-center justify-between p-5 rounded-lg bg-error/5 active:scale-[0.98] transition-all border border-error/10 text-left w-full">
+      <button v-if="walletStore.hasWallet" @click="handleUnbind" class="group mt-4 flex items-center justify-between p-5 rounded-lg bg-error/5 active:scale-[0.98] transition-all border border-error/10 text-left w-full">
         <div class="flex items-center gap-4">
           <div class="w-10 h-10 rounded-sm bg-error/10 flex items-center justify-center text-error">
             <span class="material-symbols-outlined">link_off</span>

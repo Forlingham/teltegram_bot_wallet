@@ -146,7 +146,14 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 
   async function unbindWallet() {
-    await api.post('/api/wallet/unbind')
+    try {
+      await api.post('/api/wallet/unbind')
+    } catch (e: any) {
+      // If the wallet is already gone on the server, treat it as a successful unbind
+      const isNotFound = e?.status === 404 ||
+        (e?.message || '').toLowerCase().includes('wallet not found')
+      if (!isNotFound) throw e
+    }
     $reset()
   }
 
@@ -195,6 +202,7 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 }, {
   persist: {
+    key: 'wallet',
     pick: ['home', 'balance', 'backup'],
   },
 })

@@ -10,6 +10,29 @@ import { onMounted, watch } from 'vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+// Detect account switch BEFORE dependent stores initialize.
+// Pinia persistedstate restores data as soon as a store is first used.
+// If the Telegram user changed, wipe ALL persisted user-specific data
+// so the new account never sees the previous account's info.
+const newTgId = authStore.getCurrentTgUserId()
+const savedTgId = authStore.currentTgUserId
+if (newTgId && savedTgId && newTgId !== savedTgId) {
+  localStorage.removeItem('auth')
+  localStorage.removeItem('wallet')
+  localStorage.removeItem('SCASH_PRICE_CACHE')
+  localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
+  // Reset in-memory auth fields that came from the old account
+  authStore.userId = null
+  authStore.telegramId = ''
+  authStore.username = null
+  authStore.firstName = null
+  authStore.lastName = null
+  authStore.photoUrl = null
+  authStore.sessionToken = ''
+  authStore.currentTgUserId = newTgId
+}
+
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
@@ -45,9 +68,10 @@ onMounted(() => {
       if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
     }
 
-    if (!authStore.photoUrl) {
-      authStore.fetchMe().catch(() => {})
-    }
+    // Always refresh user info in background —
+    // if the account just switched, photoUrl/username were reset to null
+    // and we must fetch the new user's data.
+    authStore.fetchMe().catch(() => {})
 
     // Permission check in background (non-blocking)
     checkRoutePermission()

@@ -126,11 +126,30 @@ export const useAuthStore = defineStore('auth', () => {
     walletStore.$reset()
     const priceStore = usePriceStore()
     priceStore.$reset()
+
+    // Clear persisted wallet cache for the logged-out user
+    localStorage.removeItem('wallet')
+    localStorage.removeItem('SCASH_PRICE_CACHE')
+    localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
   }
 
   async function handleUserSwitch() {
     const newUserId = getCurrentTgUserId()
     if (newUserId && currentTgUserId.value && newUserId !== currentTgUserId.value) {
+      // Clear persisted data of the previous account so it won't leak back
+      localStorage.removeItem('auth')
+      localStorage.removeItem('wallet')
+      localStorage.removeItem('SCASH_PRICE_CACHE')
+      localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
+      // Reset in-memory auth fields from the old account
+      userId.value = null
+      telegramId.value = ''
+      username.value = null
+      firstName.value = null
+      lastName.value = null
+      photoUrl.value = null
+      sessionToken.value = ''
+      currentTgUserId.value = newUserId
       const walletStore = useWalletStore()
       walletStore.$reset()
       const priceStore = usePriceStore()
