@@ -47,10 +47,17 @@ function formatTxid(txid: string): string {
   return txid.slice(0, 6) + '...' + txid.slice(-6)
 }
 
+function trimTrailingZeros(value: string): string {
+  if (!value.includes('.')) return value
+  return value.replace(/\.?0+$/, '') || '0'
+}
+
 function formatAmount(num: number | string): string {
-  const n = Number(num)
-  if (isNaN(n)) return '0.00'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const s = String(num).trim()
+  if (!s || s === 'null' || s === 'undefined') return '0'
+  const n = Number(s)
+  if (isNaN(n)) return '0'
+  return trimTrailingZeros(s)
 }
 
 function getExplorerBaseUrl(): string {

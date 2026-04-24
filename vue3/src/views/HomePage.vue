@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useWalletStore, usePriceStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
+import { satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
@@ -246,7 +247,7 @@ const handleScanQr = async () => {
           <span class="text-[11px] font-bold font-headline uppercase tracking-tight">已确认 (链上)</span>
         </div>
         <p class="text-sm font-bold text-on-surface flex items-center gap-1">
-          {{ walletStore.confirmedSats !== undefined ? (walletStore.confirmedSats / 100000000n).toString() : '0.00' }}
+          {{ walletStore.confirmedSats !== undefined ? satsToScashTrimmed(walletStore.confirmedSats) : '0' }}
           <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
         </p>
       </div>
@@ -256,7 +257,7 @@ const handleScanQr = async () => {
           <span class="text-[11px] font-bold font-headline uppercase tracking-tight">未确认 (内存池)</span>
         </div>
         <p class="text-sm font-bold text-primary flex items-center gap-1">
-          {{ walletStore.unconfirmedSats !== undefined ? (walletStore.unconfirmedSats / 100000000n).toString() : '0.00' }}
+          {{ walletStore.unconfirmedSats !== undefined ? satsToScashTrimmed(walletStore.unconfirmedSats) : '0' }}
           <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
         </p>
       </div>

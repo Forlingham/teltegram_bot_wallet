@@ -91,6 +91,11 @@ const remainingCount = computed(() => {
   return packet.value.remainingCount ?? 0
 })
 
+function trimTrailingZeros(value: string): string {
+  if (!value.includes('.')) return value
+  return value.replace(/\.?0+$/, '') || '0'
+}
+
 const remainingAmount = computed(() => {
   if (!packet.value) return '0.00'
   const total = parseFloat(String(packet.value.totalAmount || 0))
@@ -235,8 +240,8 @@ onUnmounted(() => {
                 <!-- Claimed amount -->
                 <template v-if="alreadyClaimed && claimedAmount">
                   <div class="amount-main">
-                    <span class="amount-int">{{ Number(claimedAmount).toFixed(2).split('.')[0] }}</span>
-                    <span class="amount-decimal">.{{ Number(claimedAmount).toFixed(2).split('.')[1] || '00' }}</span>
+                    <span class="amount-int">{{ trimTrailingZeros(claimedAmount).includes('.') ? trimTrailingZeros(claimedAmount).split('.')[0] : trimTrailingZeros(claimedAmount) }}</span>
+                    <span v-if="trimTrailingZeros(claimedAmount).includes('.')" class="amount-decimal">.{{ trimTrailingZeros(claimedAmount).split('.')[1] }}</span>
                     <img class="amount-logo" src="/img/logo-128x128.png" alt="SCASH" />
                   </div>
                   <div v-if="priceStore.currentPrice" class="amount-usd">
