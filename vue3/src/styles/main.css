@@ -69,6 +69,8 @@
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Remove mobile tap highlight */
+    -webkit-tap-highlight-color: transparent;
   }
 
   h1, h2, h3 {
@@ -81,6 +83,29 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Reset default browser focus styles for form elements */
+  input, textarea, select, button {
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  /* Custom focus ring — soft purple glow matching the app theme */
+  input:focus,
+  textarea:focus,
+  select:focus,
+  button:focus-visible {
+    box-shadow: 0 0 0 2px rgba(145, 40, 173, 0.25);
+  }
+
+  /* Remove the ugly orange/yellow selection background on mobile inputs */
+  input::selection,
+  textarea::selection {
+    background: rgba(145, 40, 173, 0.15);
+    color: inherit;
   }
 }
 
