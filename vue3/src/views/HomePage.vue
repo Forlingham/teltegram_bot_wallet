@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useWalletStore, usePriceStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
@@ -7,6 +7,7 @@ import { satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
+import { createChart, CrosshairMode, AreaSeries, type ISeriesApi, type IChartApi } from 'lightweight-charts'
 
 const walletStore = useWalletStore()
 const priceStore = usePriceStore()
@@ -15,6 +16,15 @@ const { showScanQr, showAlert } = useTelegram()
 
 const refreshing = ref(false)
 const pageError = ref('')
+const chartContainerRef = ref<HTMLDivElement | null>(null)
+let lwChart: IChartApi | null = null
+let lwSeries: ISeriesApi<'Area'> | null = null
+
+const tooltipVisible = ref(false)
+const tooltipPrice = ref('')
+const tooltipTime = ref('')
+const tooltipX = ref(0)
+const tooltipY = ref(0)
 
 const hasWallet = computed(() => walletStore.hasWallet)
 const address = computed(() => walletStore.address)
@@ -23,13 +33,143 @@ const showBackupReminder = computed(() => walletStore.showBackupReminder)
 const pendingAirdrop = computed(() => walletStore.home?.pendingAirdrop ?? null)
 const userPhotoUrl = computed(() => authStore.photoUrl || '')
 
+function dedupeChartData(data: { timestamp: string; price: string }[]) {
+  const seen: Record<string, boolean> = {}
+  const deduped: typeof data = []
+  for (const d of data) {
+    const key = d.timestamp.slice(0, 16)
+    if (!seen[key]) {
+      seen[key] = true
+      deduped.push(d)
+    }
+  }
+  return deduped
+}
+
+function renderChart() {
+  const container = chartContainerRef.value
+  if (!container) return
+  const data = priceStore.chartData
+  if (!data || data.length <= 1) return
+
+  const deduped = dedupeChartData(data as { timestamp: string; price: string }[])
+  if (deduped.length <= 1) return
+
+  const firstPrice = parseFloat(deduped[0].price)
+  const lastPrice = parseFloat(deduped[deduped.length - 1].price)
+  const isUp = lastPrice >= firstPrice
+  const lineColor = isUp ? '#2f7a42' : '#c0392b'
+  const topColor = isUp ? 'rgba(47,122,66,0.28)' : 'rgba(192,57,43,0.20)'
+  const bottomColor = isUp ? 'rgba(47,122,66,0.02)' : 'rgba(192,57,43,0.02)'
+
+  if (lwChart) {
+    lwChart.remove()
+    lwChart = null
+    lwSeries = null
+  }
+
+  lwChart = createChart(container, {
+    width: container.clientWidth,
+    height: 180,
+    layout: {
+      background: { type: 'solid', color: 'transparent' },
+      textColor: '#999',
+      fontSize: 10,
+      attributionLogo: false,
+    },
+    grid: {
+      vertLines: { visible: false },
+      horzLines: { color: '#f0f0f0', style: 2 },
+    },
+    crosshair: {
+      mode: CrosshairMode.Magnet,
+      vertLine: { width: 1, color: 'rgba(47,122,66,0.3)', style: 0, labelVisible: false },
+      horzLine: { visible: false, labelVisible: false },
+    },
+    timeScale: {
+      borderVisible: false,
+      timeVisible: true,
+      secondsVisible: false,
+      fixLeftEdge: true,
+      fixRightEdge: true,
+    },
+    rightPriceScale: {
+      borderVisible: false,
+      scaleMargins: { top: 0.1, bottom: 0.1 },
+    },
+    handleScroll: { vertTouchDrag: false },
+    handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
+  })
+
+  lwSeries = lwChart.addSeries(AreaSeries, {
+    lineColor,
+    topColor,
+    bottomColor,
+    lineWidth: 2,
+    crosshairMarkerVisible: true,
+    crosshairMarkerRadius: 4,
+    crosshairMarkerBorderColor: '#fff',
+    crosshairMarkerBackgroundColor: lineColor,
+    priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
+  })
+
+  const seriesData = deduped.map((d) => ({
+    time: Math.floor(new Date(d.timestamp).getTime() / 1000),
+    value: parseFloat(d.price),
+  }))
+
+  lwSeries.setData(seriesData)
+  lwChart.timeScale().fitContent()
+
+  // Crosshair tooltip
+  lwChart.subscribeCrosshairMove((param) => {
+    if (!param || !param.time || !param.seriesData || !param.seriesData.size) {
+      tooltipVisible.value = false
+      return
+    }
+    const val = param.seriesData.get(lwSeries!)
+    if (val && typeof val.value === 'number') {
+      const t = new Date((param.time as number) * 1000)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      tooltipTime.value = `${pad(t.getMonth() + 1)}/${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`
+      tooltipPrice.value = '$' + val.value.toFixed(3)
+      // Position tooltip near the crosshair
+      const rect = container.getBoundingClientRect()
+      const pointX = param.point?.x ?? rect.width / 2
+      const pointY = param.point?.y ?? rect.height / 2
+      tooltipX.value = Math.min(Math.max(pointX + 12, 4), rect.width - 100)
+      tooltipY.value = Math.min(Math.max(pointY - 36, 4), rect.height - 40)
+      tooltipVisible.value = true
+    } else {
+      tooltipVisible.value = false
+    }
+  })
+
+  // Resize observer
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      if (lwChart && container) {
+        lwChart.applyOptions({ width: container.clientWidth })
+      }
+    })
+    ro.observe(container)
+  }
+}
+
+// Watch for chart data changes and render when available
+watch(() => priceStore.chartData, (val) => {
+  if (val && val.length > 1) {
+    nextTick(renderChart)
+  }
+}, { immediate: true })
+
 async function initHome() {
   pageError.value = ''
   try {
     await walletStore.fetchHome()
     walletStore.fetchBalance()
     if (hasWallet.value) {
-      priceStore.fetchPrice()
+      await priceStore.fetchPrice()
     }
     if (!authStore.photoUrl) {
       authStore.fetchMe().catch(() => {})
@@ -41,10 +181,10 @@ async function initHome() {
 }
 
 onMounted(() => {
-  // Only fetch on first visit; when returning from other pages,
-  // Pinia persisted state already has the data.
   if (!walletStore.home) {
     initHome()
+  } else if (priceStore.chartData.length > 1) {
+    nextTick(renderChart)
   }
 })
 
@@ -291,7 +431,7 @@ const handleScanQr = async () => {
       </a>
     </nav>
 
-    <!-- Price chart placeholder -->
+    <!-- Price chart -->
     <div v-if="priceStore.chartData.length > 1" class="mt-4">
       <div class="flex justify-between items-end mb-2">
         <div>
@@ -304,7 +444,23 @@ const handleScanQr = async () => {
           </span>
         </div>
       </div>
-      <div id="priceChartContainer" style="width:100%; height:180px;" class="w-full relative overflow-hidden bg-surface-container-lowest rounded-lg border border-outline-variant/10"></div>
+      <div class="w-full relative overflow-hidden bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+        <div class="absolute inset-0 opacity-10 flex items-center justify-center pointer-events-none">
+          <div class="w-full h-[1px] bg-outline-variant absolute top-1/4"></div>
+          <div class="w-full h-[1px] bg-outline-variant absolute top-2/4"></div>
+          <div class="w-full h-[1px] bg-outline-variant absolute top-3/4"></div>
+        </div>
+        <div ref="chartContainerRef" style="width:100%; height:180px;"></div>
+        <!-- Crosshair tooltip -->
+        <div
+          v-show="tooltipVisible"
+          class="absolute pointer-events-none z-10 bg-surface/90 backdrop-blur-sm rounded-md px-2 py-1 shadow-lg border border-outline-variant/20 text-[10px] font-semibold"
+          :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
+        >
+          <div class="text-on-surface">{{ tooltipPrice }}</div>
+          <div class="text-on-surface-variant">{{ tooltipTime }}</div>
+        </div>
+      </div>
     </div>
   </section>
 </template>
