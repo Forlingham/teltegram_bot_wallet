@@ -11,6 +11,7 @@ const router = useRouter()
 const walletStore = useWalletStore()
 const priceStore = usePriceStore()
 const tx = useTransaction()
+const { submitting } = tx
 const { showAlert } = useTelegram()
 
 const content = ref('')
@@ -143,12 +144,12 @@ async function handlePasswordConfirm(password: string) {
     <footer>
       <button
         class="w-full signature-gradient h-16 rounded-full flex items-center justify-center gap-3 ambient-shadow hover:scale-[0.98] active:scale-95 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-        :disabled="!content.trim() || tx.submitting.value"
+        :disabled="!content.trim() || submitting"
         @click="handleSubmit"
       >
-        <span v-if="tx.submitting" class="spinner-sm mr-1"></span>
+        <span v-if="submitting" class="spinner-sm mr-1"></span>
         <span v-else class="text-white font-headline font-extrabold text-lg">确认刻字并上链</span>
-        <span v-if="!tx.submitting" class="material-symbols-outlined text-white text-xl">edit_note</span>
+        <span v-if="!submitting" class="material-symbols-outlined text-white text-xl">edit_note</span>
       </button>
     </footer>
 

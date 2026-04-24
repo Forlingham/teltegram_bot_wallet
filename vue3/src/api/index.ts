@@ -1,10 +1,26 @@
 import { useAuthStore } from '@/stores/auth'
 
 const BASE_URL = ''
+const REQUEST_TIMEOUT_MS = 30000
 
 export interface ApiError {
   status: number
   message: string
+}
+
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error('请求超时，请检查网络后重试'))
+    }, timeoutMs)
+
+    fetch(url, { ...options, signal: controller.signal })
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timer))
+  })
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -17,10 +33,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string> || {}),
   }
 
-  let res = await fetch(BASE_URL + path, {
+  let res = await fetchWithTimeout(BASE_URL + path, {
     ...options,
     headers,
-  })
+  }, REQUEST_TIMEOUT_MS)
 
   if (res.status === 401) {
     const uid = authStore.currentTgUserId
@@ -32,10 +48,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const newToken = await authStore.ensureSession()
     headers['x-session-token'] = newToken
 
-    res = await fetch(BASE_URL + path, {
+    res = await fetchWithTimeout(BASE_URL + path, {
       ...options,
       headers,
-    })
+    }, REQUEST_TIMEOUT_MS)
   }
 
   const json = await res.json()

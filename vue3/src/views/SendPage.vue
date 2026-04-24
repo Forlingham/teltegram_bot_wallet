@@ -13,6 +13,7 @@ const walletStore = useWalletStore()
 const priceStore = usePriceStore()
 const networkStore = useNetworkStore()
 const tx = useTransaction()
+const { submitting } = tx
 const { showScanQr, showAlert } = useTelegram()
 
 const address = ref('')
@@ -126,6 +127,7 @@ async function handlePasswordConfirm(password: string) {
 }
 
 onMounted(async () => {
+  submitting.value = false // safety reset
   await walletStore.fetchBalance()
   priceStore.fetchPrice()
 
@@ -244,12 +246,12 @@ onMounted(async () => {
     <footer class="pt-2">
       <button
         class="w-full signature-gradient h-16 rounded-full flex items-center justify-center gap-3 ambient-shadow hover:scale-[0.98] active:scale-95 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-        :disabled="tx.submitting.value"
+        :disabled="submitting"
         @click="handleSubmit"
       >
-        <span v-if="tx.submitting" class="spinner-sm mr-1"></span>
+        <span v-if="submitting" class="spinner-sm mr-1"></span>
         <span v-else class="text-white font-headline font-extrabold text-lg">确认发送</span>
-        <span v-if="!tx.submitting" class="material-symbols-outlined text-white text-xl group-hover:translate-x-1 transition-transform">send</span>
+        <span v-if="!submitting" class="material-symbols-outlined text-white text-xl group-hover:translate-x-1 transition-transform">send</span>
       </button>
       <div class="mt-6 flex flex-col items-center gap-4">
         <div class="flex items-center gap-2 px-4 py-2 bg-surface-container-high/50 rounded-full">

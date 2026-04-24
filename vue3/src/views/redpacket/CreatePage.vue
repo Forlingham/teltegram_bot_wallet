@@ -252,6 +252,7 @@ async function copyToClipboard(text: string) {
 }
 
 onMounted(async () => {
+  submitting.value = false // safety reset
   await walletStore.fetchBalance()
   priceStore.fetchPrice()
 
