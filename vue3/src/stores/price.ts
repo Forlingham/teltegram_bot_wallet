@@ -18,6 +18,9 @@ export const usePriceStore = defineStore('price', () => {
   const priceData = ref<PriceData | null>(null)
   const loading = ref(false)
 
+  // In-flight request lock
+  let pricePromise: Promise<void> | null = null
+
   const currentPrice = computed(() => {
     const p = priceData.value?.price?.price
     return p ? parseFloat(p) : 0
@@ -56,6 +59,9 @@ export const usePriceStore = defineStore('price', () => {
   }
 
   async function fetchPrice(force = false) {
+    // If a request is already in flight, wait for it
+    if (pricePromise) return pricePromise
+
     // If we already have data in memory and cache is still valid, skip the request
     if (!force && priceData.value) {
       const cachedTime = localStorage.getItem(CACHE_TIME_KEY)
@@ -74,26 +80,30 @@ export const usePriceStore = defineStore('price', () => {
 
     // Fetch fresh data
     loading.value = true
-    try {
-      const res = await fetch('https://explorer.scash.network/api/explorer/home/overview')
-      const json = await res.json()
-      if (json && json.price) {
-        priceData.value = json as PriceData
-        saveToCache(json)
+    pricePromise = (async () => {
+      try {
+        const res = await fetch('https://explorer.scash.network/api/explorer/home/overview')
+        const json = await res.json()
+        if (json && json.price) {
+          priceData.value = json as PriceData
+          saveToCache(json)
+        }
+      } catch {
+        // On failure, try stale cache
+        if (!priceData.value) {
+          try {
+            const staleData = localStorage.getItem(CACHE_KEY)
+            if (staleData) {
+              priceData.value = JSON.parse(staleData)
+            }
+          } catch {}
+        }
+      } finally {
+        loading.value = false
+        pricePromise = null
       }
-    } catch {
-      // On failure, try stale cache
-      if (!priceData.value) {
-        try {
-          const staleData = localStorage.getItem(CACHE_KEY)
-          if (staleData) {
-            priceData.value = JSON.parse(staleData)
-          }
-        } catch {}
-      }
-    } finally {
-      loading.value = false
-    }
+    })()
+    return pricePromise
   }
 
   function $reset() {

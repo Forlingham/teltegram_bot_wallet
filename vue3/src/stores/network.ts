@@ -23,23 +23,32 @@ export const useNetworkStore = defineStore('network', () => {
   const appEnv = ref('development')
   const loaded = ref(false)
 
+  // In-flight request lock
+  let envPromise: Promise<void> | null = null
+
   async function fetchEnv() {
-    try {
-      const res = await fetch('/api/app/env')
-      const json = await res.json()
-      if (json?.success && json.data) {
-        const data = json.data as AppEnvResponse
-        bech32.value = data.network.bech32
-        pubKeyHash.value = data.network.pubKeyHash
-        scriptHash.value = data.network.scriptHash
-        poolAddress.value = data.poolAddress
-        arrFeeAddress.value = data.arrFeeAddress
-        appEnv.value = data.env || 'development'
-        loaded.value = true
+    if (envPromise) return envPromise
+    envPromise = (async () => {
+      try {
+        const res = await fetch('/api/app/env')
+        const json = await res.json()
+        if (json?.success && json.data) {
+          const data = json.data as AppEnvResponse
+          bech32.value = data.network.bech32
+          pubKeyHash.value = data.network.pubKeyHash
+          scriptHash.value = data.network.scriptHash
+          poolAddress.value = data.poolAddress
+          arrFeeAddress.value = data.arrFeeAddress
+          appEnv.value = data.env || 'development'
+          loaded.value = true
+        }
+      } catch (e) {
+        console.error('Failed to fetch app env:', e)
+      } finally {
+        envPromise = null
       }
-    } catch (e) {
-      console.error('Failed to fetch app env:', e)
-    }
+    })()
+    return envPromise
   }
 
   function init(config: {

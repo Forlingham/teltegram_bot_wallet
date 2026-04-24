@@ -60,6 +60,10 @@ export const useWalletStore = defineStore('wallet', () => {
   const loading = ref(false)
   const backup = ref<WalletBackup | null>(null)
 
+  // In-flight request locks — prevent duplicate concurrent requests
+  let homePromise: Promise<void> | null = null
+  let balancePromise: Promise<WalletBalance | null> | null = null
+
   const hasWallet = computed(() => home.value?.hasWallet ?? false)
   const isWatchOnly = computed(() => home.value?.isWatchOnly ?? false)
   const address = computed(() => home.value?.address ?? '')
@@ -82,39 +86,49 @@ export const useWalletStore = defineStore('wallet', () => {
   const totalSats = computed(() => confirmedSats.value + unconfirmedSats.value)
 
   async function fetchHome() {
+    if (homePromise) return homePromise
     loading.value = true
-    try {
-      home.value = await api.get<WalletHome>('/api/wallet/home')
-      // Auto-fetch backup if we have a wallet and haven't cached it yet
-      if (home.value?.hasWallet && !backup.value) {
-        const authStore = useAuthStore()
-        const cached = loadBackupFromStorage(authStore.currentTgUserId)
-        if (cached) {
-          backup.value = cached
-        } else {
-          // No localStorage cache, fetch from server in background
-          fetchBackup()
+    homePromise = (async () => {
+      try {
+        home.value = await api.get<WalletHome>('/api/wallet/home')
+        // Auto-fetch backup if we have a wallet and haven't cached it yet
+        if (home.value?.hasWallet && !backup.value) {
+          const authStore = useAuthStore()
+          const cached = loadBackupFromStorage(authStore.currentTgUserId)
+          if (cached) {
+            backup.value = cached
+          } else {
+            // No localStorage cache, fetch from server in background
+            fetchBackup()
+          }
         }
+      } catch (e: any) {
+        console.error('[wallet] fetchHome failed:', e)
+        throw e
+      } finally {
+        loading.value = false
+        homePromise = null
       }
-    } catch (e: any) {
-      console.error('[wallet] fetchHome failed:', e)
-      throw e
-    } finally {
-      loading.value = false
-    }
+    })()
+    return homePromise
   }
 
   async function fetchBalance(): Promise<WalletBalance | null> {
+    if (balancePromise) return balancePromise
     loading.value = true
-    try {
-      balance.value = await api.get<WalletBalance>('/api/wallet/balance?includeUnconfirmed=true')
-      return balance.value
-    } catch (e: any) {
-      console.error('[wallet] fetchBalance failed:', e)
-      return null
-    } finally {
-      loading.value = false
-    }
+    balancePromise = (async () => {
+      try {
+        balance.value = await api.get<WalletBalance>('/api/wallet/balance?includeUnconfirmed=true')
+        return balance.value
+      } catch (e: any) {
+        console.error('[wallet] fetchBalance failed:', e)
+        return null
+      } finally {
+        loading.value = false
+        balancePromise = null
+      }
+    })()
+    return balancePromise
   }
 
   async function fetchBackup(): Promise<WalletBackup | null> {

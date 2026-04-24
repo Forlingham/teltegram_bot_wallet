@@ -29,30 +29,44 @@ export const useHistoryStore = defineStore('history', () => {
   const transactions = ref<TxItem[]>([])
   const loading = ref(false)
 
+  // In-flight request lock
+  let historyPromise: Promise<void> | null = null
+
   async function fetchHistory(force = false) {
+    if (historyPromise) return historyPromise
     if (!force && transactions.value.length > 0) {
       // Already have cached data, refresh silently in background
       refreshHistory()
       return
     }
     loading.value = true
-    try {
-      const data = await api.get<{ transactions: TxItem[] }>('/api/wallet/history')
-      transactions.value = data.transactions || []
-    } catch {
-      // Keep existing cache on failure
-    } finally {
-      loading.value = false
-    }
+    historyPromise = (async () => {
+      try {
+        const data = await api.get<{ transactions: TxItem[] }>('/api/wallet/history')
+        transactions.value = data.transactions || []
+      } catch {
+        // Keep existing cache on failure
+      } finally {
+        loading.value = false
+        historyPromise = null
+      }
+    })()
+    return historyPromise
   }
 
   async function refreshHistory() {
-    try {
-      const data = await api.get<{ transactions: TxItem[] }>('/api/wallet/history')
-      transactions.value = data.transactions || []
-    } catch {
-      // Silently fail, keep existing cache
-    }
+    if (historyPromise) return historyPromise
+    historyPromise = (async () => {
+      try {
+        const data = await api.get<{ transactions: TxItem[] }>('/api/wallet/history')
+        transactions.value = data.transactions || []
+      } catch {
+        // Silently fail, keep existing cache
+      } finally {
+        historyPromise = null
+      }
+    })()
+    return historyPromise
   }
 
   function $reset() {

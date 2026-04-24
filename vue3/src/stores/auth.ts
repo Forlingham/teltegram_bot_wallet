@@ -23,6 +23,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const { getTgUser, getInitData, parseTgUserId } = useTelegram()
 
+  // In-flight request locks
+  let ensureSessionPromise: Promise<string> | null = null
+  let fetchMePromise: Promise<void> | null = null
+
   function getTokenForUser(tgUserId: string): string | null {
     return localStorage.getItem(TOKEN_PREFIX + tgUserId) || null
   }
@@ -36,54 +40,64 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function ensureSession(): Promise<string> {
-    const tgUserId = getCurrentTgUserId()
+    if (ensureSessionPromise) return ensureSessionPromise
 
-    if (tgUserId) {
-      const userToken = getTokenForUser(tgUserId)
-      if (userToken) {
-        localStorage.setItem(SESSION_KEY, userToken)
-        localStorage.setItem(TG_USER_KEY, tgUserId)
-        sessionToken.value = userToken
-        currentTgUserId.value = tgUserId
-        return userToken
+    ensureSessionPromise = (async () => {
+      try {
+        const tgUserId = getCurrentTgUserId()
+
+        if (tgUserId) {
+          const userToken = getTokenForUser(tgUserId)
+          if (userToken) {
+            localStorage.setItem(SESSION_KEY, userToken)
+            localStorage.setItem(TG_USER_KEY, tgUserId)
+            sessionToken.value = userToken
+            currentTgUserId.value = tgUserId
+            return userToken
+          }
+        } else {
+          if (sessionToken.value) return sessionToken.value
+        }
+
+        const initData = getInitData()
+        if (!initData) {
+          throw new Error('会话已过期，请关闭并重新打开 Mini App')
+        }
+
+        // Use raw fetch here — api.post would call request() which calls ensureSession() again
+        const loginRes = await fetch('/api/auth/telegram/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData }),
+        })
+        const loginJson = await loginRes.json()
+        if (!loginRes.ok || !loginJson.success) {
+          const errMsg = loginJson.error?.message || '登录失败'
+          if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
+            throw new Error('会话已过期，请关闭并重新打开 Mini App')
+          }
+          throw new Error(errMsg)
+        }
+        const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
+
+        const newToken = data.sessionToken
+        if (tgUserId) {
+          setTokenForUser(tgUserId, newToken)
+        } else {
+          localStorage.setItem(SESSION_KEY, newToken)
+          sessionToken.value = newToken
+        }
+
+        userId.value = data.user.id
+        telegramId.value = data.user.telegramId
+
+        return newToken
+      } finally {
+        ensureSessionPromise = null
       }
-    } else {
-      if (sessionToken.value) return sessionToken.value
-    }
+    })()
 
-    const initData = getInitData()
-    if (!initData) {
-      throw new Error('会话已过期，请关闭并重新打开 Mini App')
-    }
-
-    // Use raw fetch here — api.post would call request() which calls ensureSession() again
-    const loginRes = await fetch('/api/auth/telegram/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
-    })
-    const loginJson = await loginRes.json()
-    if (!loginRes.ok || !loginJson.success) {
-      const errMsg = loginJson.error?.message || '登录失败'
-      if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
-        throw new Error('会话已过期，请关闭并重新打开 Mini App')
-      }
-      throw new Error(errMsg)
-    }
-    const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
-
-    const newToken = data.sessionToken
-    if (tgUserId) {
-      setTokenForUser(tgUserId, newToken)
-    } else {
-      localStorage.setItem(SESSION_KEY, newToken)
-      sessionToken.value = newToken
-    }
-
-    userId.value = data.user.id
-    telegramId.value = data.user.telegramId
-
-    return newToken
+    return ensureSessionPromise
   }
 
   function getCurrentTgUserId(): string {
@@ -94,13 +108,21 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchMe() {
-    const data = await api.get<{ userId: number; telegramId: string; username: string | null; firstName: string | null; lastName: string | null; photoUrl: string | null }>('/api/auth/me')
-    userId.value = data.userId
-    telegramId.value = data.telegramId
-    username.value = data.username
-    firstName.value = data.firstName
-    lastName.value = data.lastName
-    photoUrl.value = data.photoUrl
+    if (fetchMePromise) return fetchMePromise
+    fetchMePromise = (async () => {
+      try {
+        const data = await api.get<{ userId: number; telegramId: string; username: string | null; firstName: string | null; lastName: string | null; photoUrl: string | null }>('/api/auth/me')
+        userId.value = data.userId
+        telegramId.value = data.telegramId
+        username.value = data.username
+        firstName.value = data.firstName
+        lastName.value = data.lastName
+        photoUrl.value = data.photoUrl
+      } finally {
+        fetchMePromise = null
+      }
+    })()
+    return fetchMePromise
   }
 
   async function logout() {
