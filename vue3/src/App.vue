@@ -15,6 +15,7 @@ const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
 const { setupBackButton, hideBackButton, showAlert } = useTelegram()
 
+const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
@@ -28,26 +29,29 @@ onMounted(() => {
   authStore.ensureSession().catch(() => {})
   authStore.handleUserSwitch().catch(() => {})
 
-  // Fetch wallet home in background. If persisted data exists, render it immediately
-  // and silently refresh balance; otherwise fetch from server.
-  if (!walletStore.home) {
-    walletStore.fetchHome()
-      .then(() => {
-        walletStore.fetchBalance().catch(() => {})
-        if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
-      })
-      .catch(() => {})
-  } else {
-    walletStore.fetchBalance().catch(() => {})
-    if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
-  }
+  // Claim layout: skip wallet init to speed up entry
+  if (!isClaimLayout.value) {
+    // Fetch wallet home in background. If persisted data exists, render it immediately
+    // and silently refresh balance; otherwise fetch from server.
+    if (!walletStore.home) {
+      walletStore.fetchHome()
+        .then(() => {
+          walletStore.fetchBalance().catch(() => {})
+          if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
+        })
+        .catch(() => {})
+    } else {
+      walletStore.fetchBalance().catch(() => {})
+      if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
+    }
 
-  if (!authStore.photoUrl) {
-    authStore.fetchMe().catch(() => {})
-  }
+    if (!authStore.photoUrl) {
+      authStore.fetchMe().catch(() => {})
+    }
 
-  // Permission check in background (non-blocking)
-  checkRoutePermission()
+    // Permission check in background (non-blocking)
+    checkRoutePermission()
+  }
 
   if (route.meta.backAsClose) {
     hideBackButton()
@@ -83,10 +87,18 @@ watch(() => route.path, () => {
 
 <template>
   <div class="min-h-screen bg-surface text-on-surface flex flex-col">
-    <AppHeader :title="pageTitle" :show-settings="showSettings" />
-    <main class="flex-1 px-4 py-4 space-y-6 max-w-lg mx-auto w-full" :class="{ 'pb-24': showBottomNav }">
+    <!-- Claim layout: full-screen standalone, no header/nav/main wrapper -->
+    <template v-if="isClaimLayout">
       <RouterView />
-    </main>
-    <BottomNav v-if="showBottomNav" :active="(route.meta.activeNav as string) || ''" />
+    </template>
+
+    <!-- Main layout: standard wallet app shell -->
+    <template v-else>
+      <AppHeader :title="pageTitle" :show-settings="showSettings" />
+      <main class="flex-1 px-4 py-4 space-y-6 max-w-lg mx-auto w-full" :class="{ 'pb-24': showBottomNav }">
+        <RouterView />
+      </main>
+      <BottomNav v-if="showBottomNav" :active="(route.meta.activeNav as string) || ''" />
+    </template>
   </div>
 </template>
