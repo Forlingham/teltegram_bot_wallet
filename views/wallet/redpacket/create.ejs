@@ -865,6 +865,8 @@
     try {
       var covers = await window.SCASH.request('/api/cover/list');
       var el = document.getElementById('coverList');
+        el.innerHTML = '<div style="color:var(--muted); font-size:12px;">暂无可用封面</div>';
+        return;
       if (!covers || covers.length === 0) {
         el.innerHTML = '<div style="color:var(--muted); font-size:12px;">暂无可用封面</div>';
         return;

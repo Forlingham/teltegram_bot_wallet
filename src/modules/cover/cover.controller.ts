@@ -12,7 +12,8 @@ export class CoverController {
   constructor(@Inject(CoverService) private readonly coverService: CoverService) {}
 
   @Post('create')
-  create(@Body() body: CoverCreateDto): Promise<{ coverId: number }> {
+  create(@Body() body: CoverCreateDto){
+      return  { coverId:0 };
     return this.coverService.createCover(body);
   }
 
