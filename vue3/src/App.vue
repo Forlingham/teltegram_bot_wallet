@@ -20,6 +20,8 @@ const savedTgId = authStore.currentTgUserId
 if (newTgId && savedTgId && newTgId !== savedTgId) {
   localStorage.removeItem('auth')
   localStorage.removeItem('wallet')
+  localStorage.removeItem('history')
+  localStorage.removeItem('redpacket')
   localStorage.removeItem('SCASH_PRICE_CACHE')
   localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
   // Reset in-memory auth fields that came from the old account

@@ -127,8 +127,10 @@ export const useAuthStore = defineStore('auth', () => {
     const priceStore = usePriceStore()
     priceStore.$reset()
 
-    // Clear persisted wallet cache for the logged-out user
+    // Clear persisted caches for the logged-out user
     localStorage.removeItem('wallet')
+    localStorage.removeItem('history')
+    localStorage.removeItem('redpacket')
     localStorage.removeItem('SCASH_PRICE_CACHE')
     localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
   }
@@ -139,6 +141,8 @@ export const useAuthStore = defineStore('auth', () => {
       // Clear persisted data of the previous account so it won't leak back
       localStorage.removeItem('auth')
       localStorage.removeItem('wallet')
+      localStorage.removeItem('history')
+      localStorage.removeItem('redpacket')
       localStorage.removeItem('SCASH_PRICE_CACHE')
       localStorage.removeItem('SCASH_PRICE_CACHE_TIME')
       // Reset in-memory auth fields from the old account

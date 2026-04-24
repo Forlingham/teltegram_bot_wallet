@@ -1,19 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { api } from '@/api'
+import { onMounted } from 'vue'
+import { useRedpacketStore } from '@/stores'
 
-interface LeaderboardEntry {
-  rank: number
-  displayName: string
-  photoUrl?: string
-  totalCount: number
-  totalAmount: number | string
-}
+const redpacketStore = useRedpacketStore()
 
-const leaderboard = ref<LeaderboardEntry[]>([])
-const loading = ref(true)
-
-function getAvatar(item: LeaderboardEntry): string {
+function getAvatar(item: { photoUrl?: string; displayName: string }): string {
   return item.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(item.displayName)}`
 }
 
@@ -40,15 +31,8 @@ function rowBg(rank: number): string {
   return 'bg-surface-container-low/50'
 }
 
-onMounted(async () => {
-  try {
-    const data = await api.get<LeaderboardEntry[]>('/api/redpacket/leaderboard')
-    leaderboard.value = data || []
-  } catch {
-    leaderboard.value = []
-  } finally {
-    loading.value = false
-  }
+onMounted(() => {
+  redpacketStore.fetchLeaderboard()
 })
 </script>
 
@@ -82,14 +66,17 @@ onMounted(async () => {
     <section class="space-y-6">
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-headline font-bold text-on-background">🏆 红包发送排行榜</h2>
-        <span class="text-primary text-xs font-bold uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full">实时数据</span>
+        <div class="flex items-center gap-2">
+          <span v-if="redpacketStore.loading" class="material-symbols-outlined text-primary text-lg animate-spin">refresh</span>
+          <span class="text-primary text-xs font-bold uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full">实时数据</span>
+        </div>
       </div>
       <div class="space-y-3">
-        <div v-if="loading" class="text-center py-8 text-on-surface-variant">加载中…</div>
-        <div v-else-if="leaderboard.length === 0" class="text-center py-8 text-on-surface-variant">暂无发送记录</div>
+        <div v-if="redpacketStore.loading && redpacketStore.leaderboard.length === 0" class="text-center py-8 text-on-surface-variant">加载中…</div>
+        <div v-else-if="redpacketStore.leaderboard.length === 0" class="text-center py-8 text-on-surface-variant">暂无发送记录</div>
         <template v-else>
           <div
-            v-for="item in leaderboard"
+            v-for="item in redpacketStore.leaderboard"
             :key="item.rank"
             :class="rowBg(item.rank)"
             class="p-4 rounded-lg flex items-center gap-4 shadow-[0px_12px_32px_rgba(44,47,49,0.04)] relative overflow-hidden"

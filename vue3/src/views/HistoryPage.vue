@@ -1,36 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useWalletStore } from '@/stores'
+import { computed, onMounted } from 'vue'
+import { useWalletStore, useHistoryStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
-import { api } from '@/api'
-
-interface RedpacketInfo {
-  status?: string
-  canShare?: boolean
-  shareUrl?: string
-  totalCount?: number
-  claimedCount?: number
-  totalAmount?: number | string
-  remainingAmount?: number | string
-  expiresAt?: string
-}
-
-interface TxItem {
-  txid: string
-  direction?: 'in' | 'out'
-  amount: number | string
-  address?: string
-  time: string
-  isUnconfirmed?: boolean
-  kind?: 'wallet' | 'redpacket'
-  redpacketType?: 'CREATE' | 'CLAIM' | 'REFUND'
-  redpacketInfo?: RedpacketInfo
-}
 
 const walletStore = useWalletStore()
+const historyStore = useHistoryStore()
 
-const transactions = ref<TxItem[]>([])
-const loading = ref(true)
 const hasWallet = computed(() => walletStore.hasWallet)
 
 function formatTime(iso: string): string {
@@ -69,16 +44,8 @@ function getTxExplorerUrl(txid: string): string {
   return getExplorerBaseUrl().replace(/\/$/, '') + '/tx/' + encodeURIComponent(txid)
 }
 
-onMounted(async () => {
-  try {
-    await walletStore.fetchHome()
-    const data = await api.get<{ transactions: TxItem[] }>('/api/wallet/history')
-    transactions.value = data.transactions || []
-  } catch {
-    transactions.value = []
-  } finally {
-    loading.value = false
-  }
+onMounted(() => {
+  historyStore.fetchHistory()
 })
 
 function shareLink(url: string) {
@@ -106,17 +73,22 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
 
 <template>
   <div class="px-4 pb-6">
-    <!-- Loading -->
-    <div v-if="loading" class="text-center py-8 text-on-surface-variant text-sm">加载中…</div>
+    <!-- Loading state: only show full-screen spinner when no cached data -->
+    <div v-if="historyStore.loading && historyStore.transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">加载中…</div>
 
     <!-- Empty -->
-    <div v-else-if="transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">
+    <div v-else-if="historyStore.transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">
       {{ hasWallet ? '暂无交易记录' : '暂无记录（未创建钱包时仅展示抢到的红包）' }}
     </div>
 
     <!-- Transaction List -->
     <div v-else class="space-y-4">
-      <template v-for="tx in transactions" :key="tx.txid">
+      <!-- Top-right refresh indicator when loading with cached data -->
+      <div v-if="historyStore.loading" class="flex justify-end">
+        <span class="material-symbols-outlined text-primary text-lg animate-spin">refresh</span>
+      </div>
+
+      <template v-for="tx in historyStore.transactions" :key="tx.txid">
         <!-- Red packet CREATE -->
         <section
           v-if="tx.kind === 'redpacket' && tx.redpacketType === 'CREATE' && tx.redpacketInfo"
