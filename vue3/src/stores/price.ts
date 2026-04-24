@@ -55,14 +55,24 @@ export const usePriceStore = defineStore('price', () => {
     } catch {}
   }
 
-  async function fetchPrice() {
-    // Try cache first
+  async function fetchPrice(force = false) {
+    // If we already have data in memory and cache is still valid, skip the request
+    if (!force && priceData.value) {
+      const cachedTime = localStorage.getItem(CACHE_TIME_KEY)
+      if (cachedTime && Date.now() - parseInt(cachedTime, 10) < CACHE_TTL) {
+        return
+      }
+    }
+
+    // Try cache first (when no memory data)
     const cached = loadFromCache()
     if (cached) {
       priceData.value = cached
+      // If cache is fresh and not forced, skip network request
+      if (!force) return
     }
 
-    // Then fetch fresh
+    // Fetch fresh data
     loading.value = true
     try {
       const res = await fetch('https://explorer.scash.network/api/explorer/home/overview')
