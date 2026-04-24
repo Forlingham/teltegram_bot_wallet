@@ -32,13 +32,21 @@ const fiatEstimate = computed(() => {
   return '≈ $' + (scashVal * price).toFixed(2) + ' USD'
 })
 
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function debouncedUpdateEstimate() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(updateEstimate, 350)
+}
+
 async function updateEstimate() {
-  if (!content.value.trim()) {
+  const text = content.value.trim()
+  if (!text) {
     estimateData.value = null
     return
   }
   try {
-    const est = await tx.estimate('0', content.value.trim())
+    const est = await tx.estimate('0', text)
     estimateData.value = {
       networkFeeSat: est.networkFeeSat,
       dapCostSat: est.dapCostSat,
@@ -95,6 +103,7 @@ async function handlePasswordConfirm(password: string) {
         class="w-full p-3 bg-surface-container-low border-none rounded-DEFAULT focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all font-mono text-sm resize-none placeholder:text-outline text-on-surface"
         placeholder="输入要刻在链上的文字或JSON..."
         rows="6"
+        @input="debouncedUpdateEstimate"
       ></textarea>
       <div class="flex justify-between items-center">
         <p class="text-[11px] text-on-surface-variant">{{ content.length }} 字符</p>
@@ -130,13 +139,6 @@ async function handlePasswordConfirm(password: string) {
         </div>
       </div>
     </section>
-
-    <!-- Update estimate button -->
-    <button
-      v-if="content.trim() && !estimateData"
-      class="w-full py-3 bg-surface-container-low text-on-surface-variant font-semibold rounded-lg active:scale-[0.98] transition-transform"
-      @click="updateEstimate"
-    >计算费用</button>
 
     <div v-if="errorMsg" class="text-error text-center text-sm">{{ errorMsg }}</div>
 
