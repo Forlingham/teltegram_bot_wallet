@@ -394,7 +394,7 @@ const handleScanQr = async () => {
         </div>
         <div class="overflow-hidden">
           <p class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">我的钱包地址</p>
-          <p class="text-[9px] mono text-on-surface truncate pr-4">{{ address }}</p>
+          <p class="!text-[8px] mono text-on-surface break-all leading-relaxed">{{ address }}</p>
         </div>
       </div>
       <div class="flex-shrink-0 flex items-center gap-2">
