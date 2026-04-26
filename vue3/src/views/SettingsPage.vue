@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWalletStore, type WalletBackup } from '@/stores'
 import { useCrypto } from '@/composables/useCrypto'
@@ -15,6 +15,7 @@ const { showAlert } = useTelegram()
 const isWatchOnly = ref(false)
 const showPasswordModal = ref(false)
 const passwordLoading = ref(false)
+const passwordError = ref('')
 
 const showChangeModal = ref(false)
 const changeLoading = ref(false)
@@ -26,6 +27,10 @@ const confirmPassword = ref('')
 onMounted(async () => {
   if (!walletStore.home) await walletStore.fetchHome()
   isWatchOnly.value = walletStore.isWatchOnly
+})
+
+watch(showPasswordModal, (v) => {
+  if (v) passwordError.value = ''
 })
 
 const handleUnbind = async () => {
@@ -76,7 +81,7 @@ const handleChangePassword = async (password: string) => {
     oldPassword.value = password
     showChangeModal.value = true
   } catch (e: any) {
-    changeError.value = e.message || '操作失败'
+    passwordError.value = e.message || '操作失败'
   } finally {
     changeLoading.value = false
   }
@@ -212,6 +217,7 @@ const submitNewPassword = async () => {
       v-model="showPasswordModal"
       title="验证原密码"
       :loading="passwordLoading"
+      :error-message="passwordError"
       @confirm="handleChangePassword"
     />
 

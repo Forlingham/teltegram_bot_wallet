@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useCrypto } from '@/composables/useCrypto'
 import { useWalletStore } from '@/stores'
 import { api } from '@/api'
@@ -25,6 +25,7 @@ const rawMnemonic = ref('')
 const errorMsg = ref('')
 const copiedMnemonic = ref(false)
 const copiedBackup = ref(false)
+const passwordError = ref('')
 
 // If backup is already cached, show it immediately
 if (backupData.value) {
@@ -65,11 +66,15 @@ const handleDecrypt = async (password: string) => {
     mnemonicWords.value = mnemonic.trim().split(/\s+/)
     showPasswordModal.value = false
   } catch (e: any) {
-    errorMsg.value = '解密失败：' + e.message
+    passwordError.value = e.message || '解密失败'
   } finally {
     decrypting.value = false
   }
 }
+
+watch(showPasswordModal, (v) => {
+  if (v) passwordError.value = ''
+})
 
 const copyMnemonic = async () => {
   if (!rawMnemonic.value) return
@@ -154,7 +159,9 @@ const copyBackup = async () => {
 
     <PasswordModal
       v-model="showPasswordModal"
+      title="输入密码"
       :loading="decrypting"
+      :error-message="passwordError"
       @confirm="handleDecrypt"
     />
   </main>
