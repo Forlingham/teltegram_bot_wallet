@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from 'crypto';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { RedpacketCreateDto, RedPacketTypeDto } from './dto/redpacket-create.dto';
 import { scashToSatoshi, satoshiToScash } from '../../common/utils/money.util';
 import { DapService } from './dap.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 export interface CreateResult {
   packetId: string;
@@ -13,6 +14,8 @@ export interface CreateResult {
 
 @Injectable()
 export class RedpacketService {
+  private readonly logger = new Logger(RedpacketService.name);
+
   private getPacketExpiryMs(): number {
     return process.env.NODE_ENV === 'production' ? 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
   }
@@ -20,6 +23,7 @@ export class RedpacketService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(DapService) private readonly dapService: DapService,
+    @Inject(TelegramService) private readonly telegramService: TelegramService,
   ) {}
 
   async createPacket(userId: number, payload: RedpacketCreateDto): Promise<CreateResult> {
@@ -150,7 +154,7 @@ export class RedpacketService {
   }
 
   async claimPacket(userId: number, packetHash: string, address?: string) {
-    return this.prisma.$transaction(async (trx) => {
+    const result = await this.prisma.$transaction(async (trx) => {
       const packet = await trx.redPacket.findUnique({
         where: { packetHash },
         include: { claims: true, sender: true },
@@ -181,6 +185,8 @@ export class RedpacketService {
         return {
           amount: existing.amount.toString(),
           message: 'Already claimed',
+          notifyClaim: false,
+          notifyComplete: false,
         };
       }
 
@@ -192,6 +198,7 @@ export class RedpacketService {
       const receiverWallet = await trx.wallet.findUnique({ where: { userId } });
       const senderWallet = await trx.wallet.findUnique({ where: { userId: packet.senderId } });
       const targetAddress = address ?? receiverWallet?.address ?? null;
+      const isLastPacket = packet.remainingCount - 1 === 0;
 
       const claim = await trx.redPacketClaim.create({
         data: {
@@ -207,7 +214,7 @@ export class RedpacketService {
         data: {
           remainingCount: packet.remainingCount - 1,
           remainingAmount: satoshiToScash(scashToSatoshi(packet.remainingAmount.toString()) - scashToSatoshi(amount)),
-          status: packet.remainingCount - 1 === 0 ? 'COMPLETED' : 'ACTIVE',
+          status: isLastPacket ? 'COMPLETED' : 'ACTIVE',
         },
       });
 
@@ -243,8 +250,39 @@ export class RedpacketService {
       return {
         amount,
         message: address ? 'Claimed' : 'Claimed without wallet',
+        notifyClaim: true,
+        notifyComplete: isLastPacket,
+        claimerTelegramId: claimer?.telegramId,
+        senderTelegramId: packet.sender?.telegramId,
+        senderUsername: packet.sender?.username,
+        packetMessage: packet.message,
+        totalAmount: packet.totalAmount.toString(),
+        claimCount: packet.count,
       };
     });
+
+    if (result.notifyClaim && result.claimerTelegramId) {
+      this.telegramService.notifyClaimSuccess(
+        result.claimerTelegramId,
+        result.amount,
+        result.senderUsername ?? null,
+        result.packetMessage ?? null,
+      ).catch(err => this.logger.error(`Failed to send claim notification: ${err.message}`));
+    }
+
+    if (result.notifyComplete && result.senderTelegramId) {
+      this.telegramService.notifyPacketCompleted(
+        result.senderTelegramId,
+        packetHash,
+        result.totalAmount!,
+        result.claimCount!,
+      ).catch(err => this.logger.error(`Failed to send completion notification: ${err.message}`));
+    }
+
+    return {
+      amount: result.amount,
+      message: result.message,
+    };
   }
 
   private allocateAmount(type: string, remainingAmount: string, remainingCount: number): string {

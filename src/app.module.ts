@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { envValidationSchema } from './config/env.validation';
 import { PagesModule } from './modules/pages/pages.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PagesModule } from './modules/pages/pages.module';
     BlockchainModule,
     UtxoModule,
     PagesModule,
+    TelegramModule,
   ],
 })
 export class AppModule {}

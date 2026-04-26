@@ -6,9 +6,10 @@ import { RedpacketScheduler } from './redpacket.scheduler';
 import { DapService } from './dap.service';
 import { RedpacketTransferService } from './redpacket-transfer.service';
 import { AuthModule } from '../auth/auth.module';
+import { TelegramModule } from '../telegram/telegram.module';
 
 @Module({
-  imports: [BlockchainModule, AuthModule],
+  imports: [BlockchainModule, AuthModule, TelegramModule],
   controllers: [RedpacketController],
   providers: [RedpacketService, RedpacketScheduler, DapService, RedpacketTransferService],
   exports: [RedpacketService],
