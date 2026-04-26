@@ -307,6 +307,20 @@ onUnmounted(() => {
           <span class="material-symbols-outlined">expand_more</span>
           <span>下滑查看领取详情</span>
         </div>
+
+        <!-- Wallet guide for users without a wallet -->
+        <div v-if="!hasWallet && envelopeOpen" class="wallet-guide">
+          <div class="wallet-guide-inner">
+            <div class="wallet-guide-icon">
+              <span class="material-symbols-outlined">account_balance_wallet</span>
+            </div>
+            <div class="wallet-guide-content">
+              <p class="wallet-guide-title">当前账号未创建、绑定钱包！</p>
+              <p class="wallet-guide-desc">只有创建、绑定钱包后，领取到的scash才会到你的地址中。</p>
+            </div>
+            <button class="wallet-guide-btn" @click="goHome">去创建</button>
+          </div>
+        </div>
       </section>
 
       <!-- Section 2: Status + Claim list — below the fold -->
@@ -341,20 +355,6 @@ onUnmounted(() => {
               <div class="claim-name">{{ c.user?.username ? '@' + c.user.username : c.user?.telegramId ? '#' + c.user.telegramId : '匿名用户' }}</div>
             </div>
             <div class="claim-amount">{{ c.amount || '0' }} SCASH</div>
-          </div>
-        </div>
-
-        <!-- Wallet guide for users without a wallet -->
-        <div v-if="!hasWallet" class="wallet-guide">
-          <div class="wallet-guide-inner">
-            <div class="wallet-guide-icon">
-              <span class="material-symbols-outlined">account_balance_wallet</span>
-            </div>
-            <div class="wallet-guide-content">
-              <p class="wallet-guide-title">还没有 SCASH 钱包？</p>
-              <p class="wallet-guide-desc">创建钱包后即可发送红包、铭刻文字上链，管理你的 SCASH 资产</p>
-            </div>
-            <button class="wallet-guide-btn" @click="goHome">去创建</button>
           </div>
         </div>
       </section>
@@ -943,30 +943,43 @@ onUnmounted(() => {
 
 /* Wallet guide */
 .wallet-guide {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
   max-width: 316px;
-  margin: 16px auto 0;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  padding: 14px 12px;
+  z-index: 50;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  animation: guide-float 3s ease-in-out infinite alternate;
+}
+@keyframes guide-float {
+  0% { transform: translateX(-50%) translateY(0); }
+  100% { transform: translateX(-50%) translateY(-4px); }
 }
 .wallet-guide-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .wallet-guide-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  background: rgba(145, 40, 173, 0.2);
+  background: rgba(145, 40, 173, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 .wallet-guide-icon .material-symbols-outlined {
-  font-size: 18px;
+  font-size: 20px;
   color: #e67aff;
 }
 .wallet-guide-content {
@@ -974,27 +987,32 @@ onUnmounted(() => {
   min-width: 0;
 }
 .wallet-guide-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   margin: 0 0 2px;
 }
 .wallet-guide-desc {
-  font-size: 10px;
-  color: rgba(255,255,255,0.55);
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
   margin: 0;
   line-height: 1.4;
 }
 .wallet-guide-btn {
-  padding: 6px 14px;
+  padding: 8px 18px;
   background: linear-gradient(135deg, #9128ad 0%, #e67aff 100%);
   color: #fff;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   border: none;
   flex-shrink: 0;
   white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(145, 40, 173, 0.4);
+  transition: transform 0.15s;
+}
+.wallet-guide-btn:active {
+  transform: scale(0.95);
 }
 </style>
