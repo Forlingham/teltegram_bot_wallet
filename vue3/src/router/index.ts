@@ -1,12 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
-// Top-level pages (no code-splitting for faster initial load)
 import HomePage from '@/views/HomePage.vue'
+import CreatePage from '@/views/CreatePage.vue'
+import ImportPage from '@/views/ImportPage.vue'
+import BindPage from '@/views/BindPage.vue'
+import SendPage from '@/views/SendPage.vue'
+import ReceivePage from '@/views/ReceivePage.vue'
+import InscribePage from '@/views/InscribePage.vue'
+import RecoverPage from '@/views/RecoverPage.vue'
+import SettingsPage from '@/views/SettingsPage.vue'
 import HistoryPage from '@/views/HistoryPage.vue'
 import RedpacketPage from '@/views/RedpacketPage.vue'
-import AboutPage from '@/views/AboutPage.vue'
+import CreateRedpacketPage from '@/views/redpacket/CreatePage.vue'
 import ClaimPage from '@/views/redpacket/ClaimPage.vue'
+import AboutPage from '@/views/AboutPage.vue'
 
 const mainRoutes: RouteRecordRaw[] = [
   {
@@ -22,49 +30,49 @@ const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/wallet/create',
     name: 'wallet-create',
-    component: () => import('@/views/CreatePage.vue'),
+    component: CreatePage,
     meta: { title: '创建钱包' },
   },
   {
     path: '/wallet/import',
     name: 'wallet-import',
-    component: () => import('@/views/ImportPage.vue'),
+    component: ImportPage,
     meta: { title: '导入钱包' },
   },
   {
     path: '/wallet/bind',
     name: 'wallet-bind',
-    component: () => import('@/views/BindPage.vue'),
+    component: BindPage,
     meta: { title: '绑定钱包' },
   },
   {
     path: '/wallet/send',
     name: 'wallet-send',
-    component: () => import('@/views/SendPage.vue'),
+    component: SendPage,
     meta: { requireFullWallet: true, title: '发送' },
   },
   {
     path: '/wallet/receive',
     name: 'wallet-receive',
-    component: () => import('@/views/ReceivePage.vue'),
+    component: ReceivePage,
     meta: { title: '接收' },
   },
   {
     path: '/wallet/inscribe',
     name: 'wallet-inscribe',
-    component: () => import('@/views/InscribePage.vue'),
+    component: InscribePage,
     meta: { requireFullWallet: true, title: '刻字上链' },
   },
   {
     path: '/wallet/recover',
     name: 'wallet-recover',
-    component: () => import('@/views/RecoverPage.vue'),
+    component: RecoverPage,
     meta: { requireFullWallet: true, title: '备份助记词' },
   },
   {
     path: '/wallet/settings',
     name: 'wallet-settings',
-    component: () => import('@/views/SettingsPage.vue'),
+    component: SettingsPage,
     meta: { requireAnyWallet: true, title: '设置' },
   },
   {
@@ -82,7 +90,7 @@ const mainRoutes: RouteRecordRaw[] = [
   {
     path: '/wallet/redpacket/create',
     name: 'wallet-redpacket-create',
-    component: () => import('@/views/redpacket/CreatePage.vue'),
+    component: CreateRedpacketPage,
     meta: { requireFullWallet: true, title: '发红包' },
   },
   {

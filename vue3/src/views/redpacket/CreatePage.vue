@@ -37,6 +37,7 @@ const showPassword = ref(false)
 const showSuccess = ref(false)
 const submitting = ref(false)
 const errorMsg = ref('')
+const passwordError = ref('')
 
 const successPacketHash = ref('')
 const successTotal = ref('')
@@ -143,12 +144,13 @@ async function handleSubmit() {
 
 async function handleConfirmOk() {
   showConfirm.value = false
+  passwordError.value = ''
   showPassword.value = true
 }
 
 async function handlePasswordConfirm(password: string) {
-  showPassword.value = false
   errorMsg.value = ''
+  passwordError.value = ''
   submitting.value = true
 
   try {
@@ -228,9 +230,12 @@ async function handlePasswordConfirm(password: string) {
     successPacketHash.value = packetHash
     successShareUrl.value = shareUrl
     successTxid.value = broadcastResult.txid
+    showPassword.value = false
     showSuccess.value = true
   } catch (e: any) {
-    errorMsg.value = e?.message || '操作失败'
+    const msg = e?.message || '操作失败'
+    errorMsg.value = msg
+    passwordError.value = msg
   } finally {
     submitting.value = false
   }
@@ -621,6 +626,8 @@ onMounted(async () => {
       v-model:modelValue="showPassword"
       title="输入钱包密码"
       confirm-text="确认交易"
+      :loading="submitting"
+      :error-message="passwordError"
       @confirm="handlePasswordConfirm"
     />
 

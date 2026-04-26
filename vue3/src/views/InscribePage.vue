@@ -18,10 +18,12 @@ const content = ref('')
 const showPreview = ref(false)
 const showPassword = ref(false)
 const errorMsg = ref('')
+const passwordError = ref('')
 
 const estimateData = ref<{
   networkFeeSat: bigint
   dapCostSat: bigint
+  arrFeeSat: bigint
   totalSat: bigint | null
 } | null>(null)
 
@@ -50,7 +52,8 @@ async function updateEstimate() {
     estimateData.value = {
       networkFeeSat: est.networkFeeSat,
       dapCostSat: est.dapCostSat,
-      totalSat: est.dapCostSat + est.networkFeeSat,
+      arrFeeSat: est.arrFeeSat,
+      totalSat: est.dapCostSat + est.networkFeeSat + est.arrFeeSat,
     }
   } catch {
     estimateData.value = null
@@ -59,6 +62,7 @@ async function updateEstimate() {
 
 function handleSubmit() {
   errorMsg.value = ''
+  passwordError.value = ''
   if (!content.value.trim()) {
     errorMsg.value = '请输入刻字内容'
     return
@@ -67,14 +71,17 @@ function handleSubmit() {
 }
 
 async function handlePasswordConfirm(password: string) {
-  showPassword.value = false
   errorMsg.value = ''
+  passwordError.value = ''
   try {
     const txid = await tx.inscribe(password, content.value.trim())
+    showPassword.value = false
     await showAlert('刻字上链成功！\nTxHash: ' + txid)
     router.push('/wallet/history')
   } catch (e: any) {
-    errorMsg.value = e?.message || '操作失败'
+    const msg = e?.message || '操作失败'
+    errorMsg.value = msg
+    passwordError.value = msg
   }
 }
 </script>
@@ -123,12 +130,16 @@ async function handlePasswordConfirm(password: string) {
       </div>
       <div class="space-y-3">
         <div class="flex justify-between items-center">
-          <span class="text-sm text-on-surface-variant font-medium">链上手续费</span>
+          <span class="text-sm text-on-surface-variant font-medium">DAP 刻字费</span>
+          <span class="text-sm text-on-surface font-bold">{{ satsToScashTrimmed(estimateData.dapCostSat) }} SCASH</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-on-surface-variant font-medium">网络手续费</span>
           <span class="text-sm text-tertiary font-bold">{{ satsToScashTrimmed(estimateData.networkFeeSat) }} SCASH</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-sm text-on-surface-variant font-medium">DAP 刻字费</span>
-          <span class="text-sm text-on-surface font-bold">{{ satsToScashTrimmed(estimateData.dapCostSat) }} SCASH</span>
+          <span class="text-sm text-on-surface-variant font-medium">ARR 服务费</span>
+          <span class="text-sm text-on-surface-variant font-bold">{{ satsToScashTrimmed(estimateData.arrFeeSat) }} SCASH</span>
         </div>
       </div>
       <div class="pt-4 mt-2 border-t border-outline-variant/10 flex justify-between items-center">
@@ -177,6 +188,8 @@ async function handlePasswordConfirm(password: string) {
       v-model:modelValue="showPassword"
       title="输入钱包密码"
       confirm-text="确认刻字"
+      :loading="submitting"
+      :error-message="passwordError"
       @confirm="handlePasswordConfirm"
     />
   </div>

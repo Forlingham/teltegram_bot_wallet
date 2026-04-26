@@ -43,7 +43,7 @@ const { getWebApp, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
 
-const packetHash = ref('')
+const packetHash = ref(resolvePacketHash())
 const loading = ref(true)
 const error = ref('')
 const packet = ref<RedPacket | null>(null)
@@ -108,7 +108,9 @@ const claimedCount = computed(() => claims.value.length)
 const hasWallet = computed(() => walletStore.hasWallet)
 
 async function loadPacket() {
-  packetHash.value = resolvePacketHash()
+  if (!packetHash.value) {
+    packetHash.value = resolvePacketHash()
+  }
   if (!packetHash.value) {
     error.value = '红包参数缺失，请通过分享链接打开'
     loading.value = false
@@ -185,10 +187,7 @@ const coverBg = ref('linear-gradient(135deg, #d42828 0%, #b81f1f 100%)')
 const coverFlap = ref('linear-gradient(180deg, #db3030 0%, #c42626 100%)')
 const textTone = ref<'LIGHT' | 'DARK'>('LIGHT')
 
-onMounted(async () => {
-  priceStore.fetchPrice()
-  await loadPacket()
-
+onMounted(() => {
   const tg = getWebApp()
   if (tg) {
     tg.BackButton.show()
@@ -196,6 +195,14 @@ onMounted(async () => {
   }
   history.pushState({ __claimBackClose: true }, '', window.location.href)
   window.addEventListener('popstate', handleClose)
+
+  if (packetHash.value) {
+    loadPacket()
+    priceStore.fetchPrice().catch(() => {})
+  } else {
+    error.value = '红包参数缺失，请通过分享链接打开'
+    loading.value = false
+  }
 })
 
 onUnmounted(() => {
@@ -214,7 +221,19 @@ onUnmounted(() => {
 
     <!-- Loading -->
     <div v-if="loading" class="fullscreen-center">
-      <div style="color: rgba(255,255,255,0.6); font-size: 14px;">加载中…</div>
+      <div class="env-preview-loading">
+        <div class="env-preview-back"></div>
+        <div class="env-preview-flap"></div>
+        <div class="env-coin-loading">
+          <div class="coin-inner">
+            <img src="/img/logo-256x256.png" alt="SCASH" />
+            <div class="coin-reflection"></div>
+          </div>
+        </div>
+        <div class="loading-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
     </div>
 
     <!-- Error -->
@@ -407,6 +426,88 @@ onUnmounted(() => {
   border-radius: 999px;
   font-weight: 700;
   font-size: 14px;
+}
+
+/* Loading envelope preview */
+.env-preview-loading {
+  position: relative;
+  width: 84vw;
+  max-width: 316px;
+  height: 58vh;
+  max-height: 420px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.env-preview-back {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #d42828 0%, #b81f1f 100%);
+  border-radius: 12px;
+}
+.env-preview-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 42%;
+  background: linear-gradient(180deg, #db3030 0%, #c42626 100%);
+  border-radius: 12px 12px 50% 50% / 12px 12px 35% 35%;
+  border-bottom: 2px solid rgba(255,255,255,.2);
+}
+.env-coin-loading {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 84px;
+  height: 84px;
+  background: #fff;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15), 0 0 34px rgba(212,40,40,.4);
+  animation: coin-pulse 2s infinite alternate ease-in-out;
+}
+.env-coin-loading .coin-inner {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.1);
+  background: #fff;
+}
+.env-coin-loading .coin-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: logo-spin 1.2s linear infinite;
+}
+
+.loading-dots {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  animation: dot-bounce 1.4s infinite ease-in-out;
+}
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: 0.16s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
 }
 
 /* Envelope section — exactly one viewport tall, centered */

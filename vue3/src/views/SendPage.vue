@@ -21,6 +21,7 @@ const amount = ref('')
 const message = ref('')
 const errorMsg = ref('')
 const showPassword = ref(false)
+const passwordError = ref('')
 
 const NETWORK_FEE_SAT = 10000n
 
@@ -106,6 +107,7 @@ function validate(): { ok: boolean; message?: string } {
 
 async function handleSubmit() {
   errorMsg.value = ''
+  passwordError.value = ''
   const check = validate()
   if (!check.ok) {
     errorMsg.value = check.message!
@@ -115,14 +117,17 @@ async function handleSubmit() {
 }
 
 async function handlePasswordConfirm(password: string) {
-  showPassword.value = false
   errorMsg.value = ''
+  passwordError.value = ''
   try {
     const txid = await tx.send(password, address.value.trim(), amount.value.trim(), message.value.trim() || undefined)
+    showPassword.value = false
     await showAlert('发送成功！\nTxHash: ' + txid)
     router.push('/wallet/history')
   } catch (e: any) {
-    errorMsg.value = e?.message || e?.status?.message || '发送失败'
+    const msg = e?.message || e?.status?.message || '发送失败'
+    errorMsg.value = msg
+    passwordError.value = msg
   }
 }
 
@@ -265,6 +270,8 @@ onMounted(async () => {
       v-model:modelValue="showPassword"
       title="输入钱包密码"
       confirm-text="确认发送"
+      :loading="submitting"
+      :error-message="passwordError"
       @confirm="handlePasswordConfirm"
     />
   </div>

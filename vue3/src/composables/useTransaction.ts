@@ -102,10 +102,6 @@ export function useTransaction() {
       const amountSat = parseScashToSats(amountScash)
       const arrFeeSat = calcArrFeeSat(amountScash)
 
-      if (!amountSat || amountSat <= 0n) {
-        return { amountSat: null, arrFeeSat: 0n, dapCostSat: 0n, totalSat: null, networkFeeSat: NETWORK_FEE_SAT }
-      }
-
       let dapCostSat = 0n
       if (message) {
         try {
@@ -114,6 +110,10 @@ export function useTransaction() {
         } catch {
           dapCostSat = 0n
         }
+      }
+
+      if (!amountSat || amountSat < 0n) {
+        return { amountSat: null, arrFeeSat: 0n, dapCostSat: 0n, totalSat: null, networkFeeSat: NETWORK_FEE_SAT }
       }
 
       const totalSat = amountSat + arrFeeSat + NETWORK_FEE_SAT + dapCostSat

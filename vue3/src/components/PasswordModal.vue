@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps<{
   modelValue: boolean
   title?: string
   confirmText?: string
+  loading?: boolean
+  errorMessage?: string
 }>()
 
 const emit = defineEmits<{
@@ -13,34 +15,26 @@ const emit = defineEmits<{
 }>()
 
 const password = ref('')
-const showPassword = ref(false)
-const error = ref('')
-const submitting = ref(false)
+const showPasswordToggle = ref(false)
 
 const visible = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 })
 
-const handleConfirm = async () => {
-  if (!password.value) {
-    error.value = '请输入密码'
-    return
+watch(() => props.modelValue, (v) => {
+  if (v) {
+    password.value = ''
   }
-  error.value = ''
-  submitting.value = true
-  try {
-    emit('confirm', password.value)
-  } catch (e: any) {
-    error.value = e.message || '操作失败'
-  } finally {
-    submitting.value = false
-  }
+})
+
+const handleConfirm = () => {
+  if (!password.value) return
+  emit('confirm', password.value)
 }
 
 const handleClose = () => {
   password.value = ''
-  error.value = ''
   visible.value = false
 }
 </script>
@@ -58,34 +52,36 @@ const handleClose = () => {
           <div class="relative mb-4">
             <input
               v-model="password"
-              :type="showPassword ? 'text' : 'password'"
+              :type="showPasswordToggle ? 'text' : 'password'"
               placeholder="请输入密码"
               class="w-full px-4 py-3 bg-surface border border-outline-variant rounded-xl text-on-surface focus:border-primary focus:outline-none transition-colors pr-10"
+              :class="{ 'border-error': errorMessage }"
               @keyup.enter="handleConfirm"
             />
             <button
               class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
-              @click="showPassword = !showPassword"
+              @click="showPasswordToggle = !showPasswordToggle"
             >
-              <span class="material-symbols-outlined text-xl">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+              <span class="material-symbols-outlined text-xl">{{ showPasswordToggle ? 'visibility_off' : 'visibility' }}</span>
             </button>
           </div>
 
-          <p v-if="error" class="text-error text-sm mb-4">{{ error }}</p>
+          <p v-if="errorMessage" class="text-error text-sm mb-4">{{ errorMessage }}</p>
 
           <div class="flex gap-3">
             <button
               class="flex-1 py-2.5 rounded-xl bg-surface-container text-on-surface font-semibold active:scale-[0.98] transition-transform"
+              :disabled="loading"
               @click="handleClose"
             >
               取消
             </button>
             <button
               class="flex-1 py-2.5 rounded-xl primary-gradient text-white font-semibold active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
-              :disabled="submitting || !password"
+              :disabled="loading || !password"
               @click="handleConfirm"
             >
-              <span v-if="submitting" class="spinner-sm mr-1"></span>
+              <span v-if="loading" class="spinner-sm mr-1"></span>
               {{ confirmText || '确认' }}
             </button>
           </div>
@@ -106,16 +102,13 @@ const handleClose = () => {
   animation: spin 0.7s linear infinite;
   vertical-align: middle;
 }
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;
 }
-
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
