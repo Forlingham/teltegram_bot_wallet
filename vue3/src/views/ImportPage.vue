@@ -53,6 +53,8 @@ const handleSubmit = async () => {
       authTag: enc.authTag,
     })
 
+    // Refresh wallet state so HomePage sees the new wallet
+    await walletStore.fetchHome()
     router.push('/wallet')
   } catch (e: any) {
     errorMsg.value = e.message || '导入失败'

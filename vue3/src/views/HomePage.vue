@@ -206,6 +206,10 @@ const handleBackupDone = async () => {
 }
 
 const handleScanQr = async () => {
+  if (walletStore.isWatchOnly) {
+    await showAlert('观察钱包仅支持接收，无法进行发送或签名操作')
+    return
+  }
   try {
     const raw = await showScanQr('扫描收款地址二维码')
     let address = raw
@@ -405,29 +409,29 @@ const handleScanQr = async () => {
 
     <!-- Action buttons -->
     <nav class="grid grid-cols-4 gap-3 mt-6">
-      <router-link to="/wallet/send" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-lg shadow-primary/20 group-active:scale-90 transition-all duration-300">
+      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert('当前为观察钱包，无法发送') : $router.push('/wallet/send')">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-gradient-to-br from-primary to-primary-container text-white shadow-lg shadow-primary/20 group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">send</span>
         </div>
-        <span class="text-xs font-bold text-on-surface">发送</span>
-      </router-link>
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">发送</span>
+      </a>
       <router-link to="/wallet/receive" class="flex flex-col items-center gap-2 group">
         <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
           <span class="material-symbols-outlined text-2xl">download</span>
         </div>
         <span class="text-xs font-bold text-on-surface">接收</span>
       </router-link>
-      <router-link to="/wallet/inscribe" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
+      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert('当前为观察钱包，无法刻字上链') : $router.push('/wallet/inscribe')">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface-container-lowest text-primary shadow-sm group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">edit_note</span>
         </div>
-        <span class="text-xs font-bold text-on-surface">刻字上链</span>
-      </router-link>
-      <a class="flex flex-col items-center gap-2 group cursor-pointer" @click.prevent="handleScanQr">
-        <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">刻字上链</span>
+      </a>
+      <a class="flex flex-col items-center gap-2 cursor-pointer" @click.prevent="handleScanQr">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface-container-lowest text-primary shadow-sm group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
         </div>
-        <span class="text-xs font-bold text-on-surface">扫码</span>
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">扫码</span>
       </a>
     </nav>
 

@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRedpacketStore } from '@/stores'
+import { onMounted, computed } from 'vue'
+import { useRedpacketStore, useWalletStore } from '@/stores'
+import { useTelegram } from '@/composables/useTelegram'
 
 const redpacketStore = useRedpacketStore()
+const walletStore = useWalletStore()
+const { showAlert } = useTelegram()
+const isWatchOnly = computed(() => walletStore.isWatchOnly)
+
+function handleCreateClick() {
+  if (isWatchOnly.value) {
+    showAlert('当前为观察钱包，无法发红包')
+  }
+}
 
 function getAvatar(item: { photoUrl?: string; displayName: string }): string {
   return item.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(item.displayName)}`
@@ -38,9 +48,8 @@ onMounted(() => {
 
 <template>
   <div class="max-w-2xl mx-auto space-y-8">
-    <section class="relative group overflow-hidden rounded-lg">
-      <div class="absolute -top-8 -right-8 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
-      <router-link to="/wallet/redpacket/create" class="relative w-full text-white py-6 px-8 rounded-lg flex items-center justify-between shadow-[0px_12px_32px_rgba(142,36,170,0.15)] active:scale-[0.98] transition-all duration-200 fluid-gradient-bg block">
+<section class="relative group overflow-hidden rounded-lg">
+      <router-link v-if="!isWatchOnly" to="/wallet/redpacket/create" class="relative w-full text-white py-6 px-8 rounded-lg flex items-center justify-between shadow-[0px_12px_32px_rgba(142,36,170,0.15)] active:scale-[0.98] transition-all duration-200 fluid-gradient-bg block">
         <div class="flex items-center gap-4">
           <div class="bg-white/20 p-3 rounded-full backdrop-blur-md">
             <span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">featured_seasonal_and_gifts</span>
@@ -49,6 +58,15 @@ onMounted(() => {
         </div>
         <span class="material-symbols-outlined text-white/80">chevron_right</span>
       </router-link>
+      <div v-else class="relative w-full py-6 px-8 rounded-lg flex items-center justify-between bg-surface-container-high cursor-pointer active:scale-[0.98] transition-all duration-200" @click="handleCreateClick">
+        <div class="flex items-center gap-4">
+          <div class="bg-on-surface-variant/10 p-3 rounded-full">
+            <span class="material-symbols-outlined text-on-surface-variant/40 text-3xl" style="font-variation-settings: 'FILL' 1;">featured_seasonal_and_gifts</span>
+          </div>
+          <span class="text-2xl font-headline font-extrabold tracking-tight text-on-surface-variant/40">发红包</span>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant/30">chevron_right</span>
+      </div>
     </section>
 
     <section>
