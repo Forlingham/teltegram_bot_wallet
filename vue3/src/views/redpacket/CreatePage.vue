@@ -129,6 +129,17 @@ function validate(): { ok: boolean; message?: string; totalSat?: bigint; countIn
   if (countInt > MAX_PACKET_COUNT) return { ok: false, message: `红包个数最多 ${MAX_PACKET_COUNT} 个` }
   if (Array.from(message.value.trim()).length > 12) return { ok: false, message: '祝福语最多 12 个字' }
 
+  // Check per-packet minimum (each packet should get at least 0.00000001 SCASH = 1 sat)
+  const perPacketSat = totalSat / BigInt(countInt)
+  if (perPacketSat <= 0n) return { ok: false, message: '每个红包金额不能为 0，请增加总金额或减少个数' }
+
+  // Check balance: total + reserve + arrFee + networkFee + dapCost
+  const reserveSat = BigInt(countInt) * FEE_RESERVE_PER_PACKET_SAT
+  const estimatedTotal = totalSat + reserveSat + ARR_FEE_SAT + NETWORK_FEE_SAT
+  if (availableBalance.value > 0n && estimatedTotal > availableBalance.value) {
+    return { ok: false, message: '可用SCASH不足' }
+  }
+
   return { ok: true, totalSat, countInt }
 }
 

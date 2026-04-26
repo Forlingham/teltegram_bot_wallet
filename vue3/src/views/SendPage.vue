@@ -82,23 +82,54 @@ function setMax() {
 async function handleScanQr() {
   try {
     const raw = await showScanQr('扫描收款地址二维码')
-    let addr = raw
-    if (addr.startsWith('scash:')) addr = addr.slice(6)
-    const prefix = networkStore.bech32 || 'bcrt'
-    if (!addr.startsWith(prefix + '1')) {
-      await showAlert('不支持的地址格式')
+    let addr = raw.trim()
+
+    // Handle URI schemes: scash:xxx, bcrt:xxx
+    if (addr.includes(':')) {
+      const parts = addr.split(':')
+      addr = parts[1] || ''
+    }
+
+    // Strip query params (e.g. scash:xxx?amount=100)
+    if (addr.includes('?')) {
+      addr = addr.split('?')[0]
+    }
+
+    if (!addr) {
+      await showAlert('未识别到有效地址')
       return
     }
+
+    // Validate bech32 prefix
+    const prefix = networkStore.bech32 || 'scash'
+    if (!addr.startsWith(prefix + '1')) {
+      await showAlert('地址格式不正确，请扫描 ' + prefix + ' 开头的地址')
+      return
+    }
+
     address.value = addr
+    debouncedUpdateEstimate()
   } catch {}
 }
 
+function validateAddressFormat(addr: string): boolean {
+  const prefix = networkStore.bech32 || 'scash'
+  return addr.startsWith(prefix + '1') && addr.length > prefix.length + 5
+}
+
 function validate(): { ok: boolean; message?: string } {
-  if (!address.value.trim()) return { ok: false, message: '请输入收款地址' }
-  if (!amount.value.trim()) return { ok: false, message: '请输入发送金额' }
-  const amountSat = parseScashToSats(amount.value.trim())
+  const addr = address.value.trim()
+  if (!addr) return { ok: false, message: '请输入收款地址' }
+  if (!validateAddressFormat(addr)) {
+    const prefix = networkStore.bech32 || 'scash'
+    return { ok: false, message: '地址格式不正确，请输入 ' + prefix + ' 开头的地址' }
+  }
+  const amt = amount.value.trim()
+  if (!amt) return { ok: false, message: '请输入发送金额' }
+  const amountSat = parseScashToSats(amt)
   if (!amountSat || amountSat <= 0n) return { ok: false, message: '金额格式不正确' }
-  const totalNeed = amountSat + calcArrFeeSat(amount.value.trim()) + NETWORK_FEE_SAT + (estimateData.value?.dapCostSat ?? 0n)
+  if (parseFloat(amt) <= 0) return { ok: false, message: '金额必须大于 0' }
+  const totalNeed = amountSat + calcArrFeeSat(amt) + NETWORK_FEE_SAT + (estimateData.value?.dapCostSat ?? 0n)
   if (availableBalance.value > 0n && totalNeed > availableBalance.value) {
     return { ok: false, message: '余额不足' }
   }
