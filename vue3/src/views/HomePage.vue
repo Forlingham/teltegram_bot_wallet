@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWalletStore, usePriceStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
+import { useNetworkStore } from '@/stores/network'
 import { useTelegram } from '@/composables/useTelegram'
 import { satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
@@ -9,9 +11,11 @@ import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
 import { createChart, CrosshairMode, AreaSeries, type ISeriesApi, type IChartApi } from 'lightweight-charts'
 
+const router = useRouter()
 const walletStore = useWalletStore()
 const priceStore = usePriceStore()
 const authStore = useAuthStore()
+const networkStore = useNetworkStore()
 const { showScanQr, showAlert } = useTelegram()
 
 const refreshing = ref(false)
@@ -207,21 +211,37 @@ const handleBackupDone = async () => {
 
 const handleScanQr = async () => {
   if (walletStore.isWatchOnly) {
-    await showAlert('观察钱包仅支持接收，无法进行发送或签名操作')
+    await showAlert('当前为观察钱包，无法发送')
     return
   }
   try {
     const raw = await showScanQr('扫描收款地址二维码')
-    let address = raw
-    if (address.startsWith('scash:')) {
-      address = address.slice(6)
+    let addr = raw.trim()
+
+    // Handle URI schemes: scash:xxx, bcrt:xxx
+    if (addr.includes(':')) {
+      const parts = addr.split(':')
+      addr = parts[1] || ''
     }
-    const prefix = walletStore.home ? 'bcrt' : 'bcrt'
-    if (address.startsWith(prefix + '1')) {
-      window.location.href = '/wallet/send?address=' + encodeURIComponent(address)
-    } else {
-      await showAlert('不支持的地址格式')
+
+    // Strip query params (e.g. scash:xxx?amount=100)
+    if (addr.includes('?')) {
+      addr = addr.split('?')[0]
     }
+
+    if (!addr) {
+      await showAlert('未识别到有效地址')
+      return
+    }
+
+    // Validate bech32 prefix
+    const prefix = networkStore.bech32 || 'scash'
+    if (!addr.startsWith(prefix + '1')) {
+      await showAlert('地址格式不正确，请扫描 ' + prefix + ' 开头的地址')
+      return
+    }
+
+    router.push({ path: '/wallet/send', query: { address: addr } })
   } catch {}
 }
 </script>
