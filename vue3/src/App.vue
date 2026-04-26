@@ -38,7 +38,7 @@ if (newTgId && savedTgId && newTgId !== savedTgId) {
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
-const { setupBackButton, hideBackButton, showAlert } = useTelegram()
+const { setupBackButton, hideBackButton, showAlert, close: closeApp } = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
@@ -79,9 +79,16 @@ onMounted(() => {
     checkRoutePermission()
   }
 
+  // Claim page: back button closes the app
   if (route.meta.backAsClose) {
+    setupBackButton(() => closeApp())
+  }
+  // Top-level pages (with bottom nav): hide back button
+  else if (route.meta.activeNav) {
     hideBackButton()
-  } else {
+  }
+  // All other pages: normal back navigation
+  else {
     setupBackButton(() => window.history.back())
   }
 })
@@ -104,6 +111,8 @@ async function checkRoutePermission() {
 
 watch(() => route.path, () => {
   if (route.meta.backAsClose) {
+    setupBackButton(() => closeApp())
+  } else if (route.meta.activeNav) {
     hideBackButton()
   } else {
     setupBackButton(() => window.history.back())

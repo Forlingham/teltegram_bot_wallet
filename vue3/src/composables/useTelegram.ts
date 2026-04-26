@@ -88,13 +88,22 @@ export function useTelegram() {
     return ''
   }
 
-  function setupBackButton(handler: () => void): () => void {
+  // Track active back button cleanup to avoid handler accumulation
+  let backCleanup: (() => void) | null = null
+
+  function setupBackButton(handler: () => void): void {
     const tg = getWebApp()
-    if (!tg) return () => {}
+    if (!tg) return
+
+    // Clean up previous handler first
+    if (backCleanup) {
+      backCleanup()
+      backCleanup = null
+    }
 
     tg.BackButton.show()
     tg.BackButton.onClick(handler)
-    return () => {
+    backCleanup = () => {
       tg.BackButton.offClick(handler)
       tg.BackButton.hide()
     }
@@ -102,7 +111,13 @@ export function useTelegram() {
 
   function hideBackButton(): void {
     const tg = getWebApp()
-    tg?.BackButton.hide()
+    // Clean up any registered handler
+    if (backCleanup) {
+      backCleanup()
+      backCleanup = null
+    } else {
+      tg?.BackButton.hide()
+    }
   }
 
   function showScanQr(text: string): Promise<string> {

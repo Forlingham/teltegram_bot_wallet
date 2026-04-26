@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
@@ -188,14 +188,6 @@ const coverFlap = ref('linear-gradient(180deg, #db3030 0%, #c42626 100%)')
 const textTone = ref<'LIGHT' | 'DARK'>('LIGHT')
 
 onMounted(() => {
-  const tg = getWebApp()
-  if (tg) {
-    tg.BackButton.show()
-    tg.BackButton.onClick(handleClose)
-  }
-  history.pushState({ __claimBackClose: true }, '', window.location.href)
-  window.addEventListener('popstate', handleClose)
-
   if (packetHash.value) {
     loadPacket()
     priceStore.fetchPrice().catch(() => {})
@@ -203,14 +195,6 @@ onMounted(() => {
     error.value = '红包参数缺失，请通过分享链接打开'
     loading.value = false
   }
-})
-
-onUnmounted(() => {
-  const tg = getWebApp()
-  if (tg) {
-    tg.BackButton.offClick(handleClose)
-  }
-  window.removeEventListener('popstate', handleClose)
 })
 </script>
 
