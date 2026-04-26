@@ -113,6 +113,9 @@ const claimRoutes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes: [...mainRoutes, ...claimRoutes],
+  scrollBehavior() {
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((to) => {
