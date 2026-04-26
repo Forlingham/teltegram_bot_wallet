@@ -87,7 +87,11 @@ export class WalletController {
   }
 
   @Get('history')
-  history(@CurrentUser() user: AuthenticatedUser): Promise<{
+  history(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('page') pageStr?: string,
+    @Query('limit') limitStr?: string,
+  ): Promise<{
     transactions: Array<{
       txid: string;
       direction: 'in' | 'out';
@@ -110,8 +114,14 @@ export class WalletController {
         shareUrl?: string;
       };
     }>;
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
   }> {
-    return this.walletService.getHistory(user.userId);
+    const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitStr || '20', 10) || 20));
+    return this.walletService.getHistory(user.userId, page, limit);
   }
 
   @Post('backup/complete')

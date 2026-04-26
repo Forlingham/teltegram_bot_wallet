@@ -95,7 +95,6 @@ export class RedpacketScheduler {
       orderBy: { createdAt: 'asc' },
       take: 20,
     });
-console.log(pendings,'pendings');
 
     if (pendings.length > 0) {
       this.logger.log(`Found ${pendings.length} pending transfers to process`);

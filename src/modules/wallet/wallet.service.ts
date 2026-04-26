@@ -37,17 +37,26 @@ export class WalletService {
     @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
-  async getHistory(userId: number): Promise<{
+  async getHistory(userId: number, page: number = 1, limit: number = 20): Promise<{
     transactions: WalletHistoryItem[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
   }> {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
-      const claims = await this.prisma.redPacketClaim.findMany({
-        where: { userId },
-        include: { redPacket: true },
-        orderBy: { claimedAt: 'desc' },
-        take: 100,
-      });
+      const skip = (page - 1) * limit;
+      const [claims, total] = await Promise.all([
+        this.prisma.redPacketClaim.findMany({
+          where: { userId },
+          include: { redPacket: true },
+          orderBy: { claimedAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.redPacketClaim.count({ where: { userId } }),
+      ]);
 
       return {
         transactions: claims.map((claim) => ({
@@ -61,6 +70,10 @@ export class WalletService {
           redpacketType: 'CLAIM',
           packetHash: claim.redPacket?.packetHash,
         })),
+        total,
+        page,
+        limit,
+        hasMore: skip + claims.length < total,
       };
     }
 
@@ -117,7 +130,7 @@ export class WalletService {
       perTx.set(row.spentByTxid, current);
     }
 
-    const transactions: WalletHistoryItem[] = Array.from(perTx.values())
+    const allTransactions: WalletHistoryItem[] = Array.from(perTx.values())
       .map((tx) => {
         const netSat = tx.receiveSat - tx.spendSat;
         const direction: 'in' | 'out' = netSat >= 0n ? 'in' : 'out';
@@ -132,8 +145,11 @@ export class WalletService {
           kind: 'wallet',
         } as WalletHistoryItem;
       })
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-      .slice(0, 100);
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+    const total = allTransactions.length;
+    const skip = (page - 1) * limit;
+    const transactions = allTransactions.slice(skip, skip + limit);
 
     const txids = transactions.map((item) => item.txid);
     const [createdPackets, pendingTransfers] = await Promise.all([
@@ -230,7 +246,13 @@ export class WalletService {
       }
     }
 
-    return { transactions };
+    return {
+      transactions,
+      total,
+      page,
+      limit,
+      hasMore: skip + transactions.length < total,
+    };
   }
 
   async createWallet(userId: number, payload: WalletEncryptedPayloadDto): Promise<{ address: string }> {

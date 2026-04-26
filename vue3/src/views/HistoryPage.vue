@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { useWalletStore, useHistoryStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
 
@@ -7,6 +7,9 @@ const walletStore = useWalletStore()
 const historyStore = useHistoryStore()
 
 const hasWallet = computed(() => walletStore.hasWallet)
+
+const sentinelRef = ref<HTMLDivElement | null>(null)
+let observer: IntersectionObserver | null = null
 
 function formatTime(iso: string): string {
   if (!iso) return '-'
@@ -46,6 +49,25 @@ function getTxExplorerUrl(txid: string): string {
 
 onMounted(() => {
   historyStore.fetchHistory()
+
+  nextTick(() => {
+    if (sentinelRef.value) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting && historyStore.hasMore && !historyStore.loadingMore) {
+            historyStore.loadMore()
+          }
+        },
+        { rootMargin: '100px' },
+      )
+      observer.observe(sentinelRef.value)
+    }
+  })
+})
+
+onUnmounted(() => {
+  observer?.disconnect()
+  observer = null
 })
 
 function shareLink(url: string) {
@@ -268,6 +290,17 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
           </div>
         </section>
       </template>
+
+      <!-- Load more sentinel & indicators -->
+      <div ref="sentinelRef" class="py-4 text-center">
+        <div v-if="historyStore.loadingMore" class="flex items-center justify-center gap-2 text-on-surface-variant text-sm">
+          <span class="material-symbols-outlined text-base animate-spin">refresh</span>
+          加载更多…
+        </div>
+        <div v-else-if="!historyStore.hasMore && historyStore.transactions.length > 0" class="text-on-surface-variant/50 text-xs">
+          — 共 {{ historyStore.total }} 条记录，已全部加载 —
+        </div>
+      </div>
     </div>
   </div>
 </template>
