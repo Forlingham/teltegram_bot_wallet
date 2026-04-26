@@ -27,10 +27,6 @@ const totalAmount = ref('')
 const count = ref(1)
 const message = ref('')
 const expireSeconds = ref(86400)
-const selectedCoverId = ref<number | null>(null)
-const selectedCoverBotPath = ref('open1')
-
-const covers = ref<{ id: number; name: string; imageUrl: string; botPath: string }[]>([])
 
 const showConfirm = ref(false)
 const showPassword = ref(false)
@@ -218,24 +214,20 @@ async function handlePasswordConfirm(password: string) {
     const hex = await buildTransaction(mnemonic, utxoInputs, allOutputs, NETWORK_FEE_SAT)
     const broadcastResult = await api.post<{ txid: string }>('/api/wallet/broadcast', { hex })
 
-    const effectiveCoverId = selectedCoverId.value || (covers.value.length > 0 ? covers.value[0].id : undefined)
-    const effectiveCoverBotPath = selectedCoverBotPath.value || 'open1'
+    const botUsername = networkStore.appEnv === 'production' ? 'SCASH_Wallet_bot' : 'scash_red_envelope_bot'
+    const shareUrl = `https://t.me/${botUsername}/open1?startapp=${encodeURIComponent('rp_' + packetHash)}`
 
     await api.post('/api/redpacket/create', {
       type: redpacketType.value,
       totalAmount: total,
       count: countInt,
       message: blessMessage,
-      coverId: effectiveCoverId,
       txid: broadcastResult.txid,
       packetHash,
       senderAddress: myAddress,
       feeReserve: satsToScash(feeReserveSat),
       expireSeconds: expireSeconds.value,
     })
-
-    const botUsername = networkStore.appEnv === 'production' ? 'SCASH_Wallet_bot' : 'scash_red_envelope_bot'
-    const shareUrl = `https://t.me/${botUsername}/${effectiveCoverBotPath}?startapp=${encodeURIComponent('rp_' + packetHash)}`
 
     successTotal.value = total
     successPacketHash.value = packetHash
@@ -338,15 +330,6 @@ onMounted(async () => {
   submitting.value = false // safety reset
   await walletStore.fetchBalance()
   priceStore.fetchPrice()
-
-  try {
-    const data = await api.get<{ id: number; name: string; imageUrl: string; botPath: string }[]>('/api/cover/list')
-    covers.value = data || []
-    if (covers.value.length > 0) {
-      selectedCoverId.value = covers.value[0].id
-      selectedCoverBotPath.value = covers.value[0].botPath || 'open1'
-    }
-  } catch {}
 })
 </script>
 
@@ -439,19 +422,7 @@ onMounted(async () => {
           </div>
           <div class="p-4 bg-surface-container-lowest">
             <span class="text-xs font-semibold text-on-surface block mb-3">红包封面</span>
-            <div class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-              <div v-if="covers.length === 0" class="text-on-surface-variant text-xs">暂无可用封面</div>
-              <div
-                v-for="cover in covers"
-                :key="cover.id"
-                :class="selectedCoverId === cover.id ? 'border-primary' : 'border-transparent'"
-                class="min-w-[64px] text-center cursor-pointer border-2 rounded-lg p-1 transition-colors"
-                @click="selectedCoverId = cover.id; selectedCoverBotPath = cover.botPath || 'open' + cover.id"
-              >
-                <img :src="cover.imageUrl" class="w-14 h-14 object-cover rounded-md" />
-                <div class="text-[10px] text-on-surface-variant mt-0.5">{{ cover.name }}</div>
-              </div>
-            </div>
+            <div class="text-on-surface-variant text-xs">暂无可用封面</div>
           </div>
         </div>
       </section>
