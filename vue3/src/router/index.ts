@@ -85,7 +85,7 @@ const mainRoutes: RouteRecordRaw[] = [
     path: '/wallet/redpacket',
     name: 'wallet-redpacket',
     component: RedpacketPage,
-    meta: { activeNav: 'redpacket', title: '红包' },
+    meta: { activeNav: 'redpacket', requireAnyWallet: true, title: '红包' },
   },
   {
     path: '/wallet/redpacket/create',

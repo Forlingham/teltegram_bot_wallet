@@ -57,18 +57,17 @@ onMounted(() => {
   // Claim layout: skip wallet init to speed up entry
   if (!isClaimLayout.value) {
     // Fetch wallet home in background. If persisted data exists, render it immediately
-    // and silently refresh balance; otherwise fetch from server.
-    if (!walletStore.home) {
-      walletStore.fetchHome()
-        .then(() => {
+    // and silently refresh from server; otherwise fetch from server first.
+    // Always call fetchHome() to sync with server — the user may have created a wallet
+    // on another device, or migrated from the old EJS version.
+    walletStore.fetchHome()
+      .then(() => {
+        if (walletStore.hasWallet) {
           walletStore.fetchBalance().catch(() => {})
-          if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
-        })
-        .catch(() => {})
-    } else {
-      walletStore.fetchBalance().catch(() => {})
-      if (walletStore.hasWallet) priceStore.fetchPrice().catch(() => {})
-    }
+          priceStore.fetchPrice().catch(() => {})
+        }
+      })
+      .catch(() => {})
 
     // Always refresh user info in background —
     // if the account just switched, photoUrl/username were reset to null

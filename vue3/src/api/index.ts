@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/auth'
+import router from '@/router'
 
 const BASE_URL = ''
 const REQUEST_TIMEOUT_MS = 30000
@@ -6,6 +7,33 @@ const REQUEST_TIMEOUT_MS = 30000
 export interface ApiError {
   status: number
   message: string
+}
+
+/**
+ * Check if an error indicates the wallet was removed on the server
+ * (e.g. unbound on another device). If so, clear local wallet cache
+ * and redirect to home so the user sees the "create wallet" screen.
+ */
+function handleWalletGone(path: string, status: number, errMsg: string): boolean {
+  if (
+    status === 404 &&
+    path.startsWith('/api/wallet') &&
+    errMsg.toLowerCase().includes('wallet not found')
+  ) {
+    // Import wallet store lazily to avoid circular dependency at module load time.
+    // useWalletStore() is safe to call here because Pinia is already initialized
+    // by the time any API request fires.
+    import('@/stores/wallet').then(({ useWalletStore }) => {
+      const walletStore = useWalletStore()
+      walletStore.$reset()
+    })
+    localStorage.removeItem('wallet')
+    localStorage.removeItem('history')
+    // Navigate to home — use replace so user can't go back to the broken page
+    router.replace('/wallet')
+    return true
+  }
+  return false
 }
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
@@ -60,6 +88,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const errMsg = json.error?.message || '请求失败'
     if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
       const err: ApiError = { status: res.status, message: '会话已过期，请关闭并重新打开 Mini App' }
+      throw err
+    }
+    // Wallet was unbound/deleted on another device — reset and redirect
+    if (handleWalletGone(path, res.status, errMsg)) {
+      const err: ApiError = { status: res.status, message: '钱包已在其他设备上解除绑定' }
       throw err
     }
     const err: ApiError = { status: res.status, message: errMsg }

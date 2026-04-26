@@ -20,6 +20,7 @@ const { showScanQr, showAlert } = useTelegram()
 
 const refreshing = ref(false)
 const pageError = ref('')
+const initialLoading = ref(!walletStore.home) // true when no persisted data, need to fetch from server
 const chartContainerRef = ref<HTMLDivElement | null>(null)
 let lwChart: IChartApi | null = null
 let lwSeries: ISeriesApi<'Area'> | null = null
@@ -181,14 +182,21 @@ async function initHome() {
   } catch (e: any) {
     console.error('[HomePage] init failed:', e)
     pageError.value = e?.message || e?.status?.message || '加载失败，请重试'
+  } finally {
+    initialLoading.value = false
   }
 }
 
 onMounted(() => {
   if (!walletStore.home) {
     initHome()
-  } else if (priceStore.chartData.length > 1) {
-    nextTick(renderChart)
+  } else {
+    initialLoading.value = false
+    // Refresh from server in background to sync stale persisted data
+    walletStore.fetchHome().catch(() => {})
+    if (priceStore.chartData.length > 1) {
+      nextTick(renderChart)
+    }
   }
 })
 
@@ -247,15 +255,21 @@ const handleScanQr = async () => {
 </script>
 
 <template>
+  <!-- Loading state: waiting for server to confirm wallet status -->
+  <section v-if="initialLoading" class="flex flex-col items-center justify-center py-20 gap-4">
+    <span class="material-symbols-outlined text-4xl text-primary animate-spin-fast">progress_activity</span>
+    <p class="text-on-surface-variant text-sm font-medium">正在加载钱包信息…</p>
+  </section>
+
   <!-- Error banner -->
-  <div v-if="pageError" class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-center gap-3">
+  <div v-else-if="pageError" class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-center gap-3">
     <span class="material-symbols-outlined text-error text-sm">error</span>
     <p class="text-error text-sm flex-1">{{ pageError }}</p>
     <button class="text-error text-xs font-bold underline" @click="initHome">重试</button>
   </div>
 
   <!-- No wallet state -->
-  <section v-if="!hasWallet" class="space-y-6">
+  <section v-else-if="!hasWallet" class="space-y-6">
     <!-- Pending airdrop -->
     <div v-if="pendingAirdrop" class="mb-6">
       <div class="bg-surface-container-lowest rounded-lg p-4 ambient-shadow border border-warning/20">
