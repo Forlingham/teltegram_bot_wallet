@@ -123,11 +123,11 @@ function validate(): { ok: boolean; message?: string; totalSat?: bigint; countIn
   if (parseFloat(total) > MAX_TOTAL_SCASH) return { ok: false, message: '金额过大，请分批发送' }
   if (!countInt || countInt <= 0) return { ok: false, message: '请输入有效红包个数' }
   if (countInt > MAX_PACKET_COUNT) return { ok: false, message: `红包个数最多 ${MAX_PACKET_COUNT} 个` }
-  if (Array.from(message.value.trim()).length > 12) return { ok: false, message: '祝福语最多 12 个字' }
+  if (Array.from(message.value.trim()).length > 14) return { ok: false, message: '祝福语最多 14 个字' }
 
   // Check per-packet minimum (each packet should get at least 0.00000001 SCASH = 1 sat)
   const perPacketSat = totalSat / BigInt(countInt)
-  if (perPacketSat <= 0n) return { ok: false, message: '每个红包金额不能为 0，请增加总金额或减少个数' }
+  if (perPacketSat < 100000n) return { ok: false, message: '每个红包最低 0.001 SCASH，请增加总金额或减少个数' }
 
   // Check balance: total + reserve + arrFee + networkFee + dapCost
   const reserveSat = BigInt(countInt) * FEE_RESERVE_PER_PACKET_SAT
@@ -402,7 +402,7 @@ onMounted(async () => {
           <div class="flex items-center justify-between p-4 bg-surface-container-lowest mb-[1px]">
             <span class="text-xs font-semibold text-on-surface">留言</span>
             <div class="flex items-center gap-2 flex-1 ml-4">
-              <input v-model="message" class="w-full text-right bg-transparent border-none focus:ring-0 p-0 text-xs text-on-surface placeholder:text-on-surface-variant/40" placeholder="恭喜发财，万事如意" type="text" maxlength="12" @input="debouncedEstimate" />
+              <input v-model="message" class="w-full text-right bg-transparent border-none focus:ring-0 p-0 text-xs text-on-surface placeholder:text-on-surface-variant/40" placeholder="恭喜发财，万事如意" type="text" maxlength="14" @input="debouncedEstimate" />
             </div>
           </div>
           <div class="p-4 bg-surface-container-lowest mb-[1px]">
