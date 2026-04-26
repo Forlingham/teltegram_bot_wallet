@@ -25,15 +25,15 @@ function formatAmount(num: number | string): string {
 }
 
 function rankClass(rank: number): string {
-  if (rank === 1) return 'absolute -top-1 -right-1 bg-yellow-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white'
-  if (rank === 2) return 'absolute -top-1 -right-1 bg-slate-300 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white'
-  if (rank === 3) return 'absolute -top-1 -right-1 bg-on-surface-variant/20 text-on-surface-variant w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold'
-  return 'absolute -top-1 -right-1 bg-on-surface-variant/20 text-on-surface-variant w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold'
+  if (rank === 1) return 'absolute -top-0.5 -right-0.5 bg-yellow-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-[1.5px] border-white'
+  if (rank === 2) return 'absolute -top-0.5 -right-0.5 bg-slate-300 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-[1.5px] border-white'
+  if (rank === 3) return 'absolute -top-0.5 -right-0.5 bg-on-surface-variant/20 text-on-surface-variant w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold'
+  return 'absolute -top-0.5 -right-0.5 bg-on-surface-variant/20 text-on-surface-variant w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold'
 }
 
 function avatarSize(rank: number): string {
-  if (rank <= 2) return 'w-14 h-14'
-  return 'w-12 h-12 opacity-80'
+  if (rank <= 2) return 'w-10 h-10'
+  return 'w-8 h-8 opacity-80'
 }
 
 function rowBg(rank: number): string {
@@ -81,36 +81,36 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="space-y-6">
+    <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-headline font-bold text-on-background">🏆 红包发送排行榜</h2>
+        <h2 class="text-base font-headline font-bold text-on-background">🏆 红包发送排行榜</h2>
         <div class="flex items-center gap-2">
           <span v-if="redpacketStore.loading" class="material-symbols-outlined text-primary text-lg animate-spin">refresh</span>
-          <span class="text-primary text-xs font-bold uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full">实时数据</span>
+          <span class="text-primary text-[10px] font-bold uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">实时</span>
         </div>
       </div>
-      <div class="space-y-3">
-        <div v-if="redpacketStore.loading && redpacketStore.leaderboard.length === 0" class="text-center py-8 text-on-surface-variant">加载中…</div>
-        <div v-else-if="redpacketStore.leaderboard.length === 0" class="text-center py-8 text-on-surface-variant">暂无发送记录</div>
+      <div class="space-y-1.5">
+        <div v-if="redpacketStore.loading && redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">加载中…</div>
+        <div v-else-if="redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">暂无发送记录</div>
         <template v-else>
           <div
             v-for="item in redpacketStore.leaderboard"
             :key="item.rank"
             :class="rowBg(item.rank)"
-            class="p-4 rounded-lg flex items-center gap-4 shadow-[0px_12px_32px_rgba(44,47,49,0.04)] relative overflow-hidden"
+            class="px-3 py-2.5 rounded-lg flex items-center gap-3 shadow-[0px_4px_12px_rgba(44,47,49,0.03)] relative overflow-hidden"
           >
-            <div class="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -translate-y-8 translate-x-8 pointer-events-none"></div>
-            <div class="relative">
+            <div class="absolute top-0 right-0 w-12 h-12 bg-primary/5 rounded-full -translate-y-6 translate-x-6 pointer-events-none"></div>
+            <div class="relative flex-shrink-0">
               <img :class="avatarSize(item.rank)" class="rounded-full object-cover" :src="getAvatar(item)" alt="avatar" />
               <div :class="rankClass(item.rank)">{{ item.rank }}</div>
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="text-on-background font-bold font-headline truncate">{{ item.displayName }}</h3>
-              <p class="text-on-surface-variant text-sm">发送 {{ item.totalCount }} 次</p>
+              <h3 class="text-on-background text-sm font-bold font-headline truncate">{{ item.displayName }}</h3>
+              <p class="text-on-surface-variant text-[11px]">发送 {{ item.totalCount }} 次</p>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-primary font-headline font-extrabold text-lg">{{ formatAmount(item.totalAmount) }}</p>
-              <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-tighter">SCASH</p>
+              <p class="text-primary font-headline font-extrabold text-sm">{{ formatAmount(item.totalAmount) }}</p>
+              <p class="text-on-surface-variant text-[9px] font-bold uppercase tracking-tighter">SCASH</p>
             </div>
           </div>
         </template>
