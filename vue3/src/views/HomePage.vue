@@ -218,13 +218,40 @@ const handleBackupDone = async () => {
 }
 
 const handleScanQr = async () => {
-  if (walletStore.isWatchOnly) {
-    await showAlert('当前为观察钱包，无法发送')
-    return
-  }
   try {
-    const raw = await showScanQr('扫描收款地址二维码')
-    let addr = raw.trim()
+    const raw = await showScanQr('扫描二维码')
+    const text = raw.trim()
+
+    if (!text) {
+      await showAlert('未识别到有效内容')
+      return
+    }
+
+    // 1. Check if it's a redpacket link
+    // Formats:
+    //   https://t.me/SCASH_Wallet_bot/open1?startapp=rp_HASH
+    //   https://t.me/scash_red_envelope_bot/open1?startapp=rp_HASH
+    const rpMatch = text.match(/https:\/\/t\.me\/[^/]+\/open1\?startapp=(rp_[a-zA-Z0-9]+)/)
+    if (rpMatch) {
+      const packetHash = rpMatch[1].slice(3) // remove "rp_" prefix
+      router.push(`/open?packet=${encodeURIComponent(packetHash)}`)
+      return
+    }
+
+    // Also support raw packet hash or direct /open URLs
+    const rawHashMatch = text.match(/^rp_([a-zA-Z0-9]+)$/)
+    if (rawHashMatch) {
+      router.push(`/open?packet=${encodeURIComponent(rawHashMatch[1])}`)
+      return
+    }
+
+    // 2. Otherwise treat as wallet address (send flow)
+    if (walletStore.isWatchOnly) {
+      await showAlert('当前为观察钱包，无法发送')
+      return
+    }
+
+    let addr = text
 
     // Handle URI schemes: scash:xxx, bcrt:xxx
     if (addr.includes(':')) {

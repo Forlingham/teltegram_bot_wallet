@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useWalletStore } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 import { useNetworkStore } from '@/stores/network'
 import { usePriceStore } from '@/stores/price'
 import { useTelegram } from '@/composables/useTelegram'
@@ -8,8 +9,10 @@ import { useCrypto, buildDapOutputs } from '@/composables/useCrypto'
 import { useTransaction, satsToScash, satsToScashTrimmed, parseScashToSats } from '@/composables/useTransaction'
 import { api } from '@/api'
 import PasswordModal from '@/components/PasswordModal.vue'
+import QrcodeVue from 'qrcode.vue'
 
 const walletStore = useWalletStore()
+const authStore = useAuthStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
 const tg = useTelegram()
@@ -235,6 +238,7 @@ async function handlePasswordConfirm(password: string) {
     successTxid.value = broadcastResult.txid
     showPassword.value = false
     showSuccess.value = true
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
     const msg = e?.message || '操作失败'
     errorMsg.value = msg
@@ -256,6 +260,19 @@ function shareToChat() {
 }
 
 const showShareSheet = ref(false)
+const posterGenerating = ref(false)
+const posterDataUrl = ref('')
+const posterBlobUrl = ref('')
+const showPosterPreview = ref(false)
+const showFullscreenPoster = ref(false)
+
+function openFullscreenPoster() {
+  if (posterBlobUrl.value) showFullscreenPoster.value = true
+}
+
+function closeFullscreenPoster() {
+  showFullscreenPoster.value = false
+}
 
 async function copyToClipboard(text: string) {
   try {
@@ -263,8 +280,431 @@ async function copyToClipboard(text: string) {
   } catch {}
 }
 
-function openShareSheet() {
+/**
+ * Generate a share poster using Canvas.
+ * The poster includes brand, redpacket info, QR code, and a call-to-action.
+ */
+async function generatePoster(): Promise<string> {
+  const canvas = document.createElement('canvas')
+  const width = 750
+  const height = 1200
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported')
+
+  // Background
+  ctx.fillStyle = '#f5f7f9'
+  ctx.fillRect(0, 0, width, height)
+
+  // Top brand bar
+  ctx.fillStyle = '#9128ad'
+  ctx.fillRect(0, 0, width, 160)
+
+  // Brand text
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 48px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('SCASH 红包', width / 2, 95)
+
+  ctx.font = '24px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'
+  ctx.fillText('Blockchain Red Packet', width / 2, 135)
+
+  // Card background
+  const cardX = 50
+  const cardY = 200
+  const cardW = 650
+  const cardH = 700
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(cardX, cardY, cardW, cardH, 24)
+  ctx.fill()
+
+  // Decorative circle
+  ctx.fillStyle = 'rgba(145,40,173,0.08)'
+  ctx.beginPath()
+  ctx.arc(width - 80, cardY + 80, 60, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Red packet emoji
+  ctx.font = '80px Arial'
+  ctx.textAlign = 'center'
+  ctx.fillText('🧧', width / 2, cardY + 110)
+
+  // Amount
+  ctx.fillStyle = '#dc2626'
+  ctx.font = 'bold 72px Arial, sans-serif'
+  ctx.fillText(`${successTotal.value} SCASH`, width / 2, cardY + 220)
+
+  // Count
+  ctx.fillStyle = '#6b7280'
+  ctx.font = '32px Arial, sans-serif'
+  ctx.fillText(`共 ${count.value} 个红包`, width / 2, cardY + 290)
+
+  // Divider
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(cardX + 60, cardY + 330)
+  ctx.lineTo(cardX + cardW - 60, cardY + 330)
+  ctx.stroke()
+
+  // Message
+  ctx.fillStyle = '#374151'
+  ctx.font = '36px Arial, sans-serif'
+  ctx.fillText(message.value || '恭喜发财，大吉大利', width / 2, cardY + 400)
+
+  // QR code area
+  const qrSize = 320
+  const qrX = (width - qrSize) / 2
+  const qrY = cardY + 450
+
+  // QR background
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 16)
+  ctx.fill()
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  // Draw QR code
+  const qrCanvas = document.createElement('canvas')
+  qrCanvas.width = qrSize
+  qrCanvas.height = qrSize
+  // We'll use a data URL from the qrcode component, but for canvas generation
+  // we need to create it manually. Let's use a simpler approach:
+  // Render the QR code to a temporary canvas using qrcode.vue's canvas render
+  // But that's complex. Instead, we'll draw a placeholder and overlay the actual QR code later.
+  // Actually, the best approach is to capture the DOM element.
+
+  // For now, draw a placeholder box with text
+  ctx.fillStyle = '#f3f4f6'
+  ctx.fillRect(qrX, qrY, qrSize, qrSize)
+  ctx.fillStyle = '#9ca3af'
+  ctx.font = '28px Arial'
+  ctx.fillText('扫码领取', width / 2, qrY + qrSize / 2 + 10)
+
+  // Bottom text
+  ctx.fillStyle = '#6b7280'
+  ctx.font = '26px Arial, sans-serif'
+  ctx.fillText('长按识别二维码 · 进入 Telegram 领取', width / 2, qrY + qrSize + 70)
+
+  // Footer
+  ctx.fillStyle = '#9ca3af'
+  ctx.font = '22px Arial, sans-serif'
+  ctx.fillText('Powered by SCASH Network', width / 2, height - 50)
+
+  return canvas.toDataURL('image/png')
+}
+
+/**
+ * Load an external image and draw it onto a canvas context.
+ * Uses createImageBitmap(fetch(blob)) to completely bypass CORS.
+ * Returns true on success, false on failure.
+ */
+async function drawExternalImage(
+  ctx: CanvasRenderingContext2D,
+  src: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): Promise<boolean> {
+  try {
+    const res = await fetch(src, { mode: 'cors', cache: 'no-store' })
+    if (!res.ok) throw new Error('fetch failed')
+    const blob = await res.blob()
+    const bitmap = await createImageBitmap(blob)
+    ctx.drawImage(bitmap, x, y, w, h)
+    bitmap.close()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Draw a circular placeholder avatar with the first letter of the name. */
+function drawPlaceholderAvatar(
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  cx: number,
+  cy: number,
+  r: number
+) {
+  const initial = (name[0] || '?').toUpperCase()
+  // Background circle
+  ctx.fillStyle = '#f3e8ff'
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fill()
+  // Initial letter
+  ctx.fillStyle = '#7e22ce'
+  ctx.font = `bold ${r}px Arial, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(initial, cx, cy + r * 0.05)
+  ctx.textBaseline = 'alphabetic'
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const arr = dataUrl.split(',')
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png'
+  const bstr = atob(arr[1])
+  let n = bstr.length
+  const u8arr = new Uint8Array(n)
+  while (n--) u8arr[n] = bstr.charCodeAt(n)
+  return new Blob([u8arr], { type: mime })
+}
+
+async function generatePosterWithQr() {
+  posterGenerating.value = true
+  try {
+    // Wait for QR code to render in DOM
+    await nextTick()
+    await new Promise(r => setTimeout(r, 200))
+
+    const canvas = document.createElement('canvas')
+    const width = 750
+    const height = 1200
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas not supported')
+
+    // Background
+    const gradient = ctx.createLinearGradient(0, 0, 0, height)
+    gradient.addColorStop(0, '#fdf2f8')
+    gradient.addColorStop(1, '#ffffff')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, width, height)
+
+    // Top decorative bar
+    ctx.fillStyle = '#9128ad'
+    ctx.fillRect(0, 0, width, 180)
+
+    // Brand text
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 56px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('SCASH 红包', width / 2, 105)
+
+    ctx.font = '26px Arial, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'
+    ctx.fillText('Blockchain Red Packet', width / 2, 150)
+
+    // Main card
+    const cardX = 45
+    const cardY = 210
+    const cardW = 660
+    const cardH = 780
+
+    // Card shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.08)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 12
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(cardX, cardY, cardW, cardH, 28)
+    ctx.fill()
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    // Sender info area
+    const senderName = authStore.firstName || authStore.username || tg.getTgUser()?.first_name || tg.getTgUser()?.username || '神秘好友'
+    const senderAvatar = authStore.photoUrl || tg.getTgUser()?.photo_url || ''
+
+    // Avatar
+    const avatarX = width / 2
+    const avatarY = cardY + 55
+    const avatarR = 40
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(avatarX, avatarY, avatarR, 0, Math.PI * 2)
+    ctx.closePath()
+    ctx.clip()
+    let avatarOk = false
+    if (senderAvatar) {
+      avatarOk = await drawExternalImage(ctx, senderAvatar, avatarX - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2)
+    }
+    if (!avatarOk) {
+      drawPlaceholderAvatar(ctx, senderName, avatarX, avatarY, avatarR)
+    }
+    ctx.restore()
+
+    // Avatar border
+    ctx.strokeStyle = '#f3f4f6'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(avatarX, avatarY, avatarR + 2, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Sender name
+    ctx.fillStyle = '#374151'
+    ctx.font = 'bold 30px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(`@${senderName}`, width / 2, cardY + 130)
+
+    // Created & expired time
+    const now = new Date()
+    const expiredAt = new Date(now.getTime() + expireSeconds.value * 1000)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+
+    ctx.fillStyle = '#9ca3af'
+    ctx.font = '20px Arial, sans-serif'
+    ctx.fillText(`创建时间: ${fmt(now)}`, width / 2, cardY + 168)
+    ctx.fillText(`有效期至: ${fmt(expiredAt)}`, width / 2, cardY + 196)
+
+    // Emoji
+    ctx.font = '60px Arial'
+    ctx.fillText('🧧', width / 2, cardY + 270)
+
+    // Amount
+    ctx.fillStyle = '#dc2626'
+    ctx.font = 'bold 70px Arial, sans-serif'
+    ctx.fillText(`${successTotal.value}`, width / 2, cardY + 360)
+
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '32px Arial, sans-serif'
+    ctx.fillText(`SCASH · 共 ${count.value} 个红包`, width / 2, cardY + 410)
+
+    // Divider
+    ctx.strokeStyle = '#f3f4f6'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(cardX + 80, cardY + 445)
+    ctx.lineTo(cardX + cardW - 80, cardY + 445)
+    ctx.stroke()
+
+    // Message
+    ctx.fillStyle = '#374151'
+    ctx.font = '34px Arial, sans-serif'
+    const msg = message.value || '恭喜发财，大吉大利'
+    ctx.fillText(msg.length > 12 ? msg.slice(0, 12) + '…' : msg, width / 2, cardY + 500)
+
+    // QR code area (smaller: 200)
+    const qrSize = 200
+    const qrX = (width - qrSize) / 2
+    const qrY = cardY + 540
+
+    // QR background
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 16)
+    ctx.fill()
+    ctx.strokeStyle = '#e5e7eb'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    // Try to capture the rendered QR code from DOM
+    // Note: qrcode.vue with render-as="canvas" renders <canvas class="poster-qr-code">
+    // so we must match .poster-qr-code itself, not a child canvas.
+    let qrDrawn = false
+    const qrSelectors = [
+      '.poster-qr-code',
+      '[class*="qrcode"]',
+      'canvas',
+    ]
+    for (const sel of qrSelectors) {
+      const el = document.querySelector(sel)
+      if (el && el.tagName === 'CANVAS') {
+        ctx.drawImage(el as HTMLCanvasElement, qrX, qrY, qrSize, qrSize)
+        qrDrawn = true
+        break
+      }
+    }
+    if (!qrDrawn) {
+      ctx.fillStyle = '#f9fafb'
+      ctx.fillRect(qrX, qrY, qrSize, qrSize)
+      ctx.strokeStyle = '#e5e7eb'
+      ctx.lineWidth = 2
+      ctx.strokeRect(qrX, qrY, qrSize, qrSize)
+      ctx.fillStyle = '#6b7280'
+      ctx.font = 'bold 22px Arial'
+      ctx.fillText('扫码领取红包', width / 2, qrY + qrSize / 2 - 6)
+      ctx.font = '16px Arial'
+      ctx.fillText('长按识别', width / 2, qrY + qrSize / 2 + 22)
+    }
+
+    // Bottom CTA
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '24px Arial, sans-serif'
+    ctx.fillText('长按识别二维码 · 进入 Telegram 领取', width / 2, qrY + qrSize + 55)
+
+    // Footer brand
+    ctx.fillStyle = '#d1d5db'
+    ctx.font = '20px Arial, sans-serif'
+    ctx.fillText('Powered by SCASH Network', width / 2, height - 45)
+
+    // Export both data URL (for download) and blob URL (for <img> so Telegram
+    // WebView may allow long-press "Save image" on the blob:// resource).
+    const dataUrl = canvas.toDataURL('image/png')
+    posterDataUrl.value = dataUrl
+
+    // Await blob creation so posterBlobUrl is set BEFORE posterGenerating
+    // becomes false — otherwise Vue hides the poster on first render.
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/png')
+    )
+    if (blob) {
+      if (posterBlobUrl.value) URL.revokeObjectURL(posterBlobUrl.value)
+      posterBlobUrl.value = URL.createObjectURL(blob)
+    }
+
+    showPosterPreview.value = true
+    return dataUrl
+  } catch (e) {
+    console.error('Poster generation failed:', e)
+    throw e
+  } finally {
+    posterGenerating.value = false
+  }
+}
+
+async function downloadPoster() {
+  if (!posterDataUrl.value) return
+
+  const webApp = (window as any).Telegram?.WebApp
+  const isTelegram = !!webApp?.platform
+
+  // In Telegram Mini App, direct file download is restricted.
+  // Guide the user to screenshot or long-press the image above.
+  if (isTelegram) {
+    await tg.showAlert('请长按上方的海报图片保存，或截屏保存到相册')
+    return
+  }
+
+  // In normal browsers, try standard download
+  const fileName = `SCASH-红包-${successPacketHash.value.slice(0, 8)}.png`
+  try {
+    const link = document.createElement('a')
+    link.download = fileName
+    link.href = posterDataUrl.value
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch {
+    await tg.showAlert('下载未成功，请截屏保存海报')
+  }
+}
+
+function closePosterPreview() {
+  showPosterPreview.value = false
+}
+
+async function openShareSheet() {
   showShareSheet.value = true
+  // Auto-generate poster when opening share sheet
+  if (!posterDataUrl.value) {
+    try {
+      await generatePosterWithQr()
+    } catch (e) {
+      console.error('Auto poster generation failed:', e)
+    }
+  }
 }
 
 function closeShareSheet() {
@@ -480,12 +920,25 @@ onMounted(async () => {
     <div v-if="showSuccess" class="min-h-screen flex flex-col items-center px-4 py-6 relative overflow-hidden">
       <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[500px] bg-[radial-gradient(circle,rgba(145,40,173,0.15)_0%,rgba(245,247,249,0)_70%)] -z-10"></div>
 
-      <div class="text-center mb-6 relative w-full max-w-md">
-        <div class="w-16 h-16 mx-auto mb-3 bg-surface-container-lowest rounded-full shadow-[0px_12px_32px_rgba(44,47,49,0.06)] flex items-center justify-center relative">
-          <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">celebration</span>
+      <div class="flex items-center justify-between mb-6 relative w-full max-w-md px-2">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 bg-surface-container-lowest rounded-full shadow-[0px_12px_32px_rgba(44,47,49,0.06)] flex items-center justify-center relative">
+            <span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">celebration</span>
+          </div>
+          <div class="text-left">
+            <h1 class="font-headline font-extrabold text-xl tracking-tight text-on-surface">红包已发送!</h1>
+            <p class="text-xs text-on-surface-variant">{{ successTotal }} SCASH · {{ count }} 个</p>
+          </div>
         </div>
-        <h1 class="font-headline font-extrabold text-2xl tracking-tight text-on-surface mb-1">红包已发送!</h1>
-        <p class="text-sm text-on-surface-variant">{{ successTotal }} SCASH · {{ count }} 个</p>
+        <div class="bg-white p-1.5 rounded-lg shadow-sm border border-outline-variant/10 shrink-0">
+          <QrcodeVue
+            :value="successShareUrl"
+            :size="72"
+            level="M"
+            render-as="canvas"
+            class="poster-qr-code"
+          />
+        </div>
       </div>
 
       <div class="w-full max-w-md space-y-4">
@@ -613,13 +1066,61 @@ onMounted(async () => {
       @confirm="handlePasswordConfirm"
     />
 
+    <!-- Fullscreen poster preview -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showFullscreenPoster"
+          class="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md"
+          @click="closeFullscreenPoster"
+        >
+          <img
+            :src="posterBlobUrl"
+            alt="分享海报"
+            class="max-w-[92vw] max-h-[85vh] w-auto h-auto rounded-xl shadow-2xl"
+            @click.stop
+          />
+          <p class="fixed bottom-6 left-0 right-0 text-center text-white/60 text-xs">点击任意区域关闭</p>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Share sheet -->
     <Teleport to="body">
       <Transition name="sheet">
-        <div v-if="showShareSheet" class="fixed inset-0 z-[200] flex flex-col justify-end">
+        <div v-if="showShareSheet" class="fixed inset-0 z-[200] flex flex-col">
           <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeShareSheet" />
+
+          <!-- Floating poster above the drawer -->
+          <div class="flex-1 flex flex-col items-center justify-end px-5 pb-5 relative z-10 pointer-events-none">
+            <div
+              v-if="posterBlobUrl || posterGenerating"
+              class="w-full max-w-[260px] pointer-events-auto"
+              @click.stop
+            >
+              <div
+                class="rounded-xl overflow-hidden shadow-2xl border-2 border-white/30 bg-white active:scale-[0.98] transition-transform cursor-pointer"
+                @click="openFullscreenPoster"
+              >
+                <div v-if="posterGenerating" class="flex flex-col items-center justify-center py-12 gap-2">
+                  <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
+                  <span class="text-xs text-on-surface-variant">正在生成海报…</span>
+                </div>
+                <img
+                  v-else-if="posterBlobUrl"
+                  :src="posterBlobUrl"
+                  alt="分享海报"
+                  class="w-full h-auto block"
+                  draggable="false"
+                />
+              </div>
+              <p class="text-center text-[10px] text-white/60 mt-2">点击海报查看大图</p>
+            </div>
+          </div>
+
           <div class="relative bg-surface-container-lowest rounded-t-2xl p-4 pb-8 animate-slide-up">
             <div class="w-10 h-1 bg-outline-variant/30 rounded-full mx-auto mb-4" />
+
             <h3 class="text-center font-headline font-bold text-on-surface text-sm mb-4">分享到</h3>
             <div class="grid grid-cols-4 gap-4 mb-6">
               <button class="flex flex-col items-center gap-1.5 active:scale-95 transition-transform" @click="shareTo('telegram')">
