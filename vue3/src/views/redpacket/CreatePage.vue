@@ -262,6 +262,10 @@ function shareToChat() {
 
 const showShareSheet = ref(false)
 
+function openShareSheet() {
+  showShareSheet.value = true
+}
+
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text)
