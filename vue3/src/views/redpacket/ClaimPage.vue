@@ -39,7 +39,7 @@ interface RedPacket {
 }
 
 const router = useRouter()
-const { getWebApp, showAlert, close: closeApp } = useTelegram()
+const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
 
@@ -156,14 +156,28 @@ async function claimPacket() {
   if (!packetHash.value || claiming.value) return
   claiming.value = true
   try {
-    const result = await api.post<{ amount: string; claims?: Claim[] }>(`/api/redpacket/${encodeURIComponent(packetHash.value)}/claim`, {})
+    const initData = getInitData()
+    if (!initData) {
+      await showAlert('无法获取 Telegram 会话信息，请重新打开红包页面')
+      return
+    }
+
+    const result = await api.post<{ amount: string; claims?: Claim[] }>(
+      `/api/redpacket/${encodeURIComponent(packetHash.value)}/claim`,
+      { initData }
+    )
     claimedAmount.value = result.amount || '0'
     alreadyClaimed.value = true
     canClaim.value = false
     envelopeOpen.value = true
     setTimeout(() => { settled.value = true }, 600)
     if (result.claims) claims.value = result.claims
-  } catch {
+  } catch (e: any) {
+    const msg = e?.message || ''
+    if (msg.toLowerCase().includes('initdata expired') || msg.includes('会话已过期')) {
+      await showAlert('页面已过期，请重新打开红包页面后再次领取')
+      return
+    }
     try {
       await api.get(`/api/redpacket/${encodeURIComponent(packetHash.value)}`)
       await loadPacket()

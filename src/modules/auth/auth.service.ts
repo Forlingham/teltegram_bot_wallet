@@ -131,7 +131,17 @@ export class AuthService {
     return user;
   }
 
-  private parseAndVerifyInitData(initData: string): ParsedTelegramInitData {
+  /**
+   * Verify a fresh initData signature without consuming the nonce.
+   * Use this for sensitive actions that must be performed inside the
+   * Telegram Mini App (e.g. claiming a red packet).
+   */
+  async verifyInitData(initData: string, maxAgeSeconds = 60): Promise<TelegramUser> {
+    const parsed = this.parseAndVerifyInitData(initData, maxAgeSeconds);
+    return parsed.user;
+  }
+
+  private parseAndVerifyInitData(initData: string, customMaxAge?: number): ParsedTelegramInitData {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
     const authDateRaw = params.get('auth_date');
@@ -147,7 +157,8 @@ export class AuthService {
     }
 
     const age = Math.floor(Date.now() / 1000) - authDate;
-    if (age < 0 || age > TELEGRAM_AUTH_MAX_AGE_SECONDS) {
+    const maxAge = customMaxAge ?? TELEGRAM_AUTH_MAX_AGE_SECONDS;
+    if (age < 0 || age > maxAge) {
       throw new UnauthorizedException('initData expired');
     }
 
