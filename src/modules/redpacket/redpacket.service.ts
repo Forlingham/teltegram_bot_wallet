@@ -79,6 +79,7 @@ export class RedpacketService {
         count: payload.count,
         strategy: payload.type,
         blessMessage: payload.message ?? null,
+        timestamp: new Date().toISOString(),
       },
     });
 
@@ -244,6 +245,7 @@ export class RedpacketService {
           amount,
           strategy: packet.type,
           blessMessage: packet.message ?? null,
+          timestamp: new Date().toISOString(),
         },
       });
 

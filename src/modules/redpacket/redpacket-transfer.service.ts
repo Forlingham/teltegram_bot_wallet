@@ -237,6 +237,7 @@ export class RedpacketTransferService {
         senderTelegramUsername: pending.redPacket.sender?.username ?? null,
         strategy: pending.redPacket.type,
         blessMessage: pending.redPacket.message ?? null,
+        timestamp: new Date().toISOString(),
       } as Record<string, unknown>,
     };
 

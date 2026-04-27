@@ -59,6 +59,7 @@ export class RedpacketScheduler {
               amount: refreshed.remainingAmount.toString(),
               strategy: refreshed.type,
               blessMessage: refreshed.message ?? null,
+              timestamp: new Date().toISOString(),
             },
           });
         }

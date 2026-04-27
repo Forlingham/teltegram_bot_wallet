@@ -102,6 +102,7 @@ async function updateEstimate() {
       count: countInt,
       blessMessage,
       strategy: redpacketType.value,
+      timestamp: new Date().toISOString(),
     },
   })
 
@@ -198,6 +199,7 @@ async function handlePasswordConfirm(password: string) {
         count: countInt,
         blessMessage,
         strategy: redpacketType.value,
+        timestamp: new Date().toISOString(),
       },
     })
 
