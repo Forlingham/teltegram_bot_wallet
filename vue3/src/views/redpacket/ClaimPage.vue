@@ -16,8 +16,11 @@ function randInt(min: number, max: number): number {
 }
 
 /**
- * Detect headless / automation browsers.
- * Returns a reason string if detected, otherwise empty string.
+ * Detect known automation frameworks.
+ * Only checks for explicit flags set by automation tools
+ * (Selenium, Puppeteer, Playwright, PhantomJS, Nightmare).
+ * Does NOT use environment heuristics (plugins, window size, canvas)
+ * because Telegram WebView may also lack those.
  */
 function detectAutomation(): string {
   const w = window as any
@@ -27,24 +30,6 @@ function detectAutomation(): string {
   if (w.callPhantom || w._phantom) return 'phantomjs'
   if (w.__nightmare) return 'nightmare'
   if (w.domAutomation || w.domAutomationController) return 'chrome-automation'
-  if (nav.plugins?.length === 0 && nav.mimeTypes?.length === 0) return 'no-plugins'
-  if (w.outerWidth === 0 && w.outerHeight === 0) return 'headless-window'
-  if (w.devicePixelRatio === 0) return 'headless-pixel'
-
-  // Canvas fingerprint consistency check (headless often fails)
-  try {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      ctx.textBaseline = 'top'
-      ctx.font = '14px Arial'
-      ctx.fillText('🧧 redpacket claim', 2, 2)
-      const data = canvas.toDataURL('image/png')
-      // Known headless signatures can be matched here if needed
-    }
-  } catch {
-    return 'canvas-blocked'
-  }
 
   return ''
 }
