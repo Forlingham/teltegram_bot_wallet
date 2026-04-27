@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { useWalletStore, useHistoryStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
+import ShareSheet from '@/components/ShareSheet.vue'
 
 const walletStore = useWalletStore()
 const historyStore = useHistoryStore()
@@ -70,15 +71,30 @@ onUnmounted(() => {
   observer = null
 })
 
-function shareLink(url: string) {
-  const shareText = '我发了一个SCASH红包，快来领取！'
-  const shareIntent = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareText)}`
-  const tg = (window as any).Telegram?.WebApp
-  if (tg?.openTelegramLink) {
-    tg.openTelegramLink(shareIntent)
-  } else {
-    window.location.href = shareIntent
+const showShareSheet = ref(false)
+const shareSheetData = ref<{
+  shareUrl: string
+  amount: string
+  count: number
+  message: string
+  packetHash: string
+  expireSeconds: number
+  createdAt?: string
+} | null>(null)
+
+function openShareSheet(tx: any) {
+  const info = tx.redpacketInfo
+  if (!info?.shareUrl) return
+  shareSheetData.value = {
+    shareUrl: info.shareUrl,
+    amount: String(info.totalAmount ?? tx.amount ?? '0'),
+    count: info.totalCount ?? 1,
+    message: info.message || '恭喜发财，大吉大利',
+    packetHash: info.packetHash || '',
+    expireSeconds: info.expireSeconds || 86400,
+    createdAt: tx.time || undefined,
   }
+  showShareSheet.value = true
 }
 
 function formatAmountTitle(num: number | string): string {
@@ -167,7 +183,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
           </div>
 
           <div v-if="tx.redpacketInfo.canShare && tx.redpacketInfo.shareUrl" class="mt-2 flex justify-end">
-            <button class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full" @click="shareLink(tx.redpacketInfo!.shareUrl!)">再次分享</button>
+            <button class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full" @click="openShareSheet(tx)">再次分享</button>
           </div>
         </section>
 
@@ -261,5 +277,17 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
         </div>
       </div>
     </div>
+
+    <ShareSheet
+      v-if="shareSheetData"
+      v-model="showShareSheet"
+      :share-url="shareSheetData.shareUrl"
+      :amount="shareSheetData.amount"
+      :count="shareSheetData.count"
+      :message="shareSheetData.message"
+      :packet-hash="shareSheetData.packetHash"
+      :expire-seconds="shareSheetData.expireSeconds"
+      :created-at="shareSheetData.createdAt"
+    />
   </div>
 </template>

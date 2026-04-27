@@ -9,7 +9,11 @@ import { satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
-import { createChart, CrosshairMode, AreaSeries, type ISeriesApi, type IChartApi } from 'lightweight-charts'
+
+// Lazy-load lightweight-charts to reduce main bundle size (~250KB)
+type LwChartApi = any
+type LwSeriesApi = any
+let lwLib: typeof import('lightweight-charts') | null = null
 
 const router = useRouter()
 const walletStore = useWalletStore()
@@ -22,8 +26,9 @@ const refreshing = ref(false)
 const pageError = ref('')
 const initialLoading = ref(!walletStore.home) // true when no persisted data, need to fetch from server
 const chartContainerRef = ref<HTMLDivElement | null>(null)
-let lwChart: IChartApi | null = null
-let lwSeries: ISeriesApi<'Area'> | null = null
+let lwChart: LwChartApi | null = null
+let lwSeries: LwSeriesApi | null = null
+let chartLoading = false
 
 const tooltipVisible = ref(false)
 const tooltipPrice = ref('')
@@ -51,7 +56,7 @@ function dedupeChartData(data: { timestamp: string; price: string }[]) {
   return deduped
 }
 
-function renderChart() {
+async function renderChart() {
   const container = chartContainerRef.value
   if (!container) return
   const data = priceStore.chartData
@@ -60,104 +65,115 @@ function renderChart() {
   const deduped = dedupeChartData(data as { timestamp: string; price: string }[])
   if (deduped.length <= 1) return
 
-  const firstPrice = parseFloat(deduped[0].price)
-  const lastPrice = parseFloat(deduped[deduped.length - 1].price)
-  const isUp = lastPrice >= firstPrice
-  const lineColor = isUp ? '#2f7a42' : '#c0392b'
-  const topColor = isUp ? 'rgba(47,122,66,0.28)' : 'rgba(192,57,43,0.20)'
-  const bottomColor = isUp ? 'rgba(47,122,66,0.02)' : 'rgba(192,57,43,0.02)'
-
-  if (lwChart) {
-    lwChart.remove()
-    lwChart = null
-    lwSeries = null
-  }
-
-  lwChart = createChart(container, {
-    width: container.clientWidth,
-    height: 180,
-    layout: {
-      background: { type: 'solid', color: 'transparent' },
-      textColor: '#999',
-      fontSize: 10,
-      attributionLogo: false,
-    },
-    grid: {
-      vertLines: { visible: false },
-      horzLines: { color: '#f0f0f0', style: 2 },
-    },
-    crosshair: {
-      mode: CrosshairMode.Magnet,
-      vertLine: { width: 1, color: 'rgba(47,122,66,0.3)', style: 0, labelVisible: false },
-      horzLine: { visible: false, labelVisible: false },
-    },
-    timeScale: {
-      borderVisible: false,
-      timeVisible: true,
-      secondsVisible: false,
-      fixLeftEdge: true,
-      fixRightEdge: true,
-    },
-    rightPriceScale: {
-      borderVisible: false,
-      scaleMargins: { top: 0.1, bottom: 0.1 },
-    },
-    handleScroll: { vertTouchDrag: false },
-    handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
-  })
-
-  lwSeries = lwChart.addSeries(AreaSeries, {
-    lineColor,
-    topColor,
-    bottomColor,
-    lineWidth: 2,
-    crosshairMarkerVisible: true,
-    crosshairMarkerRadius: 4,
-    crosshairMarkerBorderColor: '#fff',
-    crosshairMarkerBackgroundColor: lineColor,
-    priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
-  })
-
-  const seriesData = deduped.map((d) => ({
-    time: Math.floor(new Date(d.timestamp).getTime() / 1000),
-    value: parseFloat(d.price),
-  }))
-
-  lwSeries.setData(seriesData)
-  lwChart.timeScale().fitContent()
-
-  // Crosshair tooltip
-  lwChart.subscribeCrosshairMove((param) => {
-    if (!param || !param.time || !param.seriesData || !param.seriesData.size) {
-      tooltipVisible.value = false
-      return
+  if (chartLoading) return
+  chartLoading = true
+  try {
+    if (!lwLib) {
+      lwLib = await import('lightweight-charts')
     }
-    const val = param.seriesData.get(lwSeries!)
-    if (val && typeof val.value === 'number') {
-      const t = new Date((param.time as number) * 1000)
-      const pad = (n: number) => String(n).padStart(2, '0')
-      tooltipTime.value = `${pad(t.getMonth() + 1)}/${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`
-      tooltipPrice.value = '$' + val.value.toFixed(3)
-      // Position tooltip near the crosshair
-      const rect = container.getBoundingClientRect()
-      const pointX = param.point?.x ?? rect.width / 2
-      const pointY = param.point?.y ?? rect.height / 2
-      tooltipX.value = Math.min(Math.max(pointX + 12, 4), rect.width - 100)
-      tooltipY.value = Math.min(Math.max(pointY - 36, 4), rect.height - 40)
-      tooltipVisible.value = true
-    } else {
-      tooltipVisible.value = false
-    }
-  })
+    const { createChart, CrosshairMode, AreaSeries } = lwLib
 
-  // Resize observer
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => {
-      if (lwChart && container) {
-        lwChart.applyOptions({ width: container.clientWidth })
+    const firstPrice = parseFloat(deduped[0].price)
+    const lastPrice = parseFloat(deduped[deduped.length - 1].price)
+    const isUp = lastPrice >= firstPrice
+    const lineColor = isUp ? '#2f7a42' : '#c0392b'
+    const topColor = isUp ? 'rgba(47,122,66,0.28)' : 'rgba(192,57,43,0.20)'
+    const bottomColor = isUp ? 'rgba(47,122,66,0.02)' : 'rgba(192,57,43,0.02)'
+
+    if (lwChart) {
+      lwChart.remove()
+      lwChart = null
+      lwSeries = null
+    }
+
+    lwChart = createChart(container, {
+      width: container.clientWidth,
+      height: 180,
+      layout: {
+        background: { type: 'solid', color: 'transparent' },
+        textColor: '#999',
+        fontSize: 10,
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: '#f0f0f0', style: 2 },
+      },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: { width: 1, color: 'rgba(47,122,66,0.3)', style: 0, labelVisible: false },
+        horzLine: { visible: false, labelVisible: false },
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+      },
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+      },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
+    })
+
+    lwSeries = lwChart.addSeries(AreaSeries, {
+      lineColor,
+      topColor,
+      bottomColor,
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: '#fff',
+      crosshairMarkerBackgroundColor: lineColor,
+      priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
+    })
+
+    const seriesData = deduped.map((d) => ({
+      time: Math.floor(new Date(d.timestamp).getTime() / 1000),
+      value: parseFloat(d.price),
+    }))
+
+    lwSeries.setData(seriesData)
+    lwChart.timeScale().fitContent()
+
+    // Crosshair tooltip
+    lwChart.subscribeCrosshairMove((param: any) => {
+      if (!param || !param.time || !param.seriesData || !param.seriesData.size) {
+        tooltipVisible.value = false
+        return
+      }
+      const val = param.seriesData.get(lwSeries!)
+      if (val && typeof val.value === 'number') {
+        const t = new Date((param.time as number) * 1000)
+        const pad = (n: number) => String(n).padStart(2, '0')
+        tooltipTime.value = `${pad(t.getMonth() + 1)}/${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`
+        tooltipPrice.value = '$' + val.value.toFixed(3)
+        // Position tooltip near the crosshair
+        const rect = container.getBoundingClientRect()
+        const pointX = param.point?.x ?? rect.width / 2
+        const pointY = param.point?.y ?? rect.height / 2
+        tooltipX.value = Math.min(Math.max(pointX + 12, 4), rect.width - 100)
+        tooltipY.value = Math.min(Math.max(pointY - 36, 4), rect.height - 40)
+        tooltipVisible.value = true
+      } else {
+        tooltipVisible.value = false
       }
     })
-    ro.observe(container)
+
+    // Resize observer
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        if (lwChart && container) {
+          lwChart.applyOptions({ width: container.clientWidth })
+        }
+      })
+      ro.observe(container)
+    }
+  } finally {
+    chartLoading = false
   }
 }
 
