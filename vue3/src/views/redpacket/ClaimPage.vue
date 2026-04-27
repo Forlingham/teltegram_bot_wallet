@@ -1,5 +1,53 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+
+// ---- Anti-automation helpers ----
+function generateToken(length = 8): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let s = ''
+  for (let i = 0; i < length; i++) {
+    s += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return s
+}
+
+function randInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+/**
+ * Detect headless / automation browsers.
+ * Returns a reason string if detected, otherwise empty string.
+ */
+function detectAutomation(): string {
+  const w = window as any
+  const nav = navigator as any
+
+  if (nav.webdriver === true) return 'webdriver'
+  if (w.callPhantom || w._phantom) return 'phantomjs'
+  if (w.__nightmare) return 'nightmare'
+  if (w.domAutomation || w.domAutomationController) return 'chrome-automation'
+  if (nav.plugins?.length === 0 && nav.mimeTypes?.length === 0) return 'no-plugins'
+  if (w.outerWidth === 0 && w.outerHeight === 0) return 'headless-window'
+  if (w.devicePixelRatio === 0) return 'headless-pixel'
+
+  // Canvas fingerprint consistency check (headless often fails)
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.textBaseline = 'top'
+      ctx.font = '14px Arial'
+      ctx.fillText('🧧 redpacket claim', 2, 2)
+      const data = canvas.toDataURL('image/png')
+      // Known headless signatures can be matched here if needed
+    }
+  } catch {
+    return 'canvas-blocked'
+  }
+
+  return ''
+}
 import { useRouter } from 'vue-router'
 import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
@@ -154,6 +202,13 @@ async function loadPacket() {
 
 async function claimPacket() {
   if (!packetHash.value || claiming.value) return
+
+  // Anti-automation: block if headless/automation environment detected
+  if (autoDetected.value) {
+    await showAlert('请在 Telegram 官方客户端中打开领取')
+    return
+  }
+
   claiming.value = true
   try {
     const initData = getInitData()
@@ -201,7 +256,39 @@ const coverBg = ref('linear-gradient(135deg, #d42828 0%, #b81f1f 100%)')
 const coverFlap = ref('linear-gradient(180deg, #db3030 0%, #c42626 100%)')
 const textTone = ref<'LIGHT' | 'DARK'>('LIGHT')
 
+// Anti-automation state
+const coinClassToken = ref('')
+const coinOffsetTop = ref(0)
+const coinOffsetLeft = ref(0)
+const baitEls = ref<Array<{ top: number; left: number; token: string }>>([])
+const autoDetected = ref('')
+
+function initAntiAutomation() {
+  coinClassToken.value = generateToken(10)
+  coinOffsetTop.value = randInt(-12, 12)
+  coinOffsetLeft.value = randInt(-12, 12)
+
+  // Generate 2-4 bait elements with similar appearance but wrong position
+  const baitCount = randInt(2, 4)
+  const baits: Array<{ top: number; left: number; token: string }> = []
+  for (let i = 0; i < baitCount; i++) {
+    baits.push({
+      top: randInt(-80, 80),
+      left: randInt(-80, 80),
+      token: generateToken(10),
+    })
+  }
+  baitEls.value = baits
+
+  // Detect headless / automation environment
+  autoDetected.value = detectAutomation()
+  if (autoDetected.value) {
+    console.warn('[ClaimPage] Automation detected:', autoDetected.value)
+  }
+}
+
 onMounted(() => {
+  initAntiAutomation()
   if (packetHash.value) {
     loadPacket()
     priceStore.fetchPrice().catch(() => {})
@@ -291,7 +378,27 @@ onMounted(() => {
                 <span class="flap-sub" :class="textTone === 'DARK' ? 'text-dark-muted' : 'text-light-muted'">给你发了一个红包</span>
               </div>
             </div>
-            <div class="env-coin" :class="{ loading: claiming }" @click="claimPacket">
+            <!-- Bait elements: same appearance, wrong position, invisible but occupy DOM -->
+            <div
+              v-for="(bait, idx) in baitEls"
+              :key="idx"
+              class="env-coin-bait"
+              :class="'bait-' + bait.token"
+              :style="{ transform: `translate(calc(-50% + ${bait.left}px), calc(-50% + ${bait.top}px))` }"
+            >
+              <div class="coin-inner">
+                <img src="/img/logo-256x256.png" alt="Open" />
+              </div>
+            </div>
+
+            <!-- Real claim button with dynamic class + random offset -->
+            <div
+              class="env-coin"
+              :class="[claiming ? 'loading' : '', 'coin-' + coinClassToken]"
+              :style="{ transform: `translate(calc(-50% + ${coinOffsetLeft}px), calc(-50% + ${coinOffsetTop}px))` }"
+              :data-token="coinClassToken"
+              @click="claimPacket"
+            >
               <div class="coin-inner">
                 <img src="/img/logo-256x256.png" alt="Open" />
                 <div class="coin-reflection"></div>
@@ -759,6 +866,22 @@ onMounted(() => {
 }
 .env-coin.loading .coin-inner img {
   animation: logo-spin .9s linear infinite;
+}
+
+/* Bait elements: same position base, invisible, no pointer events.
+   They sit in the DOM to confuse coordinate-based automation scripts. */
+.env-coin-bait {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 84px;
+  height: 84px;
+  background: #fff;
+  border-radius: 50%;
+  z-index: 9;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 @keyframes logo-spin {
   0% { transform: rotate(0deg); }
