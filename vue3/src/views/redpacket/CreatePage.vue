@@ -95,7 +95,7 @@ async function updateEstimate() {
     type: 'RED_PACKET',
     data: {
       action: 'CREATE',
-      packetHash: 'preview_preview_preview_preview',
+      packetHashShort: 'preview',
       senderAddress: 'preview',
       senderTelegramUsername: tg.getTgUser()?.username || null,
       amount: total,
@@ -192,7 +192,7 @@ async function handlePasswordConfirm(password: string) {
       type: 'RED_PACKET',
       data: {
         action: 'CREATE',
-        packetHash,
+        packetHashShort: packetHash.slice(-4),
         senderAddress: myAddress,
         senderTelegramUsername: senderUsername || null,
         amount: total,

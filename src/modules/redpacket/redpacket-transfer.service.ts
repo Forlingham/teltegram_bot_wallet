@@ -231,7 +231,7 @@ export class RedpacketTransferService {
     const base = {
       type: 'RED_PACKET',
       data: {
-        packetHash: pending.redPacket.packetHash,
+        packetHashShort: pending.redPacket.packetHash.slice(-4),
         fundingTxid: pending.redPacket.fundingTxid,
         senderAddress,
         senderTelegramUsername: pending.redPacket.sender?.username ?? null,

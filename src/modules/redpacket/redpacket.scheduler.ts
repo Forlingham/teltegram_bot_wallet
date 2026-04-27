@@ -52,7 +52,7 @@ export class RedpacketScheduler {
             type: 'RED_PACKET',
             data: {
               action: 'REFUND',
-              packetHash: refreshed.packetHash,
+              packetHashShort: refreshed.packetHash.slice(-4),
               fundingTxid: refreshed.fundingTxid,
               senderAddress: senderWallet?.address ?? null,
               senderTelegramUsername: sender?.username ?? null,

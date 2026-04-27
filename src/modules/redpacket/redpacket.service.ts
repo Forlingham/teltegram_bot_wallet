@@ -72,7 +72,7 @@ export class RedpacketService {
       type: 'RED_PACKET',
       data: {
         action: 'CREATE',
-        packetHash,
+        packetHashShort: packetHash.slice(-4),
         senderAddress: payload.senderAddress || null,
         senderTelegramUsername: sender.username,
         amount: payload.totalAmount,
@@ -236,7 +236,7 @@ export class RedpacketService {
         type: 'RED_PACKET',
         data: {
           action: 'CLAIM',
-          packetHash,
+          packetHashShort: packetHash.slice(-4),
           fundingTxid: packet.fundingTxid,
           senderAddress: senderWallet?.address ?? null,
           senderTelegramUsername: packet.sender?.username ?? null,
