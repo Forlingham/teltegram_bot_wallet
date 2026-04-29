@@ -227,7 +227,10 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
                 <h3 class="text-tertiary font-headline text-base font-bold"><span>+</span><span v-html="formatAmountTitle(tx.amount)"></span> <span class="text-[10px] font-normal text-on-surface-variant ml-0.5" v-html="coinLogo"></span></h3>
               </div>
             </div>
-            <span class="px-2 py-0.5 bg-tertiary/10 text-tertiary text-[10px] font-extrabold rounded-full">已领取</span>
+            <span
+              class="px-2 py-0.5 text-[10px] font-extrabold rounded-full"
+              :class="!tx.txid || tx.txid.startsWith('claim-') ? 'bg-warning/10 text-warning' : 'bg-tertiary/10 text-tertiary'"
+            >{{ !tx.txid || tx.txid.startsWith('claim-') ? '待到账' : '已领取' }}</span>
           </div>
           <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-2 border-t border-surface-container">
             <a v-if="tx.txid && !tx.txid.startsWith('claim-')" class="font-mono text-tertiary bg-tertiary/5 px-1.5 py-0.5 rounded" :href="getTxExplorerUrl(tx.txid)" target="_blank" rel="noopener noreferrer">{{ formatTxid(tx.txid) }}</a>

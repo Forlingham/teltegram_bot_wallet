@@ -144,8 +144,39 @@ export class WalletService {
           isUnconfirmed: tx.hasUnconfirmed,
           kind: 'wallet',
         } as WalletHistoryItem;
-      })
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      });
+
+    // 补充尚未上链的 PENDING 红包领取记录
+    const pendingClaims = await this.prisma.redPacketClaim.findMany({
+      where: {
+        userId,
+        status: 'PENDING',
+      },
+      include: {
+        redPacket: {
+          select: {
+            packetHash: true,
+          },
+        },
+      },
+      orderBy: { claimedAt: 'desc' },
+    });
+
+    for (const claim of pendingClaims) {
+      allTransactions.push({
+        txid: `claim-pending-${claim.id}`,
+        direction: 'in',
+        amount: claim.amount.toString(),
+        address: claim.redPacket?.packetHash || '-',
+        time: claim.claimedAt.toISOString(),
+        isUnconfirmed: true,
+        kind: 'redpacket',
+        redpacketType: 'CLAIM',
+        packetHash: claim.redPacket?.packetHash,
+      } as WalletHistoryItem);
+    }
+
+    allTransactions.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
     const total = allTransactions.length;
     const skip = (page - 1) * limit;
