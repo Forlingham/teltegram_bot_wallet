@@ -28,9 +28,9 @@ export function buildDapOutputs(message: string): { outputs: DapOutput[]; totalS
 }
 
 function hexToBytes(hex: string): Uint8Array {
-  if (!hex || typeof hex !== 'string') throw new Error('Invalid hex string')
+  if (!hex || typeof hex !== 'string') throw new Error('助记词数据格式错误')
   const parts = hex.match(/.{2}/g)
-  if (!parts) throw new Error('Invalid hex string')
+  if (!parts) throw new Error('助记词数据格式错误')
   return new Uint8Array(parts.map((b) => parseInt(b, 16)))
 }
 
@@ -51,7 +51,7 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
 }
 
 function toBytes(input: unknown): Uint8Array {
-  if (!input) throw new Error('Empty signing result')
+  if (!input) throw new Error('交易签名结果为空')
   if (input instanceof Uint8Array) return input
   if (Array.isArray(input)) return new Uint8Array(input)
   if (typeof input === 'string') {
@@ -63,7 +63,7 @@ function toBytes(input: unknown): Uint8Array {
   if (typeof (input as any).toCompactRawBytes === 'function') return (input as any).toCompactRawBytes()
   if (typeof (input as any).toRawBytes === 'function') return (input as any).toRawBytes()
   if ((input as any).buffer instanceof ArrayBuffer) return new Uint8Array((input as any).buffer, (input as any).byteOffset || 0, (input as any).byteLength || (input as any).length || 0)
-  throw new Error('Unsupported byte type: ' + Object.prototype.toString.call(input))
+  throw new Error('交易签名数据类型异常')
 }
 
 export function getScashNetwork() {
@@ -93,7 +93,7 @@ export function useCrypto() {
     const root = HDKey.fromMasterSeed(seed)
     const child = root.derive("m/84'/0'/0'/0/0")
     const pubKey = child.publicKey
-    if (!pubKey) throw new Error('Cannot derive public key')
+    if (!pubKey) throw new Error('钱包地址派生失败')
     const hash = ripemd160(sha256(pubKey))
     const words = bech32.toWords(hash)
     words.unshift(0)
@@ -106,7 +106,7 @@ export function useCrypto() {
     const child = root.derive("m/84'/0'/0'/0/0")
     const privateKey = child.privateKey
     const publicKey = child.publicKey
-    if (!privateKey || !publicKey) throw new Error('Cannot derive key pair')
+    if (!privateKey || !publicKey) throw new Error('钱包密钥派生失败')
     return { privateKey, publicKey }
   }
 

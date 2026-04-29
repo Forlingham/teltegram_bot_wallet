@@ -87,10 +87,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const stack = exception instanceof Error ? exception.stack : undefined;
     this.logger.error(`Unhandled exception: ${message}`, stack);
 
+    // Allow blockchain RPC errors to reach the client so the frontend
+    // can translate them into user-friendly Chinese messages.
+    const isRpcError = message.startsWith('RPC ') || message.includes('sendrawtransaction');
+
     const payload: ApiErrorResponse = {
       success: false,
       error: {
-        message: 'Internal server error',
+        message: isRpcError ? message : 'Internal server error',
         code: 'INTERNAL_SERVER_ERROR',
       },
     };

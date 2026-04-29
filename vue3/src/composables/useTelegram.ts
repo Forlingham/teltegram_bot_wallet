@@ -124,7 +124,7 @@ export function useTelegram() {
     return new Promise((resolve, reject) => {
       const tg = getWebApp()
       if (!tg) {
-        reject(new Error('Telegram WebApp not available'))
+        reject(new Error('请在 Telegram 客户端中使用扫码功能'))
         return
       }
 

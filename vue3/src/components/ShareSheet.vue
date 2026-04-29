@@ -110,7 +110,7 @@ async function drawExternalImage(
 ): Promise<boolean> {
   try {
     const res = await fetch(src, { mode: 'cors', cache: 'no-store' })
-    if (!res.ok) throw new Error('fetch failed')
+    if (!res.ok) throw new Error('图片加载失败')
     const blob = await res.blob()
     const bitmap = await createImageBitmap(blob)
     ctx.drawImage(bitmap, x, y, w, h)
@@ -153,7 +153,7 @@ async function generatePosterWithQr() {
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas not supported')
+    if (!ctx) throw new Error('当前环境不支持生成海报')
 
     // Background
     const gradient = ctx.createLinearGradient(0, 0, 0, height)

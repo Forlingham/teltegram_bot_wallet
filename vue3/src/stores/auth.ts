@@ -76,6 +76,9 @@ export const useAuthStore = defineStore('auth', () => {
           if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
             throw new Error('会话已过期，请关闭并重新打开 Mini App')
           }
+          if (loginRes.status >= 500) {
+            throw new Error('服务器内部错误，请稍后重试')
+          }
           throw new Error(errMsg)
         }
         const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
