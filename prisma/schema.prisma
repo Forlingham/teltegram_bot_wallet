@@ -93,14 +93,15 @@ model RedPacket {
 }
 
 model RedPacketClaim {
-  id          Int            @id @default(autoincrement())
-  redPacketId Int
-  userId      Int
-  amount      Decimal        @db.Decimal(20, 8)
-  txid        String?
-  status      ClaimStatus    @default(PENDING)
-  claimedAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           Int            @id @default(autoincrement())
+  redPacketId  Int
+  userId       Int
+  amount       Decimal        @db.Decimal(20, 8)
+  txid         String?
+  status       ClaimStatus    @default(PENDING)
+  nextRetryAt  DateTime?
+  claimedAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   redPacket RedPacket @relation(fields: [redPacketId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -110,20 +111,21 @@ model RedPacketClaim {
 }
 
 model PendingTransfer {
-  id           Int                   @id @default(autoincrement())
-  userId       Int
-  type         PendingTransferType
-  amount       Decimal               @db.Decimal(20, 8)
-  redPacketId  Int?
-  claimId      Int?
+  id            Int                   @id @default(autoincrement())
+  userId        Int
+  type          PendingTransferType
+  amount        Decimal               @db.Decimal(20, 8)
+  redPacketId   Int?
+  claimId       Int?
   targetAddress String?
-  txid         String?
-  status       PendingTransferStatus @default(PENDING)
-  errorMessage String?
-  retryCount   Int                   @default(0)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  processedAt  DateTime?
+  txid          String?
+  status        PendingTransferStatus @default(PENDING)
+  errorMessage  String?
+  retryCount    Int                   @default(0)
+  nextRetryAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  processedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   redPacket RedPacket? @relation(fields: [redPacketId], references: [id], onDelete: SetNull)

@@ -15,6 +15,36 @@ export class RedpacketScheduler {
     @Inject(DapService) private readonly dapService: DapService,
   ) {}
 
+  /**
+   * 计算下次重试延迟（阶梯退避）
+   * - 第1次失败：2分钟
+   * - 第2次失败：5分钟
+   * - 第3次失败：10分钟
+   * - 第4次失败：20分钟
+   * - 第5次失败：30分钟
+   * - 之后逐步增加，最大4小时
+   */
+  private getRetryDelayMs(retryCount: number): number {
+    const delays = [
+      2 * 60 * 1000,   // 1: 2分钟
+      5 * 60 * 1000,   // 2: 5分钟
+      10 * 60 * 1000,  // 3: 10分钟
+      20 * 60 * 1000,  // 4: 20分钟
+      30 * 60 * 1000,  // 5: 30分钟
+      45 * 60 * 1000,  // 6: 45分钟
+      60 * 60 * 1000,  // 7: 60分钟
+      90 * 60 * 1000,  // 8: 90分钟
+      120 * 60 * 1000, // 9: 120分钟
+      180 * 60 * 1000, // 10: 180分钟
+      240 * 60 * 1000, // 11: 240分钟(4小时封顶)
+    ];
+
+    const index = retryCount - 1;
+    if (index < 0) return delays[0];
+    if (index >= delays.length) return delays[delays.length - 1];
+    return delays[index];
+  }
+
   @Cron('*/30 * * * * *')
   async expirePackets(): Promise<void> {
     const now = new Date();
@@ -80,16 +110,27 @@ export class RedpacketScheduler {
 
   @Cron('*/40 * * * * *')
   async processPendingTransfers(): Promise<void> {
+    const now = new Date();
     const pendings = await this.prisma.pendingTransfer.findMany({
       where: {
         status: 'PENDING',
-        OR: [
-          { errorMessage: null },
-          { errorMessage: '' },
+        AND: [
           {
-            errorMessage: {
-              not: 'Waiting for user wallet address',
-            },
+            OR: [
+              { nextRetryAt: null },
+              { nextRetryAt: { lte: now } },
+            ],
+          },
+          {
+            OR: [
+              { errorMessage: null },
+              { errorMessage: '' },
+              {
+                errorMessage: {
+                  not: 'Waiting for user wallet address',
+                },
+              },
+            ],
           },
         ],
       },
@@ -109,12 +150,16 @@ export class RedpacketScheduler {
       if (!targetAddress) {
         const wallet = await this.prisma.wallet.findUnique({ where: { userId: pending.userId } });
         if (!wallet?.address) {
-          this.logger.log(`Pending transfer ${pending.id} failed: User ${pending.userId} has no wallet address yet. Will check again later.`);
+          const nextRetryAt = new Date(Date.now() + 60_000); // 1分钟后再次检查
+          this.logger.log(
+            `Pending transfer ${pending.id}: User ${pending.userId} has no wallet address yet. Will check again at ${nextRetryAt.toISOString()}`,
+          );
           await this.prisma.pendingTransfer.update({
             where: { id: pending.id },
             data: {
               status: 'PENDING',
               errorMessage: 'Waiting for user wallet address',
+              nextRetryAt,
             },
           });
           continue;
@@ -161,6 +206,7 @@ export class RedpacketScheduler {
             status: 'COMPLETED',
             processedAt: new Date(),
             errorMessage: null,
+            nextRetryAt: null,
           },
         });
 
@@ -170,6 +216,7 @@ export class RedpacketScheduler {
             data: {
               status: 'COMPLETED',
               txid: transferTxid,
+              nextRetryAt: null,
             },
           });
         }
@@ -177,11 +224,19 @@ export class RedpacketScheduler {
         const reason = error instanceof Error ? error.message : String(error);
         this.logger.error(`Pending transfer ${pending.id} failed during transferToAddress: ${reason}`, error instanceof Error ? error.stack : undefined);
 
+        const retryDelay = this.getRetryDelayMs(nextRetryCount);
+        const nextRetryAt = new Date(Date.now() + retryDelay);
+
+        this.logger.log(
+          `Pending transfer ${pending.id} will retry after ${retryDelay}ms (retryCount: ${nextRetryCount}, nextRetryAt: ${nextRetryAt.toISOString()})`,
+        );
+
         await this.prisma.pendingTransfer.update({
           where: { id: pending.id },
           data: {
-            status: nextRetryCount >= 5 ? 'FAILED' : 'PENDING',
+            status: 'PENDING',
             errorMessage: reason,
+            nextRetryAt,
           },
         });
 
@@ -189,7 +244,8 @@ export class RedpacketScheduler {
           await this.prisma.redPacketClaim.updateMany({
             where: { id: pending.claimId, status: 'PENDING' },
             data: {
-              status: nextRetryCount >= 5 ? 'FAILED' : 'PENDING',
+              status: 'PENDING',
+              nextRetryAt,
             },
           });
         }
