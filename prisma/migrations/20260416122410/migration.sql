@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Cover" ADD COLUMN     "textTone" TEXT NOT NULL DEFAULT 'LIGHT';

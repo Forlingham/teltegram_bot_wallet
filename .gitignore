@@ -4,7 +4,7 @@ dist/
 .env
 coverage/
 *.log
-prisma/migrations/
+
 tsconfig.build.tsbuildinfo
 tsconfig.tsbuildinfo
 tsconfig.build.tsbuildinfo
