@@ -142,7 +142,7 @@ watch(visible, (v) => {
   <Teleport to="body">
     <Transition name="sheet">
       <div v-if="visible" class="fixed inset-0 z-[200] flex flex-col">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close" />
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="close" />
 
         <!-- DOM Poster above the drawer -->
         <div class="flex-1 flex flex-col items-center justify-end px-5 pb-4 relative z-10 pointer-events-none">
@@ -278,7 +278,7 @@ watch(visible, (v) => {
     <Transition name="modal">
       <div
         v-if="showFullscreenPoster"
-        class="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm p-6"
         @click="closeFullscreenPoster"
       >
         <!-- Large DOM poster in fullscreen -->

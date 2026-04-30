@@ -224,7 +224,7 @@ const submitNewPassword = async () => {
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showChangeModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div class="absolute inset-0 bg-black/50" @click="showChangeModal = false" />
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showChangeModal = false" />
           <div class="relative bg-surface-container-lowest rounded-lg p-6 w-full max-w-sm shadow-xl">
             <div class="flex items-center gap-3 mb-6">
               <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">

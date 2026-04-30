@@ -170,7 +170,7 @@ async function handlePasswordConfirm(password: string) {
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showPreview" class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showPreview = false">
-          <div class="absolute inset-0 bg-black/50" @click="showPreview = false" />
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showPreview = false" />
           <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-md max-h-[80vh] overflow-auto shadow-xl">
             <div class="flex justify-between items-center mb-4">
               <h3 class="font-headline text-lg font-bold text-on-surface">内容预览</h3>

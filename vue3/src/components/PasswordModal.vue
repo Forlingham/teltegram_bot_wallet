@@ -43,7 +43,7 @@ const handleClose = () => {
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="handleClose" />
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="handleClose" />
         <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl">
           <h3 class="font-headline text-lg font-bold text-on-surface mb-4">
             {{ title || '输入密码' }}
