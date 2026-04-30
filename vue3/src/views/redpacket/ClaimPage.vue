@@ -88,6 +88,10 @@ const envelopeOpen = ref(false)
 const settled = ref(false)
 const claims = ref<Claim[]>([])
 
+// Session/token validity guard: once we detect an expired/invalid session,
+// permanently lock the claim button so the user can't waste rate-limit attempts.
+const sessionExpired = ref(false)
+
 function resolvePacketHash(): string {
   const params = new URLSearchParams(window.location.search)
   let ph = params.get('packet') || ''
@@ -186,7 +190,15 @@ async function loadPacket() {
 }
 
 async function claimPacket() {
-  if (!packetHash.value || claiming.value) return
+  // Guard: must have hash, not already claiming, and allowed to claim
+  if (!packetHash.value || claiming.value || !canClaim.value) return
+
+  // If session was previously detected as expired, show a friendly hint
+  // without sending any network request (protects rate-limit quota).
+  if (sessionExpired.value) {
+    await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
+    return
+  }
 
   // Anti-automation: block if headless/automation environment detected
   if (autoDetected.value) {
@@ -198,7 +210,8 @@ async function claimPacket() {
   try {
     const initData = getInitData()
     if (!initData) {
-      await showAlert('无法获取 Telegram 会话信息，请重新打开红包页面')
+      sessionExpired.value = true
+      await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
       return
     }
 
@@ -214,16 +227,26 @@ async function claimPacket() {
     if (result.claims) claims.value = result.claims
   } catch (e: any) {
     const msg = e?.message || ''
-    if (msg.toLowerCase().includes('initdata expired') || msg.includes('会话已过期')) {
-      await showAlert('页面已过期，请重新打开红包页面后再次领取')
+    const lowerMsg = msg.toLowerCase()
+
+    // Session/token errors: mark session as expired so subsequent clicks
+    // show a friendly hint instead of wasting rate-limit attempts.
+    if (
+      lowerMsg.includes('initdata expired') ||
+      lowerMsg.includes('会话已过期') ||
+      lowerMsg.includes('replay') ||
+      lowerMsg.includes('token') ||
+      lowerMsg.includes('unauthorized') ||
+      lowerMsg.includes('auth')
+    ) {
+      sessionExpired.value = true
+      await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
       return
     }
-    try {
-      await api.get(`/api/redpacket/${encodeURIComponent(packetHash.value)}`)
-      await loadPacket()
-    } catch {
-      await showAlert('领取失败')
-    }
+
+    // Rate limit or other business errors: just show the message,
+    // do NOT auto-retry (that would waste the user's limited attempts).
+    await showAlert(msg || '领取失败，请稍后重试')
   } finally {
     claiming.value = false
   }
