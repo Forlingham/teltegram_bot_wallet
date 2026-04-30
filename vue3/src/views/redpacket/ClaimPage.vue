@@ -244,9 +244,15 @@ async function claimPacket() {
       return
     }
 
-    // Rate limit or other business errors: just show the message,
-    // do NOT auto-retry (that would waste the user's limited attempts).
-    await showAlert(msg || '领取失败，请稍后重试')
+    // Sync packet state from server — this updates the envelope to show
+    // "已抢完" / "已过期" / "已领取" as appropriate instead of a raw error.
+    await loadPacket().catch(() => {})
+
+    // After refreshing state, if the envelope is still closed,
+    // it means something truly unexpected happened — show the error.
+    if (!envelopeOpen.value) {
+      await showAlert(msg || '领取失败，请稍后重试')
+    }
   } finally {
     claiming.value = false
   }
