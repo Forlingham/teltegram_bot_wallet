@@ -5,7 +5,7 @@ import { useWalletStore, usePriceStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useNetworkStore } from '@/stores/network'
 import { useTelegram } from '@/composables/useTelegram'
-import { satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
+import { satsToScashTrimmed } from '@/composables/useTransaction'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
@@ -90,7 +90,7 @@ async function renderChart() {
       width: container.clientWidth,
       height: 180,
       layout: {
-        background: { type: 'solid', color: 'transparent' },
+        background: { type: 'solid' as any, color: 'transparent' },
         textColor: '#999',
         fontSize: 10,
         attributionLogo: false,

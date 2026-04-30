@@ -136,7 +136,7 @@ function trimTrailingZeros(value: string): string {
 const remainingAmount = computed(() => {
   if (!packet.value) return '0.00'
   const total = parseFloat(String(packet.value.totalAmount || 0))
-  const claimed = claims.value.reduce((sum, c) => sum + parseFloat(c.amount || 0), 0)
+  const claimed = claims.value.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0)
   const rem = Math.max(0, total - claimed)
   return rem.toFixed(2)
 })

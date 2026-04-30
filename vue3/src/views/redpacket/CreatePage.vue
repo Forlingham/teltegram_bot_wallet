@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useWalletStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
 import { usePriceStore } from '@/stores/price'
