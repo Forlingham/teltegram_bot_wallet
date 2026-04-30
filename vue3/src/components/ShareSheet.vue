@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
 import QrcodeVue from 'qrcode.vue'
@@ -29,15 +29,6 @@ const visible = computed({
 const authStore = useAuthStore()
 const tg = useTelegram()
 
-const posterGenerating = ref(false)
-const posterDataUrl = ref('')
-const posterBlobUrl = ref('')
-const showFullscreenPoster = ref(false)
-
-// Track which shareUrl we last generated a poster for.
-// When props change (different redpacket), we must regenerate.
-const lastGeneratedUrl = ref('')
-
 const resolvedSenderName = computed(() => {
   return props.senderName
     || authStore.firstName
@@ -57,37 +48,26 @@ const resolvedSenderAvatar = computed(() => {
 const resolvedMessage = computed(() => props.message || '恭喜发财，大吉大利')
 const resolvedExpireSeconds = computed(() => props.expireSeconds || 86400)
 
-// Watch visible AND props — regenerate whenever the shareUrl changes
-// immediate: true is critical because HistoryPage sets shareSheetData and
-// showShareSheet in the same tick, so when ShareSheet mounts, visible may
-// already be true — without immediate the watch would never fire.
-watch(
-  () => [visible.value, props.shareUrl] as const,
-  async ([v, url]) => {
-    if (!v) return
-    // If already generated for this exact URL, skip
-    if (posterDataUrl.value && lastGeneratedUrl.value === url) return
-    // Otherwise clear old data and regenerate
-    if (posterBlobUrl.value) {
-      URL.revokeObjectURL(posterBlobUrl.value)
-      posterBlobUrl.value = ''
-    }
-    posterDataUrl.value = ''
-    try {
-      await generatePosterWithQr()
-    } catch (e) {
-      console.error('Auto poster generation failed:', e)
-    }
-  },
-  { immediate: true }
-)
+const createdAtDisplay = computed(() => {
+  const createdAtRaw = props.createdAt ? new Date(props.createdAt) : null
+  const createdAt = createdAtRaw && !isNaN(createdAtRaw.getTime()) ? createdAtRaw : new Date()
+  const expiredAt = new Date(createdAt.getTime() + resolvedExpireSeconds.value * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return {
+    created: fmt(createdAt),
+    expired: fmt(expiredAt),
+  }
+})
+
+const showFullscreenPoster = ref(false)
 
 function close() {
   visible.value = false
 }
 
 function openFullscreenPoster() {
-  if (posterBlobUrl.value) showFullscreenPoster.value = true
+  showFullscreenPoster.value = true
 }
 
 function closeFullscreenPoster() {
@@ -98,257 +78,6 @@ async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text)
   } catch {}
-}
-
-async function drawExternalImage(
-  ctx: CanvasRenderingContext2D,
-  src: string,
-  x: number,
-  y: number,
-  w: number,
-  h: number
-): Promise<boolean> {
-  try {
-    const res = await fetch(src, { mode: 'cors', cache: 'no-store' })
-    if (!res.ok) throw new Error('图片加载失败')
-    const blob = await res.blob()
-    const bitmap = await createImageBitmap(blob)
-    ctx.drawImage(bitmap, x, y, w, h)
-    bitmap.close()
-    return true
-  } catch {
-    return false
-  }
-}
-
-function drawPlaceholderAvatar(
-  ctx: CanvasRenderingContext2D,
-  name: string,
-  cx: number,
-  cy: number,
-  r: number
-) {
-  const initial = (name[0] || '?').toUpperCase()
-  ctx.fillStyle = '#f3e8ff'
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#7e22ce'
-  ctx.font = `bold ${r}px Arial, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(initial, cx, cy + r * 0.05)
-  ctx.textBaseline = 'alphabetic'
-}
-
-async function generatePosterWithQr() {
-  posterGenerating.value = true
-  try {
-    await nextTick()
-    await new Promise((r) => setTimeout(r, 250))
-
-    const canvas = document.createElement('canvas')
-    const width = 750
-    const height = 1200
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('当前环境不支持生成海报')
-
-    // Background
-    const gradient = ctx.createLinearGradient(0, 0, 0, height)
-    gradient.addColorStop(0, '#fdf2f8')
-    gradient.addColorStop(1, '#ffffff')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
-
-    // Top decorative bar
-    ctx.fillStyle = '#9128ad'
-    ctx.fillRect(0, 0, width, 180)
-
-    // Brand text
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 56px Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('SCASH 红包', width / 2, 105)
-
-    ctx.font = '26px Arial, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'
-    ctx.fillText('Blockchain Red Packet', width / 2, 150)
-
-    // Main card
-    const cardX = 45
-    const cardY = 210
-    const cardW = 660
-    const cardH = 780
-
-    // Card shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.08)'
-    ctx.shadowBlur = 40
-    ctx.shadowOffsetY = 12
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.roundRect(cardX, cardY, cardW, cardH, 28)
-    ctx.fill()
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetY = 0
-
-    // Avatar
-    const senderName = resolvedSenderName.value
-    const senderAvatar = resolvedSenderAvatar.value
-    const avatarX = width / 2
-    const avatarY = cardY + 55
-    const avatarR = 40
-    ctx.save()
-    ctx.beginPath()
-    ctx.arc(avatarX, avatarY, avatarR, 0, Math.PI * 2)
-    ctx.closePath()
-    ctx.clip()
-    let avatarOk = false
-    if (senderAvatar) {
-      avatarOk = await drawExternalImage(ctx, senderAvatar, avatarX - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2)
-    }
-    if (!avatarOk) {
-      drawPlaceholderAvatar(ctx, senderName, avatarX, avatarY, avatarR)
-    }
-    ctx.restore()
-
-    // Avatar border
-    ctx.strokeStyle = '#f3f4f6'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(avatarX, avatarY, avatarR + 2, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // Sender name
-    ctx.fillStyle = '#374151'
-    ctx.font = 'bold 30px Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText(`@${senderName}`, width / 2, cardY + 130)
-
-    // Created & expired time
-    // For already-created packets (history page), use the provided createdAt;
-    // for fresh creation, fall back to the current time.
-    const createdAtRaw = props.createdAt ? new Date(props.createdAt) : null
-    const createdAt = createdAtRaw && !isNaN(createdAtRaw.getTime()) ? createdAtRaw : new Date()
-    const expiredAt = new Date(createdAt.getTime() + resolvedExpireSeconds.value * 1000)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-
-    ctx.fillStyle = '#9ca3af'
-    ctx.font = '20px Arial, sans-serif'
-    ctx.fillText(`创建时间: ${fmt(createdAt)}`, width / 2, cardY + 168)
-    ctx.fillText(`有效期至: ${fmt(expiredAt)}`, width / 2, cardY + 196)
-
-    // Emoji
-    ctx.font = '60px Arial'
-    ctx.fillText('🧧', width / 2, cardY + 270)
-
-    // Amount
-    ctx.fillStyle = '#dc2626'
-    ctx.font = 'bold 70px Arial, sans-serif'
-    ctx.fillText(`${props.amount}`, width / 2, cardY + 360)
-
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '32px Arial, sans-serif'
-    ctx.fillText(`SCASH · 共 ${props.count} 个红包`, width / 2, cardY + 410)
-
-    // Divider
-    ctx.strokeStyle = '#f3f4f6'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(cardX + 80, cardY + 445)
-    ctx.lineTo(cardX + cardW - 80, cardY + 445)
-    ctx.stroke()
-
-    // Message
-    ctx.fillStyle = '#374151'
-    ctx.font = '34px Arial, sans-serif'
-    const msg = resolvedMessage.value
-    ctx.fillText(msg.length > 12 ? msg.slice(0, 12) + '…' : msg, width / 2, cardY + 500)
-
-    // QR code area (200)
-    const qrSize = 200
-    const qrX = (width - qrSize) / 2
-    const qrY = cardY + 540
-
-    // QR background
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.roundRect(qrX - 20, qrY - 20, qrSize + 40, qrSize + 40, 16)
-    ctx.fill()
-    ctx.strokeStyle = '#e5e7eb'
-    ctx.lineWidth = 2
-    ctx.stroke()
-
-    // Try to capture the rendered QR code from DOM
-    let qrDrawn = false
-    const qrSelectors = [
-      '.share-sheet-qr canvas',
-      '.share-sheet-qr',
-      '[class*="qrcode"] canvas',
-    ]
-    for (const sel of qrSelectors) {
-      const el = document.querySelector(sel)
-      if (el && el.tagName === 'CANVAS') {
-        ctx.drawImage(el as HTMLCanvasElement, qrX, qrY, qrSize, qrSize)
-        qrDrawn = true
-        break
-      }
-    }
-    if (!qrDrawn) {
-      ctx.fillStyle = '#f9fafb'
-      ctx.fillRect(qrX, qrY, qrSize, qrSize)
-      ctx.strokeStyle = '#e5e7eb'
-      ctx.lineWidth = 2
-      ctx.strokeRect(qrX, qrY, qrSize, qrSize)
-      ctx.fillStyle = '#6b7280'
-      ctx.font = 'bold 22px Arial'
-      ctx.fillText('扫码领取红包', width / 2, qrY + qrSize / 2 - 6)
-      ctx.font = '16px Arial'
-      ctx.fillText('长按识别', width / 2, qrY + qrSize / 2 + 22)
-    }
-
-    // Bottom CTA
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '24px Arial, sans-serif'
-    ctx.fillText('长按识别二维码 · 进入 Telegram 领取', width / 2, qrY + qrSize + 55)
-
-    // Footer brand
-    ctx.fillStyle = '#d1d5db'
-    ctx.font = '20px Arial, sans-serif'
-    ctx.fillText('Powered by SCASH Network', width / 2, height - 45)
-
-    const dataUrl = canvas.toDataURL('image/png')
-    posterDataUrl.value = dataUrl
-
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/png')
-    )
-    if (blob) {
-      if (posterBlobUrl.value) URL.revokeObjectURL(posterBlobUrl.value)
-      posterBlobUrl.value = URL.createObjectURL(blob)
-    }
-    lastGeneratedUrl.value = props.shareUrl
-    return dataUrl
-  } catch (e) {
-    console.error('Poster generation failed:', e)
-    throw e
-  } finally {
-    posterGenerating.value = false
-  }
-}
-
-function shareToChat() {
-  const shareText = '🧧 我发了一个SCASH红包，快来领取！'
-  const shareIntent = `https://t.me/share/url?url=${encodeURIComponent(props.shareUrl)}&text=${encodeURIComponent(shareText)}`
-  const webApp = (window as any).Telegram?.WebApp
-  if (webApp?.openTelegramLink) {
-    webApp.openTelegramLink(shareIntent)
-  } else {
-    window.location.href = shareIntent
-  }
 }
 
 function shareTo(platform: string) {
@@ -398,6 +127,15 @@ function shareTo(platform: string) {
   }
   close()
 }
+
+// Lock body scroll while sheet is visible
+watch(visible, (v) => {
+  if (v) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+})
 </script>
 
 <template>
@@ -406,50 +144,86 @@ function shareTo(platform: string) {
       <div v-if="visible" class="fixed inset-0 z-[200] flex flex-col">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close" />
 
-        <!-- Floating poster above the drawer -->
-        <div class="flex-1 flex flex-col items-center justify-end px-5 pb-5 relative z-10 pointer-events-none">
-          <div
-            v-if="posterBlobUrl || posterGenerating"
-            class="w-full max-w-[260px] pointer-events-auto"
-            @click.stop
-          >
+        <!-- DOM Poster above the drawer -->
+        <div class="flex-1 flex flex-col items-center justify-end px-5 pb-4 relative z-10 pointer-events-none">
+          <div class="w-full max-w-[260px] pointer-events-auto" @click.stop>
+            <!-- Poster card -->
             <div
-              class="rounded-xl overflow-hidden shadow-2xl border-2 border-white/30 bg-white active:scale-[0.98] transition-transform cursor-pointer"
+              class="relative w-full bg-[#F8F7FD] rounded-[18px] overflow-hidden shadow-2xl border-2 border-white/30 pb-3 active:scale-[0.98] transition-transform cursor-pointer"
               @click="openFullscreenPoster"
             >
-              <div v-if="posterGenerating" class="flex flex-col items-center justify-center py-12 gap-2">
-                <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
-                <span class="text-xs text-on-surface-variant">正在生成海报…</span>
+              <!-- 1. Header purple gradient -->
+              <div class="bg-gradient-to-b from-[#8B2BE2] to-[#7119c4] pt-4 pb-9 px-3 text-center relative">
+                <div class="flex justify-center items-center gap-1.5 mb-0.5">
+                  <img src="/img/logo-128x128.png" alt="SCASH" class="w-5 h-5 rounded-full border border-white/20 shadow-sm" />
+                  <h1 class="text-white text-base font-bold tracking-wide">SCASH 红包</h1>
+                </div>
+                <p class="text-purple-200/90 text-[9px] font-light tracking-widest">Blockchain Red Packet</p>
               </div>
-              <img
-                v-else-if="posterBlobUrl"
-                :src="posterBlobUrl"
-                alt="分享海报"
-                class="w-full h-auto block"
-                draggable="false"
-              />
+
+              <!-- 2. White main card (floats upward) -->
+              <div class="bg-white mx-3 -mt-6 rounded-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-3 relative z-10 flex flex-col items-center">
+                <!-- Avatar -->
+                <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <img
+                    v-if="resolvedSenderAvatar"
+                    :src="resolvedSenderAvatar"
+                    alt="avatar"
+                    class="w-9 h-9 rounded-full border-[3px] border-white shadow-sm object-cover"
+                  />
+                  <div
+                    v-else
+                    class="w-9 h-9 rounded-full bg-[#f2e8ff] text-[#8B2BE2] border-[3px] border-white shadow-sm flex items-center justify-center text-sm font-bold"
+                  >
+                    {{ resolvedSenderName[0]?.toUpperCase() || '?' }}
+                  </div>
+                </div>
+
+                <!-- Name & time -->
+                <h2 class="text-gray-800 font-bold text-[14px] mt-3">@{{ resolvedSenderName }}</h2>
+                <div class="text-[9px] text-gray-400 text-center mt-0.5 leading-tight">
+                  <p>创建: {{ createdAtDisplay.created }}</p>
+                  <p>过期: {{ createdAtDisplay.expired }}</p>
+                </div>
+
+                <!-- Amount -->
+                <div class="mt-2 flex flex-col items-center">
+                  <span class="text-[28px] leading-none font-black text-[#e83e3e] tracking-tight">{{ amount }}</span>
+                  <p class="text-gray-500 text-[10px] mt-0.5">SCASH · 共 {{ count }} 个红包</p>
+                </div>
+
+                <!-- Ticket divider -->
+                <div class="ticket-divider my-2" />
+
+                <!-- Message -->
+                <p class="text-[#b8860b] font-medium text-[13px] mb-1.5 tracking-widest">{{ resolvedMessage }}</p>
+
+                <!-- QR code with corner decorations -->
+                <div class="relative p-1 bg-[#faf8ff] rounded-lg shadow-[0_4px_16px_rgba(139,43,226,0.06)] border border-purple-100/60">
+                  <div class="absolute top-0 left-0 w-2 h-2 border-t-[2px] border-l-[2px] border-[#8B2BE2] rounded-tl" />
+                  <div class="absolute top-0 right-0 w-2 h-2 border-t-[2px] border-r-[2px] border-[#8B2BE2] rounded-tr" />
+                  <div class="absolute bottom-0 left-0 w-2 h-2 border-b-[2px] border-l-[2px] border-[#8B2BE2] rounded-bl" />
+                  <div class="absolute bottom-0 right-0 w-2 h-2 border-b-[2px] border-r-[2px] border-[#8B2BE2] rounded-br" />
+                  <QrcodeVue :value="shareUrl" :size="88" level="M" render-as="canvas" />
+                </div>
+              </div>
+
+              <!-- 3. Footer -->
+              <div class="mt-2 text-center space-y-0.5">
+                <p class="text-gray-500 text-[10px] font-medium">长按识别二维码 · 进入 Telegram 领取</p>
+                <p class="text-[#c1b8d2] text-[8px] uppercase tracking-widest font-semibold">Powered by SCASH Network</p>
+              </div>
             </div>
-            <p class="text-center text-[10px] text-white/60 mt-2">点击海报查看大图</p>
+            <p class="text-center text-[10px] text-white/60 mt-1.5">点击海报查看大图</p>
           </div>
         </div>
 
-        <!-- Hidden QR code for poster generation -->
-        <div class="absolute top-0 left-0 opacity-0 pointer-events-none" style="width:1px;height:1px;overflow:hidden;">
-          <QrcodeVue
-            v-if="visible"
-            :value="shareUrl"
-            :size="200"
-            level="M"
-            render-as="canvas"
-            class="share-sheet-qr"
-          />
-        </div>
-
-        <div class="relative bg-surface-container-lowest rounded-t-2xl p-4 pb-8 animate-slide-up">
+        <!-- Share drawer -->
+        <div class="relative bg-surface-container-lowest rounded-t-2xl p-4 pb-6 animate-slide-up">
           <div class="w-10 h-1 bg-outline-variant/30 rounded-full mx-auto mb-4" />
 
           <h3 class="text-center font-headline font-bold text-on-surface text-sm mb-4">分享到</h3>
-          <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="grid grid-cols-4 gap-4 mb-5">
             <button class="flex flex-col items-center gap-1.5 active:scale-95 transition-transform" @click="shareTo('telegram')">
               <div class="w-12 h-12 rounded-2xl bg-[#229ED9]/10 flex items-center justify-center">
                 <svg class="w-6 h-6 text-[#229ED9]" viewBox="0 0 24 24" fill="currentColor">
@@ -484,16 +258,16 @@ function shareTo(platform: string) {
             </button>
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <button class="h-11 bg-surface-container-high rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-on-surface active:scale-[0.98] transition-transform" @click="shareTo('native')">
+            <button class="h-10 bg-surface-container-high rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-on-surface active:scale-[0.98] transition-transform" @click="shareTo('native')">
               <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">ios_share</span>
               系统分享
             </button>
-            <button class="h-11 bg-primary/10 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-primary active:scale-[0.98] transition-transform" @click="shareTo('copy')">
+            <button class="h-10 bg-primary/10 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-primary active:scale-[0.98] transition-transform" @click="shareTo('copy')">
               <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">content_copy</span>
               复制链接
             </button>
           </div>
-          <button class="w-full h-12 mt-3 bg-surface-container-high text-on-surface-variant font-headline font-semibold rounded-full active:scale-[0.98] transition-transform" @click="close">取消</button>
+          <button class="w-full h-11 mt-3 bg-surface-container-high text-on-surface-variant font-headline font-semibold rounded-full active:scale-[0.98] transition-transform" @click="close">取消</button>
         </div>
       </div>
     </Transition>
@@ -504,15 +278,67 @@ function shareTo(platform: string) {
     <Transition name="modal">
       <div
         v-if="showFullscreenPoster"
-        class="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
         @click="closeFullscreenPoster"
       >
-        <img
-          :src="posterBlobUrl"
-          alt="分享海报"
-          class="max-w-[92vw] max-h-[85vh] w-auto h-auto rounded-xl shadow-2xl"
-          @click.stop
-        />
+        <!-- Large DOM poster in fullscreen -->
+        <div class="relative w-full max-w-[340px] pointer-events-none" @click.stop>
+          <div class="relative w-full bg-[#F8F7FD] rounded-[22px] overflow-hidden shadow-2xl border-2 border-white/30 pb-4">
+            <div class="bg-gradient-to-b from-[#8B2BE2] to-[#7119c4] pt-6 pb-11 px-4 text-center relative">
+              <div class="flex justify-center items-center gap-2 mb-1">
+                <img src="/img/logo-128x128.png" alt="SCASH" class="w-7 h-7 rounded-full border border-white/20 shadow-sm" />
+                <h1 class="text-white text-xl font-bold tracking-wide">SCASH 红包</h1>
+              </div>
+              <p class="text-purple-200/90 text-xs font-light tracking-widest">Blockchain Red Packet</p>
+            </div>
+
+            <div class="bg-white mx-4 -mt-8 rounded-[16px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 relative z-10 flex flex-col items-center">
+              <div class="absolute -top-5 left-1/2 -translate-x-1/2">
+                <img
+                  v-if="resolvedSenderAvatar"
+                  :src="resolvedSenderAvatar"
+                  alt="avatar"
+                  class="w-11 h-11 rounded-full border-[3px] border-white shadow-sm object-cover"
+                />
+                <div
+                  v-else
+                  class="w-11 h-11 rounded-full bg-[#f2e8ff] text-[#8B2BE2] border-[3px] border-white shadow-sm flex items-center justify-center text-lg font-bold"
+                >
+                  {{ resolvedSenderName[0]?.toUpperCase() || '?' }}
+                </div>
+              </div>
+
+              <h2 class="text-gray-800 font-bold text-base mt-5">@{{ resolvedSenderName }}</h2>
+              <div class="text-[11px] text-gray-400 text-center mt-1 leading-tight">
+                <p>创建时间: {{ createdAtDisplay.created }}</p>
+                <p>有效期至: {{ createdAtDisplay.expired }}</p>
+              </div>
+
+              <div class="mt-4 flex flex-col items-center">
+                <span class="text-[40px] leading-none font-black text-[#e83e3e] tracking-tight">{{ amount }}</span>
+                <p class="text-gray-500 text-xs mt-1">SCASH · 共 {{ count }} 个红包</p>
+              </div>
+
+              <div class="ticket-divider my-3" />
+
+              <p class="text-[#b8860b] font-medium text-[15px] mb-3 tracking-widest">{{ resolvedMessage }}</p>
+
+              <div class="relative p-2 bg-[#faf8ff] rounded-xl shadow-[0_4px_16px_rgba(139,43,226,0.06)] border border-purple-100/60">
+                <div class="absolute top-0 left-0 w-3 h-3 border-t-[2.5px] border-l-[2.5px] border-[#8B2BE2] rounded-tl-xl" />
+                <div class="absolute top-0 right-0 w-3 h-3 border-t-[2.5px] border-r-[2.5px] border-[#8B2BE2] rounded-tr-xl" />
+                <div class="absolute bottom-0 left-0 w-3 h-3 border-b-[2.5px] border-l-[2.5px] border-[#8B2BE2] rounded-bl-xl" />
+                <div class="absolute bottom-0 right-0 w-3 h-3 border-b-[2.5px] border-r-[2.5px] border-[#8B2BE2] rounded-br-xl" />
+                <QrcodeVue :value="shareUrl" :size="120" level="M" render-as="canvas" />
+              </div>
+            </div>
+
+            <div class="mt-4 text-center space-y-1">
+              <p class="text-gray-500 text-xs font-medium">长按识别二维码 · 进入 Telegram 领取</p>
+              <p class="text-[#c1b8d2] text-[9px] uppercase tracking-widest font-semibold">Powered by SCASH Network</p>
+            </div>
+          </div>
+        </div>
+
         <p class="fixed bottom-6 left-0 right-0 text-center text-white/60 text-xs">点击任意区域关闭</p>
       </div>
     </Transition>
@@ -520,6 +346,31 @@ function shareTo(platform: string) {
 </template>
 
 <style scoped>
+/* Ticket divider with semicircle notches */
+.ticket-divider {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  background-color: #f3f4f6;
+}
+.ticket-divider::before,
+.ticket-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.ticket-divider::before {
+  left: -18px;
+}
+.ticket-divider::after {
+  right: -18px;
+}
+
 .sheet-enter-active,
 .sheet-leave-active {
   transition: opacity 0.25s ease;
@@ -536,6 +387,7 @@ function shareTo(platform: string) {
 .sheet-leave-to .animate-slide-up {
   transform: translateY(100%);
 }
+
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;
