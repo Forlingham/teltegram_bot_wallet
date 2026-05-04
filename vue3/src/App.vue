@@ -45,13 +45,23 @@ const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
 
+let sessionExpiredAlertShown = false
+
+function handleBgError(e: any) {
+  const msg = e?.message || ''
+  if ((msg.includes('会话已过期') || msg.includes('重新打开')) && !sessionExpiredAlertShown) {
+    sessionExpiredAlertShown = true
+    showAlert(msg).catch(() => {})
+  }
+}
+
 // Non-blocking init: let Vue render immediately with persisted data,
 // then refresh in background.
 onMounted(() => {
   networkStore.fetchEnv().catch(() => {})
 
   // Restore session & user info in background (non-blocking)
-  authStore.ensureSession().catch(() => {})
+  authStore.ensureSession().catch(handleBgError)
   authStore.handleUserSwitch().catch(() => {})
 
   // Claim layout: skip wallet init to speed up entry
@@ -63,16 +73,16 @@ onMounted(() => {
     walletStore.fetchHome()
       .then(() => {
         if (walletStore.hasWallet) {
-          walletStore.fetchBalance().catch(() => {})
+          walletStore.fetchBalance().catch(handleBgError)
           priceStore.fetchPrice().catch(() => {})
         }
       })
-      .catch(() => {})
+      .catch(handleBgError)
 
     // Always refresh user info in background —
     // if the account just switched, photoUrl/username were reset to null
     // and we must fetch the new user's data.
-    authStore.fetchMe().catch(() => {})
+    authStore.fetchMe().catch(handleBgError)
 
     // Permission check in background (non-blocking)
     checkRoutePermission()

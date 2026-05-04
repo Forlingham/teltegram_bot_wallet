@@ -152,13 +152,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid)
       authStore.sessionToken = ''
 
-      const newToken = await authStore.ensureSession()
-      headers['x-session-token'] = newToken
+      try {
+        const newToken = await authStore.ensureSession()
+        headers['x-session-token'] = newToken
 
-      res = await fetchWithTimeout(BASE_URL + path, {
-        ...options,
-        headers,
-      }, REQUEST_TIMEOUT_MS)
+        res = await fetchWithTimeout(BASE_URL + path, {
+          ...options,
+          headers,
+        }, REQUEST_TIMEOUT_MS)
+      } catch (e: any) {
+        const msg = e?.message || ''
+        if (msg.includes('会话已过期') || msg.includes('重新打开')) {
+          throw { status: 401, message: msg } as ApiError
+        }
+        throw e
+      }
     }
 
     let json: any
