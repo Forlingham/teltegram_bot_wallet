@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
@@ -38,20 +38,29 @@ if (newTgId && savedTgId && newTgId !== savedTgId) {
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
-const { setupBackButton, hideBackButton, showAlert, close: closeApp } = useTelegram()
+const { setupBackButton, hideBackButton, close: closeApp } = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
 
-let sessionExpiredAlertShown = false
+// Fatal error modal (replaces Telegram showAlert for session errors)
+const showFatalModal = ref(false)
+const fatalModalTitle = ref('')
+const fatalModalMessage = ref('')
+
+function openFatalModal(title: string, message: string) {
+  fatalModalTitle.value = title
+  fatalModalMessage.value = message
+  showFatalModal.value = true
+}
 
 function handleBgError(e: any) {
   const msg = e?.message || ''
-  if ((msg.includes('会话已过期') || msg.includes('重新打开')) && !sessionExpiredAlertShown) {
-    sessionExpiredAlertShown = true
-    showAlert(msg).catch(() => {})
+  // Only alert for fatal errors that auto-refresh cannot fix.
+  if (msg.includes('重新打开') || msg.includes('无法获取 Telegram')) {
+    openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
   }
 }
 
@@ -145,4 +154,29 @@ watch(() => route.path, () => {
       <BottomNav v-if="showBottomNav" :active="(route.meta.activeNav as string) || ''" />
     </template>
   </div>
+
+  <!-- Fatal error modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showFatalModal"
+        class="fixed inset-0 z-[400] flex items-center justify-center p-6"
+      >
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+          <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-primary text-2xl">error</span>
+          </div>
+          <h3 class="font-headline text-lg font-bold text-on-surface mb-2">{{ fatalModalTitle }}</h3>
+          <p class="text-sm text-on-surface-variant leading-relaxed mb-6">{{ fatalModalMessage }}</p>
+          <button
+            class="w-full h-12 primary-gradient text-white rounded-full font-bold active:scale-[0.98] transition-transform"
+            @click="closeApp()"
+          >
+            我知道了
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>

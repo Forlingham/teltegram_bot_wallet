@@ -92,6 +92,17 @@ const claims = ref<Claim[]>([])
 // permanently lock the claim button so the user can't waste rate-limit attempts.
 const sessionExpired = ref(false)
 
+// Fatal error modal (replaces Telegram showAlert for session errors)
+const showFatalModal = ref(false)
+const fatalModalTitle = ref('')
+const fatalModalMessage = ref('')
+
+function openFatalModal(title: string, message: string) {
+  fatalModalTitle.value = title
+  fatalModalMessage.value = message
+  showFatalModal.value = true
+}
+
 function resolvePacketHash(): string {
   const params = new URLSearchParams(window.location.search)
   let ph = params.get('packet') || ''
@@ -196,7 +207,7 @@ async function claimPacket() {
   // If session was previously detected as expired, show a friendly hint
   // without sending any network request (protects rate-limit quota).
   if (sessionExpired.value) {
-    await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
+    openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
     return
   }
 
@@ -211,7 +222,7 @@ async function claimPacket() {
     const initData = getInitData()
     if (!initData) {
       sessionExpired.value = true
-      await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
+      openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
       return
     }
 
@@ -240,7 +251,7 @@ async function claimPacket() {
       lowerMsg.includes('auth')
     ) {
       sessionExpired.value = true
-      await showAlert('登录过期，请重新打开 Mini App SCASH 钱包')
+      openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
       return
     }
 
@@ -478,6 +489,31 @@ onMounted(() => {
         </div>
       </section>
     </template>
+
+    <!-- Fatal error modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showFatalModal"
+          class="fixed inset-0 z-[400] flex items-center justify-center p-6"
+        >
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <span class="material-symbols-outlined text-primary text-2xl">error</span>
+            </div>
+            <h3 class="font-headline text-lg font-bold text-on-surface mb-2">{{ fatalModalTitle }}</h3>
+            <p class="text-sm text-on-surface-variant leading-relaxed mb-6">{{ fatalModalMessage }}</p>
+            <button
+              class="w-full h-12 primary-gradient text-white rounded-full font-bold active:scale-[0.98] transition-transform"
+              @click="closeApp()"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

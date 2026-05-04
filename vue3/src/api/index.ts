@@ -146,27 +146,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }, REQUEST_TIMEOUT_MS)
 
     if (res.status === 401) {
+      // Session expired on server — clear local cache and proactively refresh.
+      // ensureSession() now auto-refreshes when near expiry, so this path
+      // should rarely be needed.  If it still fails, the error propagates.
       const uid = authStore.currentTgUserId
       localStorage.removeItem('SCASH_SESSION_TOKEN')
       localStorage.removeItem('SCASH_TG_USER_ID')
+      localStorage.removeItem('SCASH_SESSION_EXPIRES_AT')
       if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid)
       authStore.sessionToken = ''
 
-      try {
-        const newToken = await authStore.ensureSession()
-        headers['x-session-token'] = newToken
+      const newToken = await authStore.ensureSession()
+      headers['x-session-token'] = newToken
 
-        res = await fetchWithTimeout(BASE_URL + path, {
-          ...options,
-          headers,
-        }, REQUEST_TIMEOUT_MS)
-      } catch (e: any) {
-        const msg = e?.message || ''
-        if (msg.includes('会话已过期') || msg.includes('重新打开')) {
-          throw { status: 401, message: msg } as ApiError
-        }
-        throw e
-      }
+      res = await fetchWithTimeout(BASE_URL + path, {
+        ...options,
+        headers,
+      }, REQUEST_TIMEOUT_MS)
     }
 
     let json: any

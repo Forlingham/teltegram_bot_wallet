@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  AUTH_LOGIN_INITDATA_MAX_AGE_SECONDS,
   AUTH_NONCE_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
   TELEGRAM_AUTH_MAX_AGE_SECONDS,
@@ -44,7 +45,7 @@ export class AuthService {
 
   async loginWithTelegram(initData: string): Promise<LoginResult> {
     this.logger.log(`Telegram login attempt, initData size=${initData.length}`);
-    const parsed = this.parseAndVerifyInitData(initData);
+    const parsed = this.parseAndVerifyInitData(initData, AUTH_LOGIN_INITDATA_MAX_AGE_SECONDS);
     await this.ensureNonceUnused(parsed.hash);
 
     const user = await this.upsertUser(parsed.user);
@@ -87,6 +88,15 @@ export class AuthService {
 
     if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException('Session expired or invalid');
+    }
+
+    // Sliding window: extend expiration on every successful use
+    const newExpiresAt = new Date(Date.now() + AUTH_SESSION_TTL_SECONDS * 1000);
+    if (newExpiresAt.getTime() > session.expiresAt.getTime()) {
+      await this.prisma.session.update({
+        where: { tokenHash },
+        data: { expiresAt: newExpiresAt },
+      });
     }
 
     return {

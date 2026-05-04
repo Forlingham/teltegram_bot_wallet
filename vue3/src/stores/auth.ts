@@ -8,6 +8,9 @@ import { usePriceStore } from './price'
 const SESSION_KEY = 'SCASH_SESSION_TOKEN'
 const TG_USER_KEY = 'SCASH_TG_USER_ID'
 const TOKEN_PREFIX = 'SCASH_TOKEN_'
+const SESSION_EXPIRES_KEY = 'SCASH_SESSION_EXPIRES_AT'
+// Refresh proactively when less than this many seconds remain
+const SESSION_REFRESH_BUFFER_SECONDS = 24 * 60 * 60
 
 export const useAuthStore = defineStore('auth', () => {
   const sessionToken = ref(localStorage.getItem(SESSION_KEY) || '')
@@ -39,6 +42,48 @@ export const useAuthStore = defineStore('auth', () => {
     currentTgUserId.value = tgUserId
   }
 
+  function getSessionExpiresAt(): number {
+    const raw = localStorage.getItem(SESSION_EXPIRES_KEY)
+    return raw ? parseInt(raw, 10) : 0
+  }
+
+  function setSessionExpiresAt(expiresAt: string | number) {
+    const ts = typeof expiresAt === 'string' ? new Date(expiresAt).getTime() : expiresAt
+    localStorage.setItem(SESSION_EXPIRES_KEY, String(ts))
+  }
+
+  function shouldRefreshSession(): boolean {
+    const expiresAt = getSessionExpiresAt()
+    if (!expiresAt) return true
+    return Date.now() >= expiresAt - SESSION_REFRESH_BUFFER_SECONDS * 1000
+  }
+
+  async function doLogin(): Promise<{ token: string; expiresAt: string }> {
+    const initData = getInitData()
+    if (!initData) {
+      throw new Error('无法获取 Telegram 登录信息，请重新打开 Mini App')
+    }
+
+    const loginRes = await fetch('/api/auth/telegram/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
+    })
+    const loginJson = await loginRes.json()
+    if (!loginRes.ok || !loginJson.success) {
+      const errMsg = loginJson.error?.message || '登录失败'
+      if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
+        throw new Error('登录信息已过期，请重新打开 Mini App')
+      }
+      if (loginRes.status >= 500) {
+        throw new Error('服务器内部错误，请稍后重试')
+      }
+      throw new Error(errMsg)
+    }
+    const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
+    return { token: data.sessionToken, expiresAt: data.expiresAt }
+  }
+
   async function ensureSession(): Promise<string> {
     if (ensureSessionPromise) return ensureSessionPromise
 
@@ -46,55 +91,37 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         const tgUserId = getCurrentTgUserId()
 
+        // 1. If we have a cached token and it's not near expiry, use it directly
         if (tgUserId) {
           const userToken = getTokenForUser(tgUserId)
-          if (userToken) {
+          if (userToken && !shouldRefreshSession()) {
             localStorage.setItem(SESSION_KEY, userToken)
             localStorage.setItem(TG_USER_KEY, tgUserId)
             sessionToken.value = userToken
             currentTgUserId.value = tgUserId
             return userToken
           }
-        } else {
-          if (sessionToken.value) return sessionToken.value
+        } else if (sessionToken.value && !shouldRefreshSession()) {
+          return sessionToken.value
         }
 
-        const initData = getInitData()
-        if (!initData) {
-          throw new Error('会话已过期，请关闭并重新打开 Mini App')
-        }
+        // 2. Token is missing or near expiry — proactively refresh with initData
+        const { token, expiresAt } = await doLogin()
 
-        // Use raw fetch here — api.post would call request() which calls ensureSession() again
-        const loginRes = await fetch('/api/auth/telegram/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData }),
-        })
-        const loginJson = await loginRes.json()
-        if (!loginRes.ok || !loginJson.success) {
-          const errMsg = loginJson.error?.message || '登录失败'
-          if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
-            throw new Error('会话已过期，请关闭并重新打开 Mini App')
-          }
-          if (loginRes.status >= 500) {
-            throw new Error('服务器内部错误，请稍后重试')
-          }
-          throw new Error(errMsg)
-        }
-        const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
-
-        const newToken = data.sessionToken
         if (tgUserId) {
-          setTokenForUser(tgUserId, newToken)
+          setTokenForUser(tgUserId, token)
         } else {
-          localStorage.setItem(SESSION_KEY, newToken)
-          sessionToken.value = newToken
+          localStorage.setItem(SESSION_KEY, token)
+          sessionToken.value = token
         }
+        setSessionExpiresAt(expiresAt)
 
-        userId.value = data.user.id
-        telegramId.value = data.user.telegramId
+        // 3. Update in-memory user info if available from login response
+        // (login response currently only returns user.id and telegramId)
+        // Fetch full profile in background
+        fetchMe().catch(() => {})
 
-        return newToken
+        return token
       } finally {
         ensureSessionPromise = null
       }
