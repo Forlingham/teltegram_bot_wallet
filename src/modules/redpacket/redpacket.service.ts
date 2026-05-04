@@ -1,9 +1,12 @@
 import { createHash, randomBytes } from 'crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { RedpacketCreateDto, RedPacketTypeDto } from './dto/redpacket-create.dto';
 import { scashToSatoshi, satoshiToScash } from '../../common/utils/money.util';
+import { deriveAddressFromMnemonic } from '../../common/utils/wallet-crypto.util';
+import { BlockchainService, RawTransactionRpc } from '../blockchain/blockchain.service';
 import { DapService } from './dap.service';
 import { TelegramService } from '../telegram/telegram.service';
 
@@ -24,6 +27,8 @@ export class RedpacketService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(DapService) private readonly dapService: DapService,
     @Inject(TelegramService) private readonly telegramService: TelegramService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(BlockchainService) private readonly blockchain: BlockchainService,
   ) {}
 
   async createPacket(userId: number, payload: RedpacketCreateDto): Promise<CreateResult> {
@@ -39,6 +44,47 @@ export class RedpacketService {
     const feeReserve = scashToSatoshi(payload.feeReserve);
     if (feeReserve < 0n) {
       throw new AppException('Fee reserve invalid', 'REDPACKET_FEE_RESERVE_INVALID', HttpStatus.BAD_REQUEST);
+    }
+
+    // ── 链上交易验证 ──
+    // 1) 防重放：同一笔 funding tx 不能创建两个红包
+    const existing = await this.prisma.redPacket.findFirst({
+      where: { fundingTxid: payload.txid },
+    });
+    if (existing) {
+      throw new AppException('该交易已用于创建红包', 'TX_ALREADY_USED', HttpStatus.BAD_REQUEST);
+    }
+
+    // 2) 获取统筹地址
+    const poolMnemonic = this.configService.get<string>('COORDINATION_ACCOUNT_MNEMONIC') || '';
+    const nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+    const poolAddress = poolMnemonic ? deriveAddressFromMnemonic(poolMnemonic, nodeEnv) : '';
+    if (!poolAddress) {
+      throw new AppException('统筹地址未配置', 'POOL_ADDRESS_NOT_CONFIGURED', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 3) 查询链上交易
+    const tx = await this.blockchain.getRawTransaction(payload.txid);
+    if (!tx) {
+      throw new AppException('交易在链上未找到，请确认已广播', 'TX_NOT_FOUND', HttpStatus.BAD_REQUEST);
+    }
+
+    // 4) 验证统筹地址确实收到了钱
+    let poolReceivedSat = 0n;
+    for (const vout of tx.vout) {
+      const addr = vout.scriptPubKey?.address || vout.scriptPubKey?.addresses?.[0];
+      if (addr === poolAddress) {
+        poolReceivedSat += BigInt(Math.round(vout.value * 1e8));
+      }
+    }
+
+    const expectedSat = totalAmount + feeReserve;
+    if (poolReceivedSat < expectedSat) {
+      throw new AppException(
+        `交易金额验证失败：统筹地址收到 ${satoshiToScash(poolReceivedSat)} SCASH，但需要 ${satoshiToScash(expectedSat)} SCASH（含手续费预留）`,
+        'TX_AMOUNT_INSUFFICIENT',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const packetHash = payload.packetHash || this.buildPacketHash(userId, payload.txid);

@@ -8,6 +8,24 @@ interface RpcResponse<T> {
   id: string;
 }
 
+export type RawTransactionRpc = {
+  txid: string;
+  vout: Array<{
+    n: number;
+    value: number;
+    scriptPubKey: {
+      hex: string;
+      address?: string;
+      addresses?: string[];
+    };
+  }>;
+  vin: Array<{
+    txid?: string;
+    vout?: number;
+    coinbase?: string;
+  }>;
+};
+
 @Injectable()
 export class BlockchainService {
   private readonly client: AxiosInstance;
@@ -60,5 +78,13 @@ export class BlockchainService {
 
   async broadcastTransaction(hex: string): Promise<string> {
     return this.call<string>('sendrawtransaction', [hex]);
+  }
+
+  async getRawTransaction(txid: string): Promise<RawTransactionRpc | null> {
+    try {
+      return await this.call<RawTransactionRpc>('getrawtransaction', [txid, true]);
+    } catch (error) {
+      return null;
+    }
   }
 }
