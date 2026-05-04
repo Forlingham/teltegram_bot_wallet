@@ -38,7 +38,7 @@ if (newTgId && savedTgId && newTgId !== savedTgId) {
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
-const { setupBackButton, hideBackButton, close: closeApp } = useTelegram()
+const { setupBackButton, hideBackButton, showAlert, close: closeApp } = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
