@@ -22,7 +22,7 @@ function handleDisabledClick() {
 </script>
 
 <template>
-  <nav class="fixed bottom-0 w-full z-50 rounded-t-[2.5rem] bg-slate-50/90 backdrop-blur-2xl shadow-[0px_-12px_32px_rgba(145,40,173,0.08)] flex justify-around items-center px-4 pb-[env(safe-area-inset-bottom)] pt-4">
+    <nav class="fixed bottom-0 w-full z-50 rounded-t-[2.5rem] bg-slate-50/90 backdrop-blur-2xl shadow-[0px_-12px_32px_rgba(145,40,173,0.08)] flex justify-around items-center px-4 pt-4" :style="{ paddingBottom: 'max(1rem, var(--safe-area-bottom, 0px))' }">
     <template v-for="item in navItems" :key="item.key">
       <!-- Disabled: no wallet -->
       <button

@@ -9,6 +9,20 @@ export interface TelegramUser {
   photo_url?: string
 }
 
+export interface SafeAreaInset {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+export interface ContentSafeAreaInset {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
 export interface TelegramWebApp {
   ready: () => void
   close: () => void
@@ -47,6 +61,28 @@ export interface TelegramWebApp {
   colorScheme?: 'light' | 'dark'
   version?: string
   platform?: string
+
+  // Bot API 6.1+
+  headerColor?: string
+  backgroundColor?: string
+  setHeaderColor?: (color: string) => void
+  setBackgroundColor?: (color: string) => void
+
+  // Bot API 7.7+
+  isVerticalSwipesEnabled?: boolean
+  enableVerticalSwipes?: () => void
+  disableVerticalSwipes?: () => void
+
+  // Bot API 7.10+
+  bottomBarColor?: string
+  setBottomBarColor?: (color: string) => void
+
+  // Bot API 8.0+ — Fullscreen mode
+  isFullscreen?: boolean
+  requestFullscreen?: () => void
+  exitFullscreen?: () => void
+  safeAreaInset?: SafeAreaInset
+  contentSafeAreaInset?: ContentSafeAreaInset
 }
 
 export function useTelegram() {
@@ -159,6 +195,122 @@ export function useTelegram() {
     getWebApp()?.expand?.()
   }
 
+  // ---- Bot API 6.1+ — Header/background color ----
+
+  function setHeaderColor(color: string): void {
+    const tg = getWebApp()
+    try {
+      tg?.setHeaderColor?.(color)
+    } catch (e) {
+      console.warn('[Telegram] setHeaderColor failed:', e)
+    }
+  }
+
+  function setBackgroundColor(color: string): void {
+    const tg = getWebApp()
+    try {
+      tg?.setBackgroundColor?.(color)
+    } catch (e) {
+      console.warn('[Telegram] setBackgroundColor failed:', e)
+    }
+  }
+
+  // ---- Bot API 7.10+ — Bottom bar color ----
+
+  function setBottomBarColor(color: string): void {
+    const tg = getWebApp()
+    try {
+      tg?.setBottomBarColor?.(color)
+    } catch (e) {
+      console.warn('[Telegram] setBottomBarColor failed:', e)
+    }
+  }
+
+  // ---- Bot API 7.7+ — Vertical swipes control ----
+
+  function disableVerticalSwipes(): void {
+    const tg = getWebApp()
+    try {
+      tg?.disableVerticalSwipes?.()
+    } catch (e) {
+      console.warn('[Telegram] disableVerticalSwipes failed:', e)
+    }
+  }
+
+  function enableVerticalSwipes(): void {
+    const tg = getWebApp()
+    try {
+      tg?.enableVerticalSwipes?.()
+    } catch (e) {
+      console.warn('[Telegram] enableVerticalSwipes failed:', e)
+    }
+  }
+
+  // ---- Bot API 8.0+ — Fullscreen mode ----
+
+  /**
+   * Check if the Telegram client supports a specific Bot API version.
+   */
+  function isVersionAtLeast(version: string): boolean {
+    const tg = getWebApp()
+    if (!tg?.version) return false
+    const [major, minor = 0] = tg.version.split('.').map(Number)
+    const [reqMajor, reqMinor = 0] = version.split('.').map(Number)
+    return major > reqMajor || (major === reqMajor && minor >= reqMinor)
+  }
+
+  /**
+   * Check if the current platform is a mobile device (not desktop).
+   * Desktop platforms: tdesktop, weba, webk, web, macos, unigram
+   */
+  function isMobilePlatform(): boolean {
+    const tg = getWebApp()
+    if (!tg?.platform) return true // default to mobile if unknown
+    const desktop = ['tdesktop', 'weba', 'webk', 'web', 'macos', 'unigram']
+    return !desktop.includes(tg.platform.toLowerCase())
+  }
+
+  function requestFullscreen(): boolean {
+    const tg = getWebApp()
+    if (tg?.requestFullscreen) {
+      try {
+        tg.requestFullscreen()
+        return true
+      } catch (e) {
+        console.warn('[Telegram] requestFullscreen threw:', e)
+        return false
+      }
+    }
+    return false
+  }
+
+  function exitFullscreen(): void {
+    const tg = getWebApp()
+    if (tg?.exitFullscreen) {
+      tg.exitFullscreen()
+    }
+  }
+
+  function isFullscreen(): boolean {
+    return getWebApp()?.isFullscreen ?? false
+  }
+
+  /**
+   * Get the device safe area insets (notch, navigation bar, etc.).
+   * Returns zeros if not available.
+   */
+  function getSafeAreaInset(): SafeAreaInset {
+    return getWebApp()?.safeAreaInset ?? { top: 0, bottom: 0, left: 0, right: 0 }
+  }
+
+  /**
+   * Get the content safe area insets (Telegram header overlay, etc.).
+   * Returns zeros if not available.
+   */
+  function getContentSafeAreaInset(): ContentSafeAreaInset {
+    return getWebApp()?.contentSafeAreaInset ?? { top: 0, bottom: 0, left: 0, right: 0 }
+  }
+
   return {
     getWebApp,
     getTgUser,
@@ -170,5 +322,20 @@ export function useTelegram() {
     showAlert,
     close: closeApp,
     expand: expandApp,
+    // Color customization
+    setHeaderColor,
+    setBackgroundColor,
+    setBottomBarColor,
+    // Swipe control
+    disableVerticalSwipes,
+    enableVerticalSwipes,
+    // Fullscreen
+    isVersionAtLeast,
+    isMobilePlatform,
+    requestFullscreen,
+    exitFullscreen,
+    isFullscreen,
+    getSafeAreaInset,
+    getContentSafeAreaInset,
   }
 }

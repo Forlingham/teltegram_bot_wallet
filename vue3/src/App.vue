@@ -38,12 +38,37 @@ if (newTgId && savedTgId && newTgId !== savedTgId) {
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
-const { setupBackButton, hideBackButton, showAlert, close: closeApp } = useTelegram()
+const { setupBackButton, hideBackButton, showAlert, close: closeApp,
+  setHeaderColor, setBackgroundColor, setBottomBarColor,
+  disableVerticalSwipes, enableVerticalSwipes,
+  isVersionAtLeast, isMobilePlatform, requestFullscreen, getWebApp,
+  getSafeAreaInset, getContentSafeAreaInset,
+} = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
 const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
+
+// Whether fullscreen mode is active (mobile only)
+const isAppFullscreen = ref(false)
+
+// Safe area CSS variables for fullscreen mode
+const safeTop = ref(0)
+const safeBottom = ref(0)
+const contentSafeTop = ref(0)
+
+function updateSafeAreaVars() {
+  const sa = getSafeAreaInset()
+  const csa = getContentSafeAreaInset()
+  safeTop.value = sa.top
+  safeBottom.value = sa.bottom
+  contentSafeTop.value = csa.top
+}
+
+function onSafeAreaChanged() {
+  updateSafeAreaVars()
+}
 
 // Fatal error modal (replaces Telegram showAlert for session errors)
 const showFatalModal = ref(false)
@@ -94,12 +119,9 @@ onMounted(() => {
   authStore.ensureSession().catch(handleBgError)
   authStore.handleUserSwitch().catch(() => {})
 
-  // Claim layout: skip wallet init to speed up entry
+  // Main layout init is handled here; claim layout init is deferred
+  // to the route watcher below (route may not be resolved yet at mount time).
   if (!isClaimLayout.value) {
-    // Fetch wallet home in background. If persisted data exists, render it immediately
-    // and silently refresh from server; otherwise fetch from server first.
-    // Always call fetchHome() to sync with server — the user may have created a wallet
-    // on another device, or migrated from the old EJS version.
     walletStore.fetchHome()
       .then(() => {
         if (walletStore.hasWallet) {
@@ -109,25 +131,16 @@ onMounted(() => {
       })
       .catch(handleBgError)
 
-    // Always refresh user info in background —
-    // if the account just switched, photoUrl/username were reset to null
-    // and we must fetch the new user's data.
     authStore.fetchMe().catch(handleBgError)
-
-    // Permission check in background (non-blocking)
     checkRoutePermission()
   }
 
-  // Claim page: back button closes the app
+  // Back button setup
   if (route.meta.backAsClose) {
     setupBackButton(() => closeApp())
-  }
-  // Top-level pages (with bottom nav): hide back button
-  else if (route.meta.activeNav) {
+  } else if (route.meta.activeNav) {
     hideBackButton()
-  }
-  // All other pages: normal back navigation
-  else {
+  } else {
     setupBackButton(() => window.history.back())
   }
 })
@@ -148,7 +161,69 @@ async function checkRoutePermission() {
   }
 }
 
+// ---- Global fullscreen setup (mobile only) ----
+let fullscreenSetupDone = false
+
+function setupFullscreen() {
+  if (fullscreenSetupDone) return
+  fullscreenSetupDone = true
+
+  const tg = getWebApp()
+  const mobile = isMobilePlatform()
+  console.log('[SCASH] Platform:', tg?.platform, 'version:', tg?.version, 'isMobile:', mobile)
+
+  if (!mobile) {
+    console.log('[SCASH] Desktop platform detected, skipping fullscreen')
+    return
+  }
+
+  // Disable vertical swipes on mobile (Bot API 7.7+)
+  disableVerticalSwipes()
+
+  // Request fullscreen mode on mobile (Bot API 8.0+)
+  try {
+    const ok = requestFullscreen()
+    console.log('[SCASH] requestFullscreen result:', ok)
+    isAppFullscreen.value = ok
+
+    if (ok && tg) {
+      tg.onEvent('safeAreaChanged', onSafeAreaChanged)
+      tg.onEvent('contentSafeAreaChanged', onSafeAreaChanged)
+      tg.onEvent('fullscreenChanged', onSafeAreaChanged)
+    }
+  } catch (e) {
+    console.warn('[SCASH] requestFullscreen failed:', e)
+  }
+
+  setTimeout(updateSafeAreaVars, 300)
+  updateSafeAreaVars()
+}
+
+// Apply page-specific theme colors based on current route
+function applyRouteTheme() {
+  if (isClaimLayout.value) {
+    // Claim page: dark theme to blend with red envelope background
+    const claimBgColor = '#0f0f13'
+    setHeaderColor(claimBgColor)
+    setBackgroundColor(claimBgColor)
+    setBottomBarColor(claimBgColor)
+  } else {
+    // Main layout: match the default wallet theme
+    setHeaderColor('#f5f7f9')
+    setBackgroundColor('#f5f7f9')
+    setBottomBarColor('#f5f7f9')
+  }
+}
+
+// Watch route changes: apply theme + trigger fullscreen on first resolved route.
+// Using immediate: true because route may not be resolved at onMounted time.
 watch(() => route.path, () => {
+  // Setup fullscreen once on first route resolution
+  setupFullscreen()
+  // Apply route-specific colors
+  applyRouteTheme()
+
+  // Back button
   if (route.meta.backAsClose) {
     setupBackButton(() => closeApp())
   } else if (route.meta.activeNav) {
@@ -156,11 +231,19 @@ watch(() => route.path, () => {
   } else {
     setupBackButton(() => window.history.back())
   }
-})
+}, { immediate: true })
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface text-on-surface flex flex-col">
+  <div
+    class="min-h-screen bg-surface text-on-surface flex flex-col"
+    :style="{
+      '--safe-area-top': safeTop + 'px',
+      '--safe-area-bottom': safeBottom + 'px',
+      '--content-safe-top': contentSafeTop + 'px',
+      '--total-safe-top': (safeTop + contentSafeTop) + 'px',
+    }"
+  >
     <!-- Claim layout: full-screen standalone, no header/nav/main wrapper -->
     <template v-if="isClaimLayout">
       <RouterView />

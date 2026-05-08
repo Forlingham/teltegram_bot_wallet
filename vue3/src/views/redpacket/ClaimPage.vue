@@ -560,10 +560,10 @@ onMounted(() => {
   --text-sub: rgba(17,24,39,0.72);
 }
 
-/* Fixed controls */
+/* Fixed controls — use safe area vars from ClaimLayout for fullscreen mode */
 .close-btn {
   position: fixed;
-  top: 14px;
+  top: calc(14px + var(--total-safe-top, 0px));
   right: 14px;
   z-index: 60;
   width: 36px;
@@ -581,7 +581,7 @@ onMounted(() => {
 }
 .home-btn {
   position: fixed;
-  top: 14px;
+  top: calc(14px + var(--total-safe-top, 0px));
   left: 14px;
   z-index: 60;
   min-width: 36px;
@@ -598,13 +598,15 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Full-screen center for loading/error */
+/* Full-screen center for loading/error — respect safe areas */
 .fullscreen-center {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding-top: var(--total-safe-top, 0px);
+  padding-bottom: var(--safe-area-bottom, 0px);
 }
 .btn-brand {
   padding: 10px 24px;
@@ -697,7 +699,7 @@ onMounted(() => {
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* Envelope section — exactly one viewport tall, centered */
+/* Envelope section — exactly one viewport tall, centered, respects safe area */
 .envelope-section {
   height: 100vh;
   display: flex;
@@ -705,6 +707,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
+  padding-top: var(--total-safe-top, 0px);
+  padding-bottom: var(--safe-area-bottom, 0px);
 }
 
 .perspective-container {
@@ -1019,7 +1023,7 @@ onMounted(() => {
 /* Scroll hint */
 .scroll-hint {
   position: absolute;
-  bottom: 16px;
+  bottom: calc(16px + var(--safe-area-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1040,7 +1044,7 @@ onMounted(() => {
 
 /* Details section — below the fold */
 .details-section {
-  padding: 24px 16px 40px;
+  padding: 24px 16px calc(40px + var(--safe-area-bottom, 0px));
   min-height: 40vh;
 }
 
@@ -1147,7 +1151,7 @@ onMounted(() => {
 /* Wallet guide */
 .wallet-guide {
   position: absolute;
-  bottom: 60px;
+  bottom: calc(60px + var(--safe-area-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 48px);
