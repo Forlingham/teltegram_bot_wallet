@@ -1,6 +1,31 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 
+// ---- Session error detection ----
+/**
+ * Check if an error message indicates a session/auth expiry.
+ * Uses precise patterns to avoid false positives from business errors
+ * like "red packet expired".
+ */
+function isSessionError(msg: string): boolean {
+  const m = msg.toLowerCase()
+  return (
+    m.includes('initdata expired') ||
+    m.includes('会话已过期') ||
+    m.includes('登录状态已过期') ||
+    m.includes('登录信息已过期') ||
+    m.includes('session expired') ||
+    m.includes('session has expired') ||
+    m.includes('token expired') ||
+    m.includes('token has expired') ||
+    m.includes('invalid session') ||
+    m.includes('invalid token') ||
+    m.includes('unauthorized') ||
+    m.includes('请重新打开') ||
+    (m.includes('replay') && (m.includes('init') || m.includes('auth') || m.includes('session')))
+  )
+}
+
 // ---- Anti-automation helpers ----
 function generateToken(length = 8): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -89,8 +114,11 @@ const settled = ref(false)
 const claims = ref<Claim[]>([])
 
 // Session/token validity guard: once we detect an expired/invalid session,
-// permanently lock the claim button so the user can't waste rate-limit attempts.
+// lock the claim button. The user can still retry by closing the modal.
 const sessionExpired = ref(false)
+// Track how many consecutive session failures we've seen
+const sessionRetryCount = ref(0)
+const MAX_SESSION_RETRIES = 2
 
 // Fatal error modal (replaces Telegram showAlert for session errors)
 const showFatalModal = ref(false)
@@ -204,9 +232,9 @@ async function claimPacket() {
   // Guard: must have hash, not already claiming, and allowed to claim
   if (!packetHash.value || claiming.value || !canClaim.value) return
 
-  // If session was previously detected as expired, show a friendly hint
-  // without sending any network request (protects rate-limit quota).
-  if (sessionExpired.value) {
+  // If session was previously detected as expired and retries exhausted,
+  // show a friendly hint without sending any network request.
+  if (sessionExpired.value && sessionRetryCount.value >= MAX_SESSION_RETRIES) {
     openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
     return
   }
@@ -222,6 +250,7 @@ async function claimPacket() {
     const initData = getInitData()
     if (!initData) {
       sessionExpired.value = true
+      sessionRetryCount.value = MAX_SESSION_RETRIES // No initData = no recovery possible
       openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
       return
     }
@@ -230,6 +259,11 @@ async function claimPacket() {
       `/api/redpacket/${encodeURIComponent(packetHash.value)}/claim`,
       { initData }
     )
+
+    // Success — reset session error state
+    sessionExpired.value = false
+    sessionRetryCount.value = 0
+
     claimedAmount.value = result.amount || '0'
     alreadyClaimed.value = true
     canClaim.value = false
@@ -238,20 +272,18 @@ async function claimPacket() {
     if (result.claims) claims.value = result.claims
   } catch (e: any) {
     const msg = e?.message || ''
-    const lowerMsg = msg.toLowerCase()
 
-    // Session/token errors: mark session as expired so subsequent clicks
-    // show a friendly hint instead of wasting rate-limit attempts.
-    if (
-      lowerMsg.includes('initdata expired') ||
-      lowerMsg.includes('会话已过期') ||
-      lowerMsg.includes('replay') ||
-      lowerMsg.includes('token') ||
-      lowerMsg.includes('unauthorized') ||
-      lowerMsg.includes('auth')
-    ) {
-      sessionExpired.value = true
-      openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+    // Session/token errors: use precise matching to avoid false positives
+    // from business errors like "red packet expired".
+    if (isSessionError(msg)) {
+      sessionRetryCount.value++
+      if (sessionRetryCount.value >= MAX_SESSION_RETRIES) {
+        sessionExpired.value = true
+        openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+      } else {
+        // First failure: show a transient alert, allow retry
+        await showAlert('会话验证失败，请再试一次')
+      }
       return
     }
 

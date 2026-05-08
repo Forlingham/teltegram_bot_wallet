@@ -72,7 +72,16 @@ export const useAuthStore = defineStore('auth', () => {
     const loginJson = await loginRes.json()
     if (!loginRes.ok || !loginJson.success) {
       const errMsg = loginJson.error?.message || '登录失败'
-      if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
+      const lowerMsg = errMsg.toLowerCase()
+      // Detect initData expiry / replay — these are unrecoverable without
+      // the user closing and re-opening the Mini App.
+      if (
+        lowerMsg.includes('replay') ||
+        lowerMsg.includes('initdata expired') ||
+        lowerMsg.includes('expired') ||
+        lowerMsg.includes('init_data') ||
+        lowerMsg.includes('authorization')
+      ) {
         throw new Error('登录信息已过期，请重新打开 Mini App')
       }
       if (loginRes.status >= 500) {

@@ -50,16 +50,37 @@ const showFatalModal = ref(false)
 const fatalModalTitle = ref('')
 const fatalModalMessage = ref('')
 
+// Background auth retry state
+let bgAuthRetryCount = 0
+const MAX_BG_AUTH_RETRIES = 2
+
 function openFatalModal(title: string, message: string) {
   fatalModalTitle.value = title
   fatalModalMessage.value = message
   showFatalModal.value = true
 }
 
-function handleBgError(e: any) {
+async function handleBgError(e: any) {
   const msg = e?.message || ''
   // Only alert for fatal errors that auto-refresh cannot fix.
   if (msg.includes('重新打开') || msg.includes('无法获取 Telegram')) {
+    bgAuthRetryCount++
+
+    // On the first failure, silently retry once after a short delay —
+    // Telegram WebApp SDK may still be initializing (slow load).
+    if (bgAuthRetryCount <= MAX_BG_AUTH_RETRIES) {
+      await new Promise(r => setTimeout(r, 1500))
+      try {
+        await authStore.ensureSession()
+        // Success — reset counter
+        bgAuthRetryCount = 0
+        return
+      } catch {
+        // Still failing — fall through to show modal if retries exhausted
+        if (bgAuthRetryCount < MAX_BG_AUTH_RETRIES) return
+      }
+    }
+
     openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
   }
 }

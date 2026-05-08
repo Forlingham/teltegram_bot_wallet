@@ -10,10 +10,19 @@ const { hideBackButton } = useTelegram()
 onMounted(async () => {
   await networkStore.fetchEnv()
 
+  // Attempt session login with one retry.
+  // The first attempt may fail if Telegram WebApp SDK is still initializing
+  // (initData not yet available). Wait briefly and try again.
   try {
     await authStore.ensureSession()
   } catch (e) {
-    console.error('Claim page auth failed:', e)
+    console.warn('Claim page auth first attempt failed, retrying...', e)
+    await new Promise(r => setTimeout(r, 1000))
+    try {
+      await authStore.ensureSession()
+    } catch (e2) {
+      console.error('Claim page auth retry also failed:', e2)
+    }
   }
 
   hideBackButton()

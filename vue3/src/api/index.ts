@@ -1,8 +1,30 @@
 import { useAuthStore } from '@/stores/auth'
+import { useTelegram } from '@/composables/useTelegram'
 import router from '@/router'
 
 const BASE_URL = ''
 const REQUEST_TIMEOUT_MS = 30000
+
+/**
+ * Check if an error message indicates a session/auth expiry (as opposed to
+ * a business-level "expired" such as "red packet expired").
+ */
+function isSessionExpiredError(msg: string): boolean {
+  const m = msg.toLowerCase()
+  return (
+    m.includes('initdata expired') ||
+    m.includes('会话已过期') ||
+    m.includes('登录信息已过期') ||
+    m.includes('session expired') ||
+    m.includes('session has expired') ||
+    m.includes('token expired') ||
+    m.includes('token has expired') ||
+    m.includes('invalid session') ||
+    m.includes('invalid token') ||
+    // Telegram initData replay attack detection
+    (m.includes('replay') && (m.includes('init') || m.includes('auth') || m.includes('session')))
+  )
+}
 
 export interface ApiError {
   status: number
@@ -146,9 +168,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }, REQUEST_TIMEOUT_MS)
 
     if (res.status === 401) {
-      // Session expired on server — clear local cache and proactively refresh.
-      // ensureSession() now auto-refreshes when near expiry, so this path
-      // should rarely be needed.  If it still fails, the error propagates.
+      // Session expired on server — clear local cache and attempt re-login.
+      // Before retrying, check that Telegram initData is still available;
+      // if not, there's no point in calling ensureSession() since doLogin()
+      // will inevitably fail with the same stale initData.
+      const { getInitData } = useTelegram()
+      const initData = getInitData()
+      if (!initData) {
+        const err: ApiError = { status: 401, message: '登录状态已过期，请关闭并重新打开 Mini App' }
+        throw err
+      }
+
       const uid = authStore.currentTgUserId
       localStorage.removeItem('SCASH_SESSION_TOKEN')
       localStorage.removeItem('SCASH_TG_USER_ID')
@@ -156,13 +186,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (uid) localStorage.removeItem('SCASH_TOKEN_' + uid)
       authStore.sessionToken = ''
 
-      const newToken = await authStore.ensureSession()
-      headers['x-session-token'] = newToken
+      try {
+        const newToken = await authStore.ensureSession()
+        headers['x-session-token'] = newToken
 
-      res = await fetchWithTimeout(BASE_URL + path, {
-        ...options,
-        headers,
-      }, REQUEST_TIMEOUT_MS)
+        res = await fetchWithTimeout(BASE_URL + path, {
+          ...options,
+          headers,
+        }, REQUEST_TIMEOUT_MS)
+      } catch (retryErr: any) {
+        // Re-login failed (e.g. initData expired on server side) —
+        // throw a clear session error instead of a cryptic message.
+        const retryMsg = retryErr?.message || ''
+        if (isSessionExpiredError(retryMsg) || retryMsg.includes('重新打开') || retryMsg.includes('无法获取 Telegram')) {
+          const err: ApiError = { status: 401, message: '登录状态已过期，请关闭并重新打开 Mini App' }
+          throw err
+        }
+        throw retryErr
+      }
     }
 
     let json: any
@@ -175,7 +216,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     if (!res.ok || !json.success) {
       const errMsg = json.error?.message || '请求失败'
-      if (errMsg.toLowerCase().includes('replay') || errMsg.toLowerCase().includes('expired')) {
+      if (isSessionExpiredError(errMsg)) {
         const err: ApiError = { status: res.status, message: '会话已过期，请关闭并重新打开 Mini App' }
         throw err
       }
