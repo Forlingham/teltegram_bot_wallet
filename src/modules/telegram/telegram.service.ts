@@ -48,19 +48,14 @@ export class TelegramService implements OnModuleInit {
     return ctx.chat?.type === 'private';
   }
 
-  private getButton(ctx: Context, text: string, url: string) {
-    if (this.isPrivateChat(ctx)) {
-      return { text, web_app: { url } };
-    }
-    return { text, url };
-  }
-
   private registerCommands() {
     if (!this.bot) return;
 
     const miniAppUrl = this.getMiniAppUrl();
 
     this.bot.start((ctx) => {
+      if (!this.isPrivateChat(ctx)) return;
+      
       try {
         ctx.reply(
           '🎉 欢迎使用 SCASH 红包钱包！\n\n' +
@@ -72,7 +67,7 @@ export class TelegramService implements OnModuleInit {
           {
             reply_markup: {
               inline_keyboard: [
-                [this.getButton(ctx, '💰 打开钱包', miniAppUrl)],
+                [{ text: '💰 打开钱包', web_app: { url: miniAppUrl } }],
               ],
             },
           }
@@ -83,6 +78,8 @@ export class TelegramService implements OnModuleInit {
     });
 
     this.bot.command('balance', async (ctx) => {
+      if (!this.isPrivateChat(ctx)) return;
+      
       try {
         const telegramId = ctx.from.id.toString();
         
@@ -103,7 +100,7 @@ export class TelegramService implements OnModuleInit {
             {
               reply_markup: {
                 inline_keyboard: [
-                  [this.getButton(ctx, '💰 创建钱包', miniAppUrl)],
+                  [{ text: '💰 创建钱包', web_app: { url: miniAppUrl } }],
                 ],
               },
             }
@@ -135,7 +132,7 @@ export class TelegramService implements OnModuleInit {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [this.getButton(ctx, '📱 打开钱包详情', miniAppUrl)],
+                [{ text: '📱 打开钱包详情', web_app: { url: miniAppUrl } }],
               ],
             },
           }
