@@ -40,8 +40,8 @@ const networkStore = useNetworkStore()
 const priceStore = usePriceStore()
 const { setupBackButton, hideBackButton, showAlert, close: closeApp,
   setHeaderColor, setBackgroundColor, setBottomBarColor,
-  disableVerticalSwipes, enableVerticalSwipes,
-  isVersionAtLeast, isMobilePlatform, requestFullscreen, getWebApp,
+  disableVerticalSwipes,
+  isMobilePlatform, requestFullscreen, getWebApp,
   getSafeAreaInset, getContentSafeAreaInset,
 } = useTelegram()
 
