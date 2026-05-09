@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Telegraf } from 'telegraf';
+import { Telegraf, Context } from 'telegraf';
 import { PrismaService } from '../../prisma/prisma.service';
 import { satoshiToScash, scashToSatoshi } from '../../common/utils/money.util';
 
@@ -23,6 +23,12 @@ export class TelegramService implements OnModuleInit {
 
     this.bot = new Telegraf(token);
     this.registerCommands();
+    
+    this.bot.catch((err, ctx) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Bot error for ${ctx.updateType}: ${message}`);
+    });
+
     this.bot.launch();
     this.logger.log('Telegram bot started');
 
@@ -38,86 +44,106 @@ export class TelegramService implements OnModuleInit {
       : this.configService.get<string>('MINIAPP_URL', 'https://ttt.scash.network');
   }
 
+  private isPrivateChat(ctx: Context): boolean {
+    return ctx.chat?.type === 'private';
+  }
+
+  private getButton(ctx: Context, text: string, url: string) {
+    if (this.isPrivateChat(ctx)) {
+      return { text, web_app: { url } };
+    }
+    return { text, url };
+  }
+
   private registerCommands() {
     if (!this.bot) return;
 
     const miniAppUrl = this.getMiniAppUrl();
 
     this.bot.start((ctx) => {
-      ctx.reply(
-        '🎉 欢迎使用 SCASH 红包钱包！\n\n' +
-        '这是一个基于 Scash 区块链的红包钱包，你可以：\n' +
-        '• 发送和接收 SCASH 红包\n' +
-        '• 管理你的钱包\n' +
-        '• 查看交易记录\n\n' +
-        '点击下方按钮打开钱包 👇',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '💰 打开钱包', web_app: { url: miniAppUrl } }],
-            ],
-          },
-        }
-      );
-    });
-
-    this.bot.command('balance', async (ctx) => {
-      const telegramId = ctx.from.id.toString();
-      
-      const user = await this.prisma.user.findUnique({
-        where: { telegramId },
-        include: { wallet: true },
-      });
-
-      if (!user) {
-        ctx.reply('❌ 请先使用 /start 命令开始');
-        return;
-      }
-
-      if (!user.wallet) {
+      try {
         ctx.reply(
-          '❌ 你还没有钱包\n\n' +
-          '点击下方按钮创建钱包 👇',
+          '🎉 欢迎使用 SCASH 红包钱包！\n\n' +
+          '这是一个基于 Scash 区块链的红包钱包，你可以：\n' +
+          '• 发送和接收 SCASH 红包\n' +
+          '• 管理你的钱包\n' +
+          '• 查看交易记录\n\n' +
+          '点击下方按钮打开钱包 👇',
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💰 创建钱包', web_app: { url: miniAppUrl } }],
+                [this.getButton(ctx, '💰 打开钱包', miniAppUrl)],
               ],
             },
           }
         );
-        return;
+      } catch (error) {
+        this.logger.error(`Error in /start command: ${error instanceof Error ? error.message : String(error)}`);
       }
+    });
 
-      const utxos = await this.prisma.utxo.findMany({
-        where: {
-          address: user.wallet.address,
-          isSpent: false,
-        },
-      });
+    this.bot.command('balance', async (ctx) => {
+      try {
+        const telegramId = ctx.from.id.toString();
+        
+        const user = await this.prisma.user.findUnique({
+          where: { telegramId },
+          include: { wallet: true },
+        });
 
-      const totalSatoshi = utxos.reduce((sum, item) => {
-        return sum + scashToSatoshi(item.amount.toString());
-      }, 0n);
-
-      const balance = satoshiToScash(totalSatoshi);
-      const address = user.wallet.address;
-      const shortAddress = `${address.slice(0, 8)}...${address.slice(-6)}`;
-
-      ctx.reply(
-        `💰 钱包余额\n\n` +
-        `地址: \`${shortAddress}\`\n` +
-        `余额: ${balance} SCASH\n` +
-        `UTXO 数量: ${utxos.length}`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📱 打开钱包详情', web_app: { url: miniAppUrl } }],
-            ],
-          },
+        if (!user) {
+          ctx.reply('❌ 请先使用 /start 命令开始');
+          return;
         }
-      );
+
+        if (!user.wallet) {
+          ctx.reply(
+            '❌ 你还没有钱包\n\n' +
+            '点击下方按钮创建钱包 👇',
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [this.getButton(ctx, '💰 创建钱包', miniAppUrl)],
+                ],
+              },
+            }
+          );
+          return;
+        }
+
+        const utxos = await this.prisma.utxo.findMany({
+          where: {
+            address: user.wallet.address,
+            isSpent: false,
+          },
+        });
+
+        const totalSatoshi = utxos.reduce((sum, item) => {
+          return sum + scashToSatoshi(item.amount.toString());
+        }, 0n);
+
+        const balance = satoshiToScash(totalSatoshi);
+        const address = user.wallet.address;
+        const shortAddress = `${address.slice(0, 8)}...${address.slice(-6)}`;
+
+        ctx.reply(
+          `💰 钱包余额\n\n` +
+          `地址: \`${shortAddress}\`\n` +
+          `余额: ${balance} SCASH\n` +
+          `UTXO 数量: ${utxos.length}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [this.getButton(ctx, '📱 打开钱包详情', miniAppUrl)],
+              ],
+            },
+          }
+        );
+      } catch (error) {
+        this.logger.error(`Error in /balance command: ${error instanceof Error ? error.message : String(error)}`);
+        ctx.reply('❌ 查询余额失败，请稍后重试').catch(() => {});
+      }
     });
   }
 
