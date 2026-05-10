@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import { useAuthStore, useWalletStore, useNetworkStore, usePriceStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
 import { useI18n } from '@/i18n'
-import { onMounted, watch } from 'vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -14,12 +14,28 @@
  * This module is intentionally dependency-free to avoid pulling in
  * `vue-i18n`. It exposes a `useI18n()` composable shaped similarly to
  * `vue-i18n` so view code reads naturally (`const { t, locale } = useI18n()`).
+ *
+ * ---- Boot-safety notes ----
+ * Everything a consumer imports from here must be safe to evaluate before
+ * the Vue app is created. That means:
+ *   - NO module-level `watch()` / `effect()` calls.
+ *   - NO `createApp` / component instantiation.
+ *   - Side effects (localStorage, document.documentElement.lang) happen
+ *     lazily inside `setLocale` / `createI18n().install`, never at import.
+ *
+ * ---- Bundle-size notes ----
+ * Only the English dictionary is statically imported (needed as the
+ * synchronous fallback for any t() call). The zh-CN and ru dictionaries
+ * are loaded via dynamic import() so they end up in separate chunks and
+ * don't bloat the initial bundle. Once the active locale's dictionary
+ * has loaded, t() starts returning its strings; until then, it falls
+ * back to English — so users see English for a frame or two on a cold
+ * non-English launch. That's a fair trade for a faster TTI on slow
+ * connections (Telegram WebView, mobile data, etc.).
  */
-import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
 import en from './locales/en'
-import zhCN from './locales/zh-CN'
-import ru from './locales/ru'
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
@@ -29,15 +45,39 @@ import {
 
 const STORAGE_KEY = 'SCASH_LOCALE'
 
-const MESSAGES: Record<Locale, Messages> = {
-  'zh-CN': zhCN,
+// Only English is bundled up-front; others load on demand.
+const MESSAGES: Record<Locale, Messages | null> = {
   en,
-  ru,
+  'zh-CN': null,
+  ru: null,
 }
 
-// ---- Reactive locale ----
+// Loader promises, so concurrent t() calls don't trigger duplicate imports.
+const LOADERS: Record<Locale, (() => Promise<Messages>) | null> = {
+  en: null, // already loaded synchronously
+  'zh-CN': () => import('./locales/zh-CN').then((m) => m.default),
+  ru: () => import('./locales/ru').then((m) => m.default),
+}
 
-const locale = ref<Locale>(resolveInitialLocale())
+const loadPromises: Partial<Record<Locale, Promise<void>>> = {}
+
+function loadLocaleMessages(l: Locale): Promise<void> {
+  if (MESSAGES[l]) return Promise.resolve()
+  if (loadPromises[l]) return loadPromises[l]!
+  const loader = LOADERS[l]
+  if (!loader) return Promise.resolve()
+  const p = loader()
+    .then((m) => {
+      MESSAGES[l] = m
+    })
+    .catch((err) => {
+      // If a non-English chunk fails to load, leave MESSAGES[l] as null;
+      // the English fallback inside t() will keep the UI usable.
+      console.error('[i18n] Failed to load locale', l, err)
+    })
+  loadPromises[l] = p
+  return p
+}
 
 function isSupported(code: string | undefined | null): code is Locale {
   return !!code && (SUPPORTED_LOCALES as string[]).includes(code)
@@ -45,11 +85,6 @@ function isSupported(code: string | undefined | null): code is Locale {
 
 /**
  * Normalise an arbitrary BCP-47 language tag to one of our supported locales.
- * Examples:
- *   "zh-Hans-CN" -> "zh-CN"
- *   "zh"         -> "zh-CN"
- *   "en-US"      -> "en"
- *   "ru-RU"      -> "ru"
  */
 function normalise(tag: string | undefined | null): Locale | null {
   if (!tag) return null
@@ -86,7 +121,7 @@ function detectFromNavigator(): Locale | null {
 function resolveInitialLocale(): Locale {
   // 1. Explicit user choice from a previous session.
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
     if (isSupported(saved)) return saved
   } catch {}
 
@@ -102,19 +137,35 @@ function resolveInitialLocale(): Locale {
   return DEFAULT_LOCALE
 }
 
-// Persist any change so reloads remember the user's selection.
-watch(locale, (val) => {
+// ---- Reactive locale (module singleton) ----
+// A plain ref — no watchers, no effects, no side effects at module load.
+const locale = ref<Locale>(resolveInitialLocale())
+
+// Kick off loading of the initial locale, but DO NOT await it — the module
+// must remain synchronously importable. t() will fall back to English
+// until the dictionary arrives, then flips automatically via the reactive
+// locale ref.
+if (locale.value !== 'en') {
+  loadLocaleMessages(locale.value)
+}
+
+// Apply initial side-effects lazily from the first plugin install so that
+// module evaluation itself never touches document.
+let htmlLangApplied = false
+function applyHtmlLangOnce() {
+  if (htmlLangApplied) return
+  htmlLangApplied = true
   try {
-    localStorage.setItem(STORAGE_KEY, val)
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = val
+      document.documentElement.lang = locale.value
     }
   } catch {}
-}, { immediate: true })
+}
 
 // ---- Message resolution ----
 
-function resolveKey(msgs: Messages, key: string): string | undefined {
+function resolveKey(msgs: Messages | null, key: string): string | undefined {
+  if (!msgs) return undefined
   const parts = key.split('.')
   let cur: any = msgs
   for (const part of parts) {
@@ -163,16 +214,31 @@ export function useI18n(): {
 
 export function setLocale(l: Locale) {
   if (!isSupported(l)) return
-  locale.value = l
+  // Ensure the dictionary is loaded before flipping the reactive locale;
+  // otherwise users briefly see English strings after clicking a language
+  // they haven't used before.
+  loadLocaleMessages(l).then(() => {
+    locale.value = l
+    try {
+      localStorage.setItem(STORAGE_KEY, l)
+    } catch {}
+    try {
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = l
+      }
+    } catch {}
+  })
 }
 
 /**
  * Global install — exposes `$t` and `$locale` to all components so plain
  * `<template>` interpolation works without importing `useI18n` everywhere.
+ * Also applies the initial html lang attribute.
  */
 export function createI18n() {
   return {
     install(app: import('vue').App) {
+      applyHtmlLangOnce()
       app.config.globalProperties.$t = t
       app.config.globalProperties.$locale = locale
       app.provide('i18n', { t, locale, setLocale })
