@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { useCrypto } from '@/composables/useCrypto'
 import { useWalletStore } from '@/stores'
 import { api } from '@/api'
+import { useI18n } from '@/i18n'
 
 const router = useRouter()
 const { generateMnemonic, deriveAddress, encryptMnemonic } = useCrypto()
 const walletStore = useWalletStore()
+const { t } = useI18n()
 
 const password = ref('')
 const confirm = ref('')
@@ -17,11 +19,11 @@ const loading = ref(false)
 const handleSubmit = async () => {
   errorMsg.value = ''
   if (password.value.length < 8) {
-    errorMsg.value = '密码长度不能少于8位'
+    errorMsg.value = t('create.errorTooShort')
     return
   }
   if (password.value !== confirm.value) {
-    errorMsg.value = '两次密码输入不一致'
+    errorMsg.value = t('create.errorMismatch')
     return
   }
 
@@ -51,7 +53,7 @@ const handleSubmit = async () => {
     await walletStore.fetchHome()
     router.push('/wallet')
   } catch (e: any) {
-    errorMsg.value = e.message || '创建失败'
+    errorMsg.value = e.message || t('create.errorCreateFailed')
     loading.value = false
   }
 }
@@ -69,20 +71,20 @@ const handleSubmit = async () => {
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
 
       <div class="relative z-10 mb-8">
-        <h1 class="font-headline text-2xl font-bold text-on-surface mb-3 tracking-tight">创建钱包</h1>
+        <h1 class="font-headline text-2xl font-bold text-on-surface mb-3 tracking-tight">{{ t('create.title') }}</h1>
         <p class="text-on-surface-variant text-sm leading-relaxed font-medium">
-          只需设置一个密码，系统会自动生成助记词并创建钱包。助记词加密后仅保存在你的账号下，换设备可恢复。
+          {{ t('create.description') }}
         </p>
       </div>
 
       <form class="space-y-6 relative z-10" @submit.prevent="handleSubmit">
         <div class="space-y-2">
-          <label class="text-xs font-bold text-on-surface-variant tracking-wider uppercase ml-1">设置钱包密码</label>
+          <label class="text-xs font-bold text-on-surface-variant tracking-wider uppercase ml-1">{{ t('create.labelPassword') }}</label>
           <div class="relative group">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <span class="material-symbols-outlined text-outline text-lg">lock</span>
             </div>
-            <input v-model="password" class="w-full pl-11 pr-4 py-4 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant font-medium text-sm" placeholder="请输入密码（不少于8位）" type="password" autocomplete="off" />
+            <input v-model="password" class="w-full pl-11 pr-4 py-4 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant font-medium text-sm" :placeholder="t('create.placeholderPassword')" type="password" autocomplete="off" />
           </div>
         </div>
 
@@ -91,15 +93,15 @@ const handleSubmit = async () => {
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <span class="material-symbols-outlined text-outline text-lg">verified_user</span>
             </div>
-            <input v-model="confirm" class="w-full pl-11 pr-4 py-4 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant font-medium text-sm" placeholder="再次输入密码确认" type="password" autocomplete="off" />
+            <input v-model="confirm" class="w-full pl-11 pr-4 py-4 bg-surface-container-high rounded-lg border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant font-medium text-sm" :placeholder="t('create.placeholderConfirm')" type="password" autocomplete="off" />
           </div>
         </div>
 
         <button type="submit" :disabled="loading" class="w-full py-4 primary-gradient text-on-primary rounded-full font-bold font-headline text-base shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 mt-2 disabled:opacity-60 disabled:cursor-not-allowed">
           <span v-if="loading" class="material-symbols-outlined text-xl animate-spin-fast">progress_activity</span>
-          <span v-if="loading">生成中…</span>
+          <span v-if="loading">{{ t('create.submitting') }}</span>
           <template v-else>
-            <span>创建钱包</span>
+            <span>{{ t('create.submit') }}</span>
             <span class="material-symbols-outlined text-xl">arrow_forward</span>
           </template>
         </button>
@@ -110,7 +112,7 @@ const handleSubmit = async () => {
       <div class="mt-8 flex items-start gap-3 p-4 bg-surface-container-low rounded-lg">
         <span class="material-symbols-outlined text-tertiary text-lg" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
         <p class="text-[11px] text-on-tertiary-fixed-variant leading-normal font-semibold">
-          安全提示：telegram miniApp 不会存储您的明文密码。请务必牢记密码，如若遗失将失去你的全部资产。
+          {{ t('create.securityNote') }}
         </p>
       </div>
     </div>
@@ -118,7 +120,7 @@ const handleSubmit = async () => {
     <div class="mt-8 text-center">
       <router-link to="/wallet/import" class="text-on-surface-variant font-bold text-sm hover:text-primary transition-colors flex items-center gap-2 mx-auto">
         <span class="material-symbols-outlined text-lg">settings_backup_restore</span>
-        已有助记词？导入钱包
+        {{ t('create.switchToImport') }}
       </router-link>
     </div>
   </main>

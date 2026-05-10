@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from '@/i18n'
 
 const props = defineProps<{
   modelValue: boolean
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 
 const password = ref('')
 const showPasswordToggle = ref(false)
+const { t } = useI18n()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -46,14 +48,14 @@ const handleClose = () => {
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="handleClose" />
         <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl">
           <h3 class="font-headline text-lg font-bold text-on-surface mb-4">
-            {{ title || '输入密码' }}
+            {{ title || t('password.title') }}
           </h3>
 
           <div class="relative mb-4">
             <input
               v-model="password"
               :type="showPasswordToggle ? 'text' : 'password'"
-              placeholder="请输入密码"
+              :placeholder="t('password.placeholder')"
               class="w-full px-4 py-3 bg-surface border border-outline-variant rounded-xl text-on-surface focus:border-primary focus:outline-none transition-colors pr-10"
               :class="{ 'border-error': errorMessage }"
               @keyup.enter="handleConfirm"
@@ -74,7 +76,7 @@ const handleClose = () => {
               :disabled="loading"
               @click="handleClose"
             >
-              取消
+              {{ t('password.cancel') }}
             </button>
             <button
               class="flex-1 py-2.5 rounded-xl primary-gradient text-white font-semibold active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
@@ -82,7 +84,7 @@ const handleClose = () => {
               @click="handleConfirm"
             >
               <span v-if="loading" class="spinner-sm mr-1"></span>
-              {{ confirmText || '确认' }}
+              {{ confirmText || t('password.confirm') }}
             </button>
           </div>
         </div>

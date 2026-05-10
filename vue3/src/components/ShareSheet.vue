@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 import QrcodeVue from 'qrcode.vue'
 
 const props = defineProps<{
@@ -28,6 +29,7 @@ const visible = computed({
 
 const authStore = useAuthStore()
 const tg = useTelegram()
+const { t } = useI18n()
 
 const resolvedSenderName = computed(() => {
   return props.senderName
@@ -35,7 +37,7 @@ const resolvedSenderName = computed(() => {
     || authStore.username
     || tg.getTgUser()?.first_name
     || tg.getTgUser()?.username
-    || '神秘好友'
+    || t('redpacketClaim.unknownSender')
 })
 
 const resolvedSenderAvatar = computed(() => {
@@ -45,7 +47,7 @@ const resolvedSenderAvatar = computed(() => {
     || ''
 })
 
-const resolvedMessage = computed(() => props.message || '恭喜发财，大吉大利')
+const resolvedMessage = computed(() => props.message || t('redpacketCreate.defaultBless'))
 const resolvedExpireSeconds = computed(() => props.expireSeconds || 86400)
 
 const createdAtDisplay = computed(() => {
@@ -82,7 +84,7 @@ async function copyToClipboard(text: string) {
 
 function shareTo(platform: string) {
   const url = encodeURIComponent(props.shareUrl)
-  const text = encodeURIComponent('🧧 我发了一个SCASH红包，快来领取！')
+  const text = encodeURIComponent(t('share.shareText'))
   let target = ''
 
   switch (platform) {
@@ -102,8 +104,8 @@ function shareTo(platform: string) {
     case 'native':
       if (navigator.share) {
         navigator.share({
-          title: 'SCASH 红包',
-          text: '我发了一个SCASH红包，快来领取！',
+          title: t('share.title'),
+          text: t('share.shareText'),
           url: props.shareUrl,
         }).catch(() => {})
       }
@@ -156,9 +158,9 @@ watch(visible, (v) => {
               <div class="bg-gradient-to-b from-[#8B2BE2] to-[#7119c4] pt-4 pb-9 px-3 text-center relative">
                 <div class="flex justify-center items-center gap-1.5 mb-0.5">
                   <img src="/img/logo-128x128.png" alt="SCASH" class="w-5 h-5 rounded-full border border-white/20 shadow-sm" />
-                  <h1 class="text-white text-base font-bold tracking-wide">SCASH 红包</h1>
+                  <h1 class="text-white text-base font-bold tracking-wide">{{ t('share.title') }}</h1>
                 </div>
-                <p class="text-purple-200/90 text-[9px] font-light tracking-widest">Blockchain Red Packet</p>
+                <p class="text-purple-200/90 text-[9px] font-light tracking-widest">{{ t('share.blockchainSubtitle') }}</p>
               </div>
 
               <!-- 2. White main card (floats upward) -->
@@ -182,14 +184,14 @@ watch(visible, (v) => {
                 <!-- Name & time -->
                 <h2 class="text-gray-800 font-bold text-[14px] mt-3">@{{ resolvedSenderName }}</h2>
                 <div class="text-[9px] text-gray-400 text-center mt-0.5 leading-tight">
-                  <p>创建: {{ createdAtDisplay.created }}</p>
-                  <p>过期: {{ createdAtDisplay.expired }}</p>
+                  <p>{{ t('share.createdAt') }}: {{ createdAtDisplay.created }}</p>
+                  <p>{{ t('share.expiredAt') }}: {{ createdAtDisplay.expired }}</p>
                 </div>
 
                 <!-- Amount -->
                 <div class="mt-2 flex flex-col items-center">
                   <span class="text-[28px] leading-none font-black text-[#e83e3e] tracking-tight">{{ amount }}</span>
-                  <p class="text-gray-500 text-[10px] mt-0.5">SCASH · 共 {{ count }} 个红包</p>
+                  <p class="text-gray-500 text-[10px] mt-0.5">{{ t('share.totalCount', { count }) }}</p>
                 </div>
 
                 <!-- Ticket divider -->
@@ -210,11 +212,11 @@ watch(visible, (v) => {
 
               <!-- 3. Footer -->
               <div class="mt-2 text-center space-y-0.5">
-                <p class="text-gray-500 text-[10px] font-medium">长按识别二维码 · 进入 Telegram 领取</p>
-                <p class="text-[#c1b8d2] text-[8px] uppercase tracking-widest font-semibold">Powered by SCASH Network</p>
+                <p class="text-gray-500 text-[10px] font-medium">{{ t('share.longPress') }}</p>
+                <p class="text-[#c1b8d2] text-[8px] uppercase tracking-widest font-semibold">{{ t('share.poweredBy') }}</p>
               </div>
             </div>
-            <p class="text-center text-[10px] text-white/60 mt-1.5">点击海报查看大图</p>
+            <p class="text-center text-[10px] text-white/60 mt-1.5">{{ t('share.tapToEnlarge') }}</p>
           </div>
         </div>
 
@@ -222,7 +224,7 @@ watch(visible, (v) => {
         <div class="relative bg-surface-container-lowest rounded-t-2xl p-4 pb-6 animate-slide-up">
           <div class="w-10 h-1 bg-outline-variant/30 rounded-full mx-auto mb-4" />
 
-          <h3 class="text-center font-headline font-bold text-on-surface text-sm mb-4">分享到</h3>
+          <h3 class="text-center font-headline font-bold text-on-surface text-sm mb-4">{{ t('share.shareTo') }}</h3>
           <div class="grid grid-cols-4 gap-4 mb-5">
             <button class="flex flex-col items-center gap-1.5 active:scale-95 transition-transform" @click="shareTo('telegram')">
               <div class="w-12 h-12 rounded-2xl bg-[#229ED9]/10 flex items-center justify-center">
@@ -254,20 +256,20 @@ watch(visible, (v) => {
                   <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.045c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.49.49 0 0 1 .177-.554c1.527-1.12 2.5-2.778 2.5-4.623 0-3.37-3.22-6.118-7.059-6.118zm-2.766 2.895c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
                 </svg>
               </div>
-              <span class="text-[10px] text-on-surface-variant">微信</span>
+              <span class="text-[10px] text-on-surface-variant">WeChat</span>
             </button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <button class="h-10 bg-surface-container-high rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-on-surface active:scale-[0.98] transition-transform" @click="shareTo('native')">
               <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">ios_share</span>
-              系统分享
+              {{ t('share.systemShare') }}
             </button>
             <button class="h-10 bg-primary/10 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-primary active:scale-[0.98] transition-transform" @click="shareTo('copy')">
               <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">content_copy</span>
-              复制链接
+              {{ t('share.copyLink') }}
             </button>
           </div>
-          <button class="w-full h-11 mt-3 bg-surface-container-high text-on-surface-variant font-headline font-semibold rounded-full active:scale-[0.98] transition-transform" @click="close">取消</button>
+          <button class="w-full h-11 mt-3 bg-surface-container-high text-on-surface-variant font-headline font-semibold rounded-full active:scale-[0.98] transition-transform" @click="close">{{ t('share.cancel') }}</button>
         </div>
       </div>
     </Transition>
@@ -287,9 +289,9 @@ watch(visible, (v) => {
             <div class="bg-gradient-to-b from-[#8B2BE2] to-[#7119c4] pt-6 pb-11 px-4 text-center relative">
               <div class="flex justify-center items-center gap-2 mb-1">
                 <img src="/img/logo-128x128.png" alt="SCASH" class="w-7 h-7 rounded-full border border-white/20 shadow-sm" />
-                <h1 class="text-white text-xl font-bold tracking-wide">SCASH 红包</h1>
+                <h1 class="text-white text-xl font-bold tracking-wide">{{ t('share.title') }}</h1>
               </div>
-              <p class="text-purple-200/90 text-xs font-light tracking-widest">Blockchain Red Packet</p>
+              <p class="text-purple-200/90 text-xs font-light tracking-widest">{{ t('share.blockchainSubtitle') }}</p>
             </div>
 
             <div class="bg-white mx-4 -mt-8 rounded-[16px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 relative z-10 flex flex-col items-center">
@@ -310,13 +312,13 @@ watch(visible, (v) => {
 
               <h2 class="text-gray-800 font-bold text-base mt-5">@{{ resolvedSenderName }}</h2>
               <div class="text-[11px] text-gray-400 text-center mt-1 leading-tight">
-                <p>创建时间: {{ createdAtDisplay.created }}</p>
-                <p>有效期至: {{ createdAtDisplay.expired }}</p>
+                <p>{{ t('share.createdAtFull') }}: {{ createdAtDisplay.created }}</p>
+                <p>{{ t('share.expiredAtFull') }}: {{ createdAtDisplay.expired }}</p>
               </div>
 
               <div class="mt-4 flex flex-col items-center">
                 <span class="text-[40px] leading-none font-black text-[#e83e3e] tracking-tight">{{ amount }}</span>
-                <p class="text-gray-500 text-xs mt-1">SCASH · 共 {{ count }} 个红包</p>
+                <p class="text-gray-500 text-xs mt-1">{{ t('share.totalCount', { count }) }}</p>
               </div>
 
               <div class="ticket-divider my-3" />
@@ -333,13 +335,13 @@ watch(visible, (v) => {
             </div>
 
             <div class="mt-4 text-center space-y-1">
-              <p class="text-gray-500 text-xs font-medium">长按识别二维码 · 进入 Telegram 领取</p>
-              <p class="text-[#c1b8d2] text-[9px] uppercase tracking-widest font-semibold">Powered by SCASH Network</p>
+              <p class="text-gray-500 text-xs font-medium">{{ t('share.longPress') }}</p>
+              <p class="text-[#c1b8d2] text-[9px] uppercase tracking-widest font-semibold">{{ t('share.poweredBy') }}</p>
             </div>
           </div>
         </div>
 
-        <p class="fixed bottom-6 left-0 right-0 text-center text-white/60 text-xs">点击任意区域关闭</p>
+        <p class="fixed bottom-6 left-0 right-0 text-center text-white/60 text-xs">{{ t('share.tapAnywhereToClose') }}</p>
       </div>
     </Transition>
   </Teleport>

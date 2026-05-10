@@ -160,7 +160,10 @@ export function useTelegram() {
     return new Promise((resolve, reject) => {
       const tg = getWebApp()
       if (!tg) {
-        reject(new Error('请在 Telegram 客户端中使用扫码功能'))
+        // Import lazily to avoid a circular dep at module-load time.
+        import('@/i18n').then(({ t }) => {
+          reject(new Error(t('redpacketClaim.notInTelegram')))
+        }).catch(() => reject(new Error('Please use the scan feature inside Telegram')))
         return
       }
 

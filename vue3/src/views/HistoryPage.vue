@@ -2,10 +2,12 @@
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { useWalletStore, useHistoryStore } from '@/stores'
 import { useNetworkStore } from '@/stores/network'
+import { useI18n } from '@/i18n'
 import ShareSheet from '@/components/ShareSheet.vue'
 
 const walletStore = useWalletStore()
 const historyStore = useHistoryStore()
+const { t } = useI18n()
 
 const hasWallet = computed(() => walletStore.hasWallet)
 
@@ -89,7 +91,7 @@ function openShareSheet(tx: any) {
     shareUrl: info.shareUrl,
     amount: String(info.totalAmount ?? tx.amount ?? '0'),
     count: info.totalCount ?? 1,
-    message: info.message || '恭喜发财，大吉大利',
+    message: info.message || t('redpacketCreate.defaultBless'),
     packetHash: info.packetHash || '',
     expireSeconds: info.expireSeconds || 86400,
     createdAt: tx.time || undefined,
@@ -106,17 +108,27 @@ function formatAmountTitle(num: number | string): string {
   return str
 }
 
+/**
+ * Map the redpacket status code to a localized label.
+ */
+function statusLabel(status: string | undefined): string {
+  if (status === 'ACTIVE') return t('history.statusActive')
+  if (status === 'COMPLETED') return t('history.statusCompleted')
+  if (status === 'EXPIRED' || status === 'REFUNDED') return t('history.statusExpiredOrRefunded')
+  return t('history.statusEnded')
+}
+
 const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 object-contain align-middle mb-0.5" alt="SCASH" />'
 </script>
 
 <template>
   <div class="px-4 pb-6">
     <!-- Loading state: only show full-screen spinner when no cached data -->
-    <div v-if="historyStore.loading && historyStore.transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">加载中…</div>
+    <div v-if="historyStore.loading && historyStore.transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">{{ t('history.loading') }}</div>
 
     <!-- Empty -->
     <div v-else-if="historyStore.transactions.length === 0" class="text-center py-8 text-on-surface-variant text-sm">
-      {{ hasWallet ? '暂无交易记录' : '暂无记录（未创建钱包时仅展示抢到的红包）' }}
+      {{ hasWallet ? t('history.emptyFull') : t('history.emptyNoWallet') }}
     </div>
 
     <!-- Transaction List -->
@@ -139,7 +151,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
                 <span class="material-symbols-outlined text-primary text-base" style="font-variation-settings: 'FILL' 1;">outbox</span>
               </div>
               <div>
-                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">发出的红包</p>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{{ t('history.sentRedpacket') }}</p>
                 <h3 class="text-on-surface font-headline text-base font-bold" v-html="formatAmountTitle(tx.amount) + ' <span class=\'text-[10px] font-normal text-on-surface-variant ml-0.5\'>' + coinLogo + '</span>'"></h3>
               </div>
             </div>
@@ -151,21 +163,21 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
               }"
               class="px-2 py-0.5 text-[10px] font-extrabold rounded-full"
             >
-              {{ tx.redpacketInfo.status === 'ACTIVE' ? '进行中' : tx.redpacketInfo.status === 'COMPLETED' ? '已抢完' : ['EXPIRED', 'REFUNDED'].includes(tx.redpacketInfo.status || '') ? '已过期' : '已结束' }}
+              {{ statusLabel(tx.redpacketInfo.status) }}
             </span>
           </div>
 
           <!-- Progress -->
           <div class="mb-2 bg-surface-container-low rounded px-3 py-2 text-[11px]">
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-on-surface-variant">领取进度</span>
+              <span class="text-on-surface-variant">{{ t('history.progress') }}</span>
               <span class="font-bold text-primary">{{ tx.redpacketInfo.claimedCount || 0 }}/{{ tx.redpacketInfo.totalCount || 0 }} · {{ (tx.redpacketInfo.totalCount || 0) > 0 ? Math.round(((tx.redpacketInfo.claimedCount || 0) / tx.redpacketInfo.totalCount!) * 100) : 0 }}%</span>
             </div>
             <div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
               <div class="h-full bg-primary rounded-full transition-all duration-500" :style="{ width: ((tx.redpacketInfo.totalCount || 0) > 0 ? Math.round(((tx.redpacketInfo.claimedCount || 0) / tx.redpacketInfo.totalCount!) * 100) : 0) + '%' }"></div>
             </div>
             <div class="flex items-center justify-between mt-1.5">
-              <span class="text-on-surface-variant">剩余</span>
+              <span class="text-on-surface-variant">{{ t('history.remaining') }}</span>
               <span class="font-bold text-on-surface">{{ formatAmount(tx.redpacketInfo.remainingAmount || 0) }} <span v-html="coinLogo"></span></span>
             </div>
           </div>
@@ -173,7 +185,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
           <!-- Refund notice -->
           <div v-if="['EXPIRED', 'REFUNDED'].includes(tx.redpacketInfo.status || '')" class="bg-error/5 border border-error/15 rounded px-3 py-1.5 mb-2 flex items-center gap-2 text-[11px]">
             <span class="material-symbols-outlined text-error text-sm" style="font-variation-settings: 'FILL' 1;">assignment_return</span>
-            <span class="text-error font-bold">已退回 {{ formatAmount(tx.redpacketInfo.remainingAmount || 0) }} <span v-html="coinLogo"></span></span>
+            <span class="text-error font-bold">{{ t('history.refundedAmount', { amount: formatAmount(tx.redpacketInfo.remainingAmount || 0) }) }} <span v-html="coinLogo"></span></span>
           </div>
 
           <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-2 border-t border-surface-container">
@@ -183,7 +195,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
           </div>
 
           <div v-if="tx.redpacketInfo.canShare && tx.redpacketInfo.shareUrl" class="mt-2 flex justify-end">
-            <button class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full" @click="openShareSheet(tx)">再次分享</button>
+            <button class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full" @click="openShareSheet(tx)">{{ t('history.reshare') }}</button>
           </div>
         </section>
 
@@ -199,11 +211,11 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
                 <span class="material-symbols-outlined text-error text-base" style="font-variation-settings: 'FILL' 1;">assignment_return</span>
               </div>
               <div>
-                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">退回红包</p>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{{ t('history.refundedRedpacket') }}</p>
                 <h3 class="text-error font-headline text-base font-bold"><span>+</span><span v-html="formatAmountTitle(tx.amount)"></span> <span class="text-[10px] font-normal text-on-surface-variant ml-0.5" v-html="coinLogo"></span></h3>
               </div>
             </div>
-            <span class="px-2 py-0.5 bg-error/10 text-error text-[10px] font-extrabold rounded-full">已退款</span>
+            <span class="px-2 py-0.5 bg-error/10 text-error text-[10px] font-extrabold rounded-full">{{ t('history.statusRefunded') }}</span>
           </div>
           <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-2 border-t border-surface-container">
             <a v-if="tx.txid" class="font-mono text-error bg-error/5 px-1.5 py-0.5 rounded" :href="getTxExplorerUrl(tx.txid)" target="_blank" rel="noopener noreferrer">{{ formatTxid(tx.txid) }}</a>
@@ -223,14 +235,14 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
                 <span class="material-symbols-outlined text-tertiary text-base" style="font-variation-settings: 'FILL' 1;">task_alt</span>
               </div>
               <div>
-                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">收到的红包</p>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{{ t('history.receivedRedpacket') }}</p>
                 <h3 class="text-tertiary font-headline text-base font-bold"><span>+</span><span v-html="formatAmountTitle(tx.amount)"></span> <span class="text-[10px] font-normal text-on-surface-variant ml-0.5" v-html="coinLogo"></span></h3>
               </div>
             </div>
             <span
               class="px-2 py-0.5 text-[10px] font-extrabold rounded-full"
               :class="!tx.txid || tx.txid.startsWith('claim-') ? 'bg-warning/10 text-warning' : 'bg-tertiary/10 text-tertiary'"
-            >{{ !tx.txid || tx.txid.startsWith('claim-') ? '待到账' : '已领取' }}</span>
+            >{{ !tx.txid || tx.txid.startsWith('claim-') ? t('history.statusPendingClaim') : t('history.statusClaimed') }}</span>
           </div>
           <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-2 border-t border-surface-container">
             <a v-if="tx.txid && !tx.txid.startsWith('claim-')" class="font-mono text-tertiary bg-tertiary/5 px-1.5 py-0.5 rounded" :href="getTxExplorerUrl(tx.txid)" target="_blank" rel="noopener noreferrer">{{ formatTxid(tx.txid) }}</a>
@@ -250,7 +262,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
                 <span class="material-symbols-outlined text-base" :class="tx.direction === 'in' ? 'text-tertiary' : 'text-error'" style="font-variation-settings: 'FILL' 1;">{{ tx.direction === 'in' ? 'call_received' : 'call_made' }}</span>
               </div>
               <div>
-                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">链上转账</p>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{{ t('history.onchainTransfer') }}</p>
                 <h3 :class="tx.direction === 'in' ? 'text-tertiary' : 'text-error'" class="font-headline text-base font-bold">
                   <span>{{ tx.direction === 'in' ? '+' : '-' }}</span><span v-html="formatAmountTitle(tx.amount)"></span>
                   <span class="text-[10px] font-normal text-on-surface-variant ml-0.5" v-html="coinLogo"></span>
@@ -258,7 +270,7 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
               </div>
             </div>
             <span class="px-2 py-0.5 bg-surface-container-low text-on-surface-variant text-[10px] font-extrabold rounded-full">
-              {{ tx.direction === 'in' ? '转入' : '转出' }}
+              {{ tx.direction === 'in' ? t('history.directionIn') : t('history.directionOut') }}
             </span>
           </div>
           <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-2 border-t border-surface-container">
@@ -273,10 +285,10 @@ const coinLogo = '<img src="/img/logo-128x128.png" class="inline-block w-4 h-4 o
       <div ref="sentinelRef" class="py-4 text-center">
         <div v-if="historyStore.loadingMore" class="flex items-center justify-center gap-2 text-on-surface-variant text-sm">
           <span class="material-symbols-outlined text-base animate-spin">refresh</span>
-          加载更多…
+          {{ t('history.loadMore') }}
         </div>
         <div v-else-if="!historyStore.hasMore && historyStore.transactions.length > 0" class="text-on-surface-variant/50 text-xs">
-          — 共 {{ historyStore.total }} 条记录，已全部加载 —
+          {{ t('history.allLoaded', { total: historyStore.total }) }}
         </div>
       </div>
     </div>

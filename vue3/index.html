@@ -15,6 +15,99 @@
       import { Buffer } from 'buffer';
       window.Buffer = Buffer;
     </script>
+    <!--
+      Boot-error capture.
+      We BUFFER errors rather than showing them immediately because:
+        1. Cross-origin script errors (Google Fonts, Material Symbols,
+           Telegram SDK, etc.) surface as "Script error @ ?:?:?" and are
+           almost always non-fatal warnings, not boot failures.
+        2. Vue/module evaluation often produces transient warnings that
+           don't prevent the app from eventually mounting.
+      The error screen is only rendered if the preloader is still visible
+      after the boot watchdog fires (mount never happened). If Vue
+      successfully mounts, main.ts calls window.__scashBootOk() to silence
+      this handler permanently.
+    -->
+    <script>
+      (function () {
+        var bootOk = false;
+        var shown = false;
+        var buffered = [];
+
+        /**
+         * Filter out error payloads that are almost certainly non-fatal
+         * (cross-origin sanitisation produces these and the app will
+         * mount just fine despite them).
+         */
+        function looksLikeBenignCrossOriginNoise(label, err) {
+          var msg = (err && (err.message || String(err))) || '';
+          if (label === 'error') {
+            // Cross-origin "Script error" with no file/line info.
+            if (/^Script error($|\s*@\s*\?:\?)/.test(msg)) return true;
+          }
+          return false;
+        }
+
+        function showBootError() {
+          if (shown || bootOk) return;
+          if (buffered.length === 0) return;
+          shown = true;
+          try {
+            var loader = document.getElementById('app-loading');
+            if (!loader) return;
+            var text = loader.querySelector('.app-loading-text');
+            if (text) {
+              text.textContent = 'Boot failed — please reopen the Mini App';
+              text.style.color = '#c0392b';
+            }
+            var pre = document.createElement('pre');
+            pre.textContent = buffered
+              .map(function (b) {
+                var e = b.err;
+                return '[' + b.label + '] ' + ((e && (e.stack || e.message)) || String(e));
+              })
+              .join('\n\n');
+            pre.style.cssText = 'max-width:90vw;max-height:50vh;overflow:auto;margin-top:12px;padding:8px;background:rgba(0,0,0,0.04);border-radius:6px;font-size:10px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:monospace;text-align:left;';
+            loader.appendChild(pre);
+          } catch (_) {}
+        }
+
+        window.addEventListener('error', function (ev) {
+          var err = ev.error || new Error((ev.message || 'Script error') + ' @ ' + (ev.filename || '?') + ':' + (ev.lineno || '?') + ':' + (ev.colno || '?'));
+          if (looksLikeBenignCrossOriginNoise('error', err)) return;
+          buffered.push({ label: 'error', err: err });
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (ev) {
+          var err = ev.reason;
+          if (looksLikeBenignCrossOriginNoise('promise', err)) return;
+          buffered.push({ label: 'promise', err: err });
+        });
+
+        /** main.ts calls this after a successful app.mount(). */
+        window.__scashBootOk = function () {
+          bootOk = true;
+          buffered = [];
+        };
+
+        /** Watchdog: if Vue never mounted in 15s, show whatever we buffered. */
+        setTimeout(function () {
+          if (bootOk) return;
+          var loader = document.getElementById('app-loading');
+          if (!loader || loader.classList.contains('fade-out')) return;
+
+          if (buffered.length > 0) {
+            showBootError();
+          } else {
+            var text = loader.querySelector('.app-loading-text');
+            if (text) {
+              text.textContent = 'Still loading… if this persists, please reopen the Mini App';
+              text.style.color = '#c0392b';
+            }
+          }
+        }, 15000);
+      })();
+    </script>
     <style>
       /* Pre-Vue loading screen */
       #app-loading {

@@ -5,6 +5,7 @@ import { useWalletStore } from '@/stores'
 import { usePriceStore } from '@/stores/price'
 import { useTransaction, satsToScash, satsToScashTrimmed } from '@/composables/useTransaction'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 import PasswordModal from '@/components/PasswordModal.vue'
 
 const router = useRouter()
@@ -13,6 +14,7 @@ const priceStore = usePriceStore()
 const tx = useTransaction()
 const { submitting } = tx
 const { showAlert } = useTelegram()
+const { t } = useI18n()
 
 const content = ref('')
 const showPreview = ref(false)
@@ -64,7 +66,7 @@ function handleSubmit() {
   errorMsg.value = ''
   passwordError.value = ''
   if (!content.value.trim()) {
-    errorMsg.value = '请输入刻字内容'
+    errorMsg.value = t('inscribe.errorEmpty')
     return
   }
   showPassword.value = true
@@ -76,10 +78,10 @@ async function handlePasswordConfirm(password: string) {
   try {
     const txid = await tx.inscribe(password, content.value.trim())
     showPassword.value = false
-    await showAlert('刻字上链成功！\nTxHash: ' + txid)
+    await showAlert(t('inscribe.successAlert', { txid }))
     router.push('/wallet/history')
   } catch (e: any) {
-    const msg = e?.message || '操作失败'
+    const msg = e?.message || t('common.operationFailed')
     errorMsg.value = msg
     passwordError.value = msg
   }
@@ -94,7 +96,7 @@ async function handlePasswordConfirm(password: string) {
         <span class="material-symbols-outlined text-lg">account_balance_wallet</span>
       </div>
       <div class="flex-1">
-        <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">可用余额</p>
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">{{ t('inscribe.availableBalance') }}</p>
         <p class="text-sm font-bold text-on-surface flex items-center gap-1">
           {{ walletStore.confirmedSats !== undefined ? satsToScash(walletStore.confirmedSats + walletStore.unconfirmedSats) : '-' }}
           <img src="/img/logo-128x128.png" class="w-4 h-4 object-contain" alt="SCASH" />
@@ -104,21 +106,21 @@ async function handlePasswordConfirm(password: string) {
 
     <!-- Content input -->
     <section class="space-y-3">
-      <label class="font-headline font-bold text-sm text-on-surface-variant px-2">刻字内容 (将永久上链保存)</label>
+      <label class="font-headline font-bold text-sm text-on-surface-variant px-2">{{ t('inscribe.contentLabel') }}</label>
       <textarea
         v-model="content"
         class="w-full p-3 bg-surface-container-low border-none rounded-DEFAULT focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all font-mono text-sm resize-none placeholder:text-outline text-on-surface"
-        placeholder="输入要刻在链上的文字或JSON..."
+        :placeholder="t('inscribe.contentPlaceholder')"
         rows="6"
         @input="debouncedUpdateEstimate"
       ></textarea>
       <div class="flex justify-between items-center">
-        <p class="text-[11px] text-on-surface-variant">{{ content.length }} 字符</p>
+        <p class="text-[11px] text-on-surface-variant">{{ t('inscribe.charCount', { count: content.length }) }}</p>
         <button
           class="px-3 py-1.5 bg-surface-container-low text-on-surface-variant text-xs font-bold rounded-full hover:bg-surface-container-lowest transition-colors"
           @click="showPreview = true"
           :disabled="!content.trim()"
-        >预览 Markdown</button>
+        >{{ t('inscribe.preview') }}</button>
       </div>
     </section>
 
@@ -126,24 +128,24 @@ async function handlePasswordConfirm(password: string) {
     <section v-if="estimateData" class="bg-surface-container-low rounded-lg p-6 space-y-4">
       <div class="flex items-center gap-2 mb-2">
         <span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">analytics</span>
-        <h3 class="font-headline font-bold text-sm text-on-surface">费用预估</h3>
+        <h3 class="font-headline font-bold text-sm text-on-surface">{{ t('inscribe.feeTitle') }}</h3>
       </div>
       <div class="space-y-3">
         <div class="flex justify-between items-center">
-          <span class="text-sm text-on-surface-variant font-medium">DAP 刻字费</span>
+          <span class="text-sm text-on-surface-variant font-medium">{{ t('inscribe.feeDap') }}</span>
           <span class="text-sm text-on-surface font-bold">{{ satsToScashTrimmed(estimateData.dapCostSat) }} SCASH</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-sm text-on-surface-variant font-medium">网络手续费</span>
+          <span class="text-sm text-on-surface-variant font-medium">{{ t('inscribe.feeNetwork') }}</span>
           <span class="text-sm text-tertiary font-bold">{{ satsToScashTrimmed(estimateData.networkFeeSat) }} SCASH</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-sm text-on-surface-variant font-medium">ARR 服务费</span>
+          <span class="text-sm text-on-surface-variant font-medium">{{ t('inscribe.feeArr') }}</span>
           <span class="text-sm text-on-surface-variant font-bold">{{ satsToScashTrimmed(estimateData.arrFeeSat) }} SCASH</span>
         </div>
       </div>
       <div class="pt-4 mt-2 border-t border-outline-variant/10 flex justify-between items-center">
-        <span class="text-sm font-bold text-on-surface">预计总支出</span>
+        <span class="text-sm font-bold text-on-surface">{{ t('inscribe.feeTotal') }}</span>
         <div class="text-right">
           <span class="text-lg font-headline font-extrabold text-primary">{{ estimateData.totalSat ? satsToScashTrimmed(estimateData.totalSat) + ' SCASH' : '-' }}</span>
           <p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">{{ fiatEstimate || '≈ - USD' }}</p>
@@ -161,7 +163,7 @@ async function handlePasswordConfirm(password: string) {
         @click="handleSubmit"
       >
         <span v-if="submitting" class="spinner-sm mr-1"></span>
-        <span v-else class="text-white font-headline font-extrabold text-lg">确认刻字并上链</span>
+        <span v-else class="text-white font-headline font-extrabold text-lg">{{ t('inscribe.submit') }}</span>
         <span v-if="!submitting" class="material-symbols-outlined text-white text-xl">edit_note</span>
       </button>
     </footer>
@@ -173,7 +175,7 @@ async function handlePasswordConfirm(password: string) {
           <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showPreview = false" />
           <div class="relative bg-surface-container-lowest rounded-2xl p-6 w-full max-w-md max-h-[80vh] overflow-auto shadow-xl">
             <div class="flex justify-between items-center mb-4">
-              <h3 class="font-headline text-lg font-bold text-on-surface">内容预览</h3>
+              <h3 class="font-headline text-lg font-bold text-on-surface">{{ t('inscribe.previewTitle') }}</h3>
               <button @click="showPreview = false" class="text-on-surface-variant hover:text-on-surface">
                 <span class="material-symbols-outlined">close</span>
               </button>
@@ -186,8 +188,8 @@ async function handlePasswordConfirm(password: string) {
 
     <PasswordModal
       v-model:modelValue="showPassword"
-      title="输入钱包密码"
-      confirm-text="确认刻字"
+      :title="t('inscribe.passwordTitle')"
+      :confirm-text="t('inscribe.passwordConfirm')"
       :loading="submitting"
       :error-message="passwordError"
       @confirm="handlePasswordConfirm"

@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { useTelegram } from '@/composables/useTelegram'
 import { useWalletStore } from './wallet'
 import { usePriceStore } from './price'
+import { t } from '@/i18n'
 
 const SESSION_KEY = 'SCASH_SESSION_TOKEN'
 const TG_USER_KEY = 'SCASH_TG_USER_ID'
@@ -61,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function doLogin(): Promise<{ token: string; expiresAt: string }> {
     const initData = getInitData()
     if (!initData) {
-      throw new Error('无法获取 Telegram 登录信息，请重新打开 Mini App')
+      throw new Error(t('api.cantGetTg'))
     }
 
     const loginRes = await fetch('/api/auth/telegram/login', {
@@ -71,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
     const loginJson = await loginRes.json()
     if (!loginRes.ok || !loginJson.success) {
-      const errMsg = loginJson.error?.message || '登录失败'
+      const errMsg = loginJson.error?.message || t('api.loginFailed')
       const lowerMsg = errMsg.toLowerCase()
       // Detect initData expiry / replay — these are unrecoverable without
       // the user closing and re-opening the Mini App.
@@ -82,10 +83,10 @@ export const useAuthStore = defineStore('auth', () => {
         lowerMsg.includes('init_data') ||
         lowerMsg.includes('authorization')
       ) {
-        throw new Error('登录信息已过期，请重新打开 Mini App')
+        throw new Error(t('api.loginExpired'))
       }
       if (loginRes.status >= 500) {
-        throw new Error('服务器内部错误，请稍后重试')
+        throw new Error(t('api.server500'))
       }
       throw new Error(errMsg)
     }
