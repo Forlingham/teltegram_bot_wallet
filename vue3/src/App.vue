@@ -5,11 +5,13 @@ import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import { useAuthStore, useWalletStore, useNetworkStore, usePriceStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 import { onMounted, watch } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t, locale } = useI18n()
 
 // Detect account switch BEFORE dependent stores initialize.
 // Pinia persistedstate restores data as soon as a store is first used.
@@ -48,7 +50,18 @@ const { setupBackButton, hideBackButton, showAlert, close: closeApp,
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
 const showBottomNav = computed(() => !!route.meta.activeNav)
 const showSettings = computed(() => route.meta.activeNav === 'home')
-const pageTitle = computed(() => (route.meta.title as string) || 'SCASH 钱包')
+const pageTitle = computed(() => {
+  const key = (route.meta.titleKey as string | undefined) || 'route.home'
+  // Depend on locale so the title reacts to language changes.
+  void locale.value
+  return t(key)
+})
+
+// Keep document.title in sync when the locale changes too (router.beforeEach
+// only fires on navigation, not on language switch).
+watch([locale, () => route.meta.titleKey], () => {
+  document.title = pageTitle.value
+})
 
 // Whether fullscreen mode is active (mobile only)
 const isAppFullscreen = ref(false)
@@ -106,7 +119,7 @@ async function handleBgError(e: any) {
       }
     }
 
-    openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+    openFatalModal(t('fatal.sessionExpiredTitle'), t('fatal.sessionExpiredBody'))
   }
 }
 
@@ -153,9 +166,9 @@ async function checkRoutePermission() {
   const permitted = await walletStore.checkPermission(requireFull, requireAny)
   if (!permitted) {
     if (requireFull && walletStore.isWatchOnly) {
-      await showAlert('观察钱包仅支持接收，无法进行发送或签名操作')
+      await showAlert(t('permission.watchOnlyOnly'))
     } else {
-      await showAlert('该操作需要先创建钱包')
+      await showAlert(t('permission.needWallet'))
     }
     router.push('/wallet')
   }
@@ -277,7 +290,7 @@ watch(() => route.path, () => {
             class="w-full h-12 primary-gradient text-white rounded-full font-bold active:scale-[0.98] transition-transform"
             @click="closeApp()"
           >
-            我知道了
+            {{ t('common.gotIt') }}
           </button>
         </div>
       </div>

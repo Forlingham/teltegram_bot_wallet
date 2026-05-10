@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { computed, h, type VNode } from 'vue'
+import { useI18n } from '@/i18n'
 import CopyButton from '@/components/CopyButton.vue'
+
+const { t, locale } = useI18n()
 
 const donateAddresses = [
   { label: 'BTC', address: 'bc1qnvdrxs23t6ejuxjs6mswx7cez2rn80wrwjd0u8' },
@@ -7,6 +11,62 @@ const donateAddresses = [
   { label: 'USDT (BEP-20)', address: '0xD4dB57B007Ad386C2fC4d7DD146f5977c039Fefc' },
   { label: 'SCASH', address: 'scash1qy48v7frkutlthqq7uqs8lk5fam24tghjdxqtf5' },
 ]
+
+/**
+ * Render a translation string with inline **bold** markers replaced
+ * by a strong tag with primary color. Keeps marketing copy readable
+ * without embedding HTML directly in the message files.
+ */
+function renderMarkdownish(key: string): VNode[] {
+  void locale.value
+  const text = t(key)
+  const nodes: VNode[] = []
+  const re = /\*\*(.+?)\*\*/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(h('span', text.slice(last, m.index)))
+    nodes.push(h('strong', { class: 'text-primary' }, m[1]))
+    last = re.lastIndex
+  }
+  if (last < text.length) nodes.push(h('span', text.slice(last)))
+  return nodes
+}
+
+const renderedPositioning = computed(() => renderMarkdownish('about.positioningBody'))
+const renderedCustodial = computed(() => renderMarkdownish('about.howItWorksNonCustodial'))
+const renderedBackup = computed(() => renderMarkdownish('about.howItWorksBackup'))
+const renderedWatch = computed(() => renderMarkdownish('about.howItWorksWatch'))
+const renderedMnemonicBody1 = computed(() => renderMarkdownish('about.mnemonicBody1'))
+const renderedMnemonicBody2 = computed(() => renderMarkdownish('about.mnemonicBody2'))
+const renderedRpFeat1 = computed(() => renderMarkdownish('about.redpacketFeature1'))
+const renderedRpFeat2 = computed(() => renderMarkdownish('about.redpacketFeature2'))
+const renderedRpFeat3 = computed(() => renderMarkdownish('about.redpacketFeature3'))
+const renderedRpFeat4 = computed(() => renderMarkdownish('about.redpacketFeature4'))
+const renderedRpFeat5 = computed(() => renderMarkdownish('about.redpacketFeature5'))
+const renderedRpModes = computed(() => renderMarkdownish('about.redpacketModes'))
+
+/**
+ * For the architecture list we keep the `<strong>: </strong>` pattern.
+ * Each entry's source reads like "Backend: NestJS + TypeScript" — we
+ * split on the first colon so the label becomes bold.
+ */
+function splitArchLine(key: string): { label: string; rest: string } {
+  void locale.value
+  const line = t(key)
+  const idx = line.indexOf(':')
+  if (idx === -1) return { label: '', rest: line }
+  return { label: line.slice(0, idx), rest: line.slice(idx + 1).trim() }
+}
+const archLines = computed(() => [
+  splitArchLine('about.archBackend'),
+  splitArchLine('about.archFrontend'),
+  splitArchLine('about.archDb'),
+  splitArchLine('about.archChain'),
+  splitArchLine('about.archWallet'),
+  splitArchLine('about.archDap'),
+  splitArchLine('about.archDerive'),
+])
 </script>
 
 <template>
@@ -18,8 +78,8 @@ const donateAddresses = [
         <div class="w-20 h-20 rounded-2xl primary-gradient flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
           <span class="material-symbols-outlined text-on-primary text-4xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
         </div>
-        <h1 class="font-headline text-2xl font-extrabold text-on-surface mb-2">SCASH 非托管钱包</h1>
-        <p class="text-on-surface-variant text-sm font-medium">安全、简洁、链上红包</p>
+        <h1 class="font-headline text-2xl font-extrabold text-on-surface mb-2">{{ t('about.title') }}</h1>
+        <p class="text-on-surface-variant text-sm font-medium">{{ t('about.tagline') }}</p>
       </div>
     </div>
   </div>
@@ -29,10 +89,12 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
         <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">home</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">项目定位</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.positioning') }}</h2>
     </div>
     <p class="text-sm text-on-surface leading-relaxed">
-      SCASH 是一个基于 Scash 区块链的<strong>非托管式钱包</strong>，核心功能是发红包，但本质是一个完整的钱包应用。用户完全掌控私钥，支持发送/接收 SCASH。
+      <template v-for="(node, i) in renderedPositioning" :key="i">
+        <component :is="node" />
+      </template>
     </p>
   </section>
 
@@ -41,12 +103,18 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
         <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lock</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">钱包运行逻辑</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.howItWorks') }}</h2>
     </div>
     <div class="space-y-4">
-      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">完全非托管</strong>：助记词在浏览器本地生成（bip39），签名在浏览器完成（bitcoinjs-lib），私钥从不离开你的设备。</p>
-      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">云端加密备份</strong>：使用 PBKDF2（100000 次迭代）+ AES-256-GCM 加密助记词后上传。服务器仅存储加密密文，永远无法获取你的明文助记词。</p>
-      <p class="text-sm text-on-surface leading-relaxed"><strong class="text-primary">观察钱包</strong>：仅绑定地址，无私钥，只能接收，无法发送。兼顾安全性与便利性。</p>
+      <p class="text-sm text-on-surface leading-relaxed">
+        <template v-for="(node, i) in renderedCustodial" :key="i"><component :is="node" /></template>
+      </p>
+      <p class="text-sm text-on-surface leading-relaxed">
+        <template v-for="(node, i) in renderedBackup" :key="i"><component :is="node" /></template>
+      </p>
+      <p class="text-sm text-on-surface leading-relaxed">
+        <template v-for="(node, i) in renderedWatch" :key="i"><component :is="node" /></template>
+      </p>
     </div>
   </section>
 
@@ -55,29 +123,33 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
         <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">助记词安全说明</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.mnemonicSafety') }}</h2>
     </div>
-    <p class="text-sm text-on-surface leading-relaxed mb-3">助记词是你资产的<strong>唯一凭证</strong>。一旦丢失，资产将无法恢复；一旦泄露，资产将被盗取。</p>
-    <p class="text-sm text-on-surface leading-relaxed mb-3"><strong class="text-primary">我们不会在服务器存储你的助记词明文</strong>，也不存储你的私钥。请务必：</p>
+    <p class="text-sm text-on-surface leading-relaxed mb-3">
+      <template v-for="(node, i) in renderedMnemonicBody1" :key="i"><component :is="node" /></template>
+    </p>
+    <p class="text-sm text-on-surface leading-relaxed mb-3">
+      <template v-for="(node, i) in renderedMnemonicBody2" :key="i"><component :is="node" /></template>
+    </p>
     <ul class="space-y-2 mb-4 ml-4">
       <li class="flex items-center gap-2 text-sm text-on-surface">
-        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>使用官方渠道下载或访问钱包
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>{{ t('about.mnemonicTip1') }}
       </li>
       <li class="flex items-center gap-2 text-sm text-on-surface">
-        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>绝不将助记词透露给任何人
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>{{ t('about.mnemonicTip2') }}
       </li>
       <li class="flex items-center gap-2 text-sm text-on-surface">
-        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>绝不在联网设备上存储明文
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>{{ t('about.mnemonicTip3') }}
       </li>
       <li class="flex items-center gap-2 text-sm text-on-surface">
-        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>建议使用硬件钱包或纸质备份
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>{{ t('about.mnemonicTip4') }}
       </li>
       <li class="flex items-center gap-2 text-sm text-on-surface">
-        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>建议在安全的离线环境中备份助记词
+        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>{{ t('about.mnemonicTip5') }}
       </li>
     </ul>
     <div class="bg-error/5 border border-error/20 rounded-lg p-4">
-      <p class="text-sm text-error font-bold">重要提醒：官方人员永远不会向你索要助记词！</p>
+      <p class="text-sm text-error font-bold">{{ t('about.mnemonicWarning') }}</p>
     </div>
   </section>
 
@@ -86,32 +158,44 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center">
         <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">celebration</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">链上红包说明</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.redpacket') }}</h2>
     </div>
-    <p class="text-sm text-on-surface leading-relaxed mb-3">所有红包操作均通过区块链执行：</p>
+    <p class="text-sm text-on-surface leading-relaxed mb-3">{{ t('about.redpacketIntro') }}</p>
     <ul class="space-y-3 mb-4">
       <li class="flex items-start gap-3 text-sm text-on-surface">
         <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">diamond</span>
-        <span><strong>DAP 链上留言</strong>：创建/领取/退款操作均通过 scash-dap 协议写入区块链，永久可验证</span>
+        <span>
+          <template v-for="(node, i) in renderedRpFeat1" :key="i"><component :is="node" /></template>
+        </span>
       </li>
       <li class="flex items-start gap-3 text-sm text-on-surface">
         <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">hub</span>
-        <span><strong>去中心化</strong>：红包规则由代码执行，无法被任何人控制或干预</span>
+        <span>
+          <template v-for="(node, i) in renderedRpFeat2" :key="i"><component :is="node" /></template>
+        </span>
       </li>
       <li class="flex items-start gap-3 text-sm text-on-surface">
         <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">visibility</span>
-        <span><strong>公开透明</strong>：红包金额、领取记录全部上链，可随时在区块链浏览器验证</span>
+        <span>
+          <template v-for="(node, i) in renderedRpFeat3" :key="i"><component :is="node" /></template>
+        </span>
       </li>
       <li class="flex items-start gap-3 text-sm text-on-surface">
         <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">account_balance</span>
-        <span><strong>统账账户托管</strong>：系统归集账户负责红包资金托管和批量发放，确保公平公正</span>
+        <span>
+          <template v-for="(node, i) in renderedRpFeat4" :key="i"><component :is="node" /></template>
+        </span>
       </li>
       <li class="flex items-start gap-3 text-sm text-on-surface">
         <span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
-        <span><strong>永久保存</strong>：红包记录将永远保存在 Scash 区块链上，不可磨灭</span>
+        <span>
+          <template v-for="(node, i) in renderedRpFeat5" :key="i"><component :is="node" /></template>
+        </span>
       </li>
     </ul>
-    <p class="text-sm text-on-surface leading-relaxed">支持<strong class="text-primary">平分红包</strong>（每人平均）和<strong class="text-primary">拼手气红包</strong>（随机金额，二倍均值法）两种模式。</p>
+    <p class="text-sm text-on-surface leading-relaxed">
+      <template v-for="(node, i) in renderedRpModes" :key="i"><component :is="node" /></template>
+    </p>
   </section>
 
   <section class="bg-surface-container-lowest rounded-lg p-5 mb-4 shadow-[0px_12px_32px_rgba(44,47,49,0.06)]">
@@ -119,16 +203,13 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">code</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">技术架构</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.architecture') }}</h2>
     </div>
     <ul class="space-y-3">
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>后端：</strong>NestJS + TypeScript</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>前端：</strong>Vue3 + TypeScript + Telegram Mini App</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>数据库：</strong>PostgreSQL + Prisma</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>区块链：</strong>Scash (Bitcoin 架构)</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>钱包库：</strong>bitcoinjs-lib + bip39 + bip32</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>DApp 协议：</strong>scash-dap (链上留言)</span></li>
-      <li class="flex items-center gap-3 text-sm text-on-surface"><span class="w-2 h-2 rounded-full bg-primary"></span><span><strong>BIP32 派生路径：</strong>m/84'/0'/0'/0/0 (主地址)</span></li>
+      <li v-for="(line, i) in archLines" :key="i" class="flex items-center gap-3 text-sm text-on-surface">
+        <span class="w-2 h-2 rounded-full bg-primary"></span>
+        <span><strong v-if="line.label">{{ line.label }}:</strong> {{ line.rest }}</span>
+      </li>
     </ul>
   </section>
 
@@ -139,10 +220,10 @@ const donateAddresses = [
           <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
         </svg>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">开源仓库</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.openSource') }}</h2>
     </div>
     <p class="text-sm text-on-surface leading-relaxed mb-3">
-      本项目完全开源，欢迎查看代码、提交 Issue 或贡献代码。
+      {{ t('about.openSourceBody') }}
     </p>
     <a
       href="https://github.com/Forlingham/teltegram_bot_wallet"
@@ -162,9 +243,9 @@ const donateAddresses = [
       <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
         <span class="material-symbols-outlined text-warning" style="font-variation-settings: 'FILL' 1;">volunteer_activism</span>
       </div>
-      <h2 class="font-headline text-lg font-bold text-on-surface">支持作者</h2>
+      <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('about.donate') }}</h2>
     </div>
-    <p class="text-sm text-on-surface leading-relaxed mb-4">如果你愿意支持本项目的持续开发与维护，欢迎捐助：</p>
+    <p class="text-sm text-on-surface leading-relaxed mb-4">{{ t('about.donateBody') }}</p>
     <div class="space-y-3">
       <div v-for="item in donateAddresses" :key="item.label" class="bg-surface-container-low rounded-lg p-3 flex items-center justify-between gap-3">
         <div class="flex-1 min-w-0">
@@ -174,6 +255,6 @@ const donateAddresses = [
         <CopyButton :text="item.address" />
       </div>
     </div>
-    <p class="text-xs text-on-surface-variant mt-4 leading-relaxed">你的支持将用于开源维护与基础设施建设，感谢你为 SCASH 社区的建设与创新助力。</p>
+    <p class="text-xs text-on-surface-variant mt-4 leading-relaxed">{{ t('about.donateFooter') }}</p>
   </section>
 </template>

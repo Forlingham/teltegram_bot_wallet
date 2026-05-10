@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useWalletStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 
 defineProps<{
   title?: string
@@ -9,9 +10,10 @@ defineProps<{
 
 const walletStore = useWalletStore()
 const { showAlert } = useTelegram()
+const { t } = useI18n()
 
 function handleDisabledSettings() {
-  showAlert('请先创建或导入钱包')
+  showAlert(t('header.needWalletForSettings'))
 }
 </script>
 
@@ -21,7 +23,7 @@ function handleDisabledSettings() {
       <div class="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden bg-surface-container">
         <img alt="SCASH" class="w-full h-full object-cover" src="/img/logo-256x256.png" />
       </div>
-      <span class="font-headline font-bold text-lg text-purple-700">{{ title || 'SCASH 钱包' }}</span>
+      <span class="font-headline font-bold text-lg text-purple-700">{{ title || t('appName') }}</span>
     </div>
     <!-- Settings: disabled when no wallet -->
     <button

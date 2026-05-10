@@ -3,6 +3,7 @@ import { useWalletStore, type WalletBackup } from '@/stores/wallet'
 import { useNetworkStore } from '@/stores/network'
 import { useCrypto, buildDapOutputs } from '@/composables/useCrypto'
 import { api } from '@/api'
+import { t } from '@/i18n'
 
 const NETWORK_FEE_SAT = 10000n
 
@@ -86,7 +87,7 @@ export function useTransaction() {
     let backupData: WalletBackup | null = walletStore.backup
     if (!backupData) {
       const data = await api.post<{ backup: WalletBackup | null }>('/api/wallet/recover', {})
-      if (!data.backup) throw new Error('未找到钱包备份')
+      if (!data.backup) throw new Error(t('crypto.noBackup'))
       backupData = data.backup
       walletStore.saveBackup(backupData)
     }
@@ -134,7 +135,7 @@ export function useTransaction() {
       const mnemonic = await getBackup(password)
 
       const balanceData = await walletStore.fetchBalance()
-      if (!balanceData) throw new Error('获取余额失败')
+      if (!balanceData) throw new Error(t('crypto.noBalance'))
 
       const allUtxos = balanceData.utxos
       const candidateUtxos = [
@@ -142,10 +143,10 @@ export function useTransaction() {
         ...allUtxos.filter((u) => u.isUnconfirmed),
       ]
 
-      if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO')
+      if (candidateUtxos.length === 0) throw new Error(t('crypto.noUtxo'))
 
       const amountSat = parseScashToSats(amountScash)
-      if (!amountSat || amountSat <= 0n) throw new Error('金额格式不正确')
+      if (!amountSat || amountSat <= 0n) throw new Error(t('crypto.badAmount'))
 
       const arrFeeSat = calcArrFeeSat(amountScash)
       const arrFeeAddress = networkStore.arrFeeAddress
@@ -186,7 +187,7 @@ export function useTransaction() {
     try {
       const mnemonic = await getBackup(password)
       const balanceData = await walletStore.fetchBalance()
-      if (!balanceData) throw new Error('获取余额失败')
+      if (!balanceData) throw new Error(t('crypto.noBalance'))
 
       const allUtxos2 = balanceData.utxos
       const candidateUtxos = [
@@ -194,7 +195,7 @@ export function useTransaction() {
         ...allUtxos2.filter((u) => u.isUnconfirmed),
       ]
 
-      if (candidateUtxos.length === 0) throw new Error('没有可用的 UTXO')
+      if (candidateUtxos.length === 0) throw new Error(t('crypto.noUtxo'))
 
       const dapRes = buildDapOutputs(content)
 

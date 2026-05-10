@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useNetworkStore } from '@/stores/network'
 import { useTelegram } from '@/composables/useTelegram'
 import { satsToScashTrimmed } from '@/composables/useTransaction'
+import { useI18n } from '@/i18n'
 import BalanceDisplay from '@/components/BalanceDisplay.vue'
 import CopyButton from '@/components/CopyButton.vue'
 import PriceTag from '@/components/PriceTag.vue'
@@ -21,6 +22,7 @@ const priceStore = usePriceStore()
 const authStore = useAuthStore()
 const networkStore = useNetworkStore()
 const { showScanQr, showAlert } = useTelegram()
+const { t } = useI18n()
 
 const refreshing = ref(false)
 const pageError = ref('')
@@ -197,7 +199,7 @@ async function initHome() {
     }
   } catch (e: any) {
     console.error('[HomePage] init failed:', e)
-    pageError.value = e?.message || e?.status?.message || '加载失败，请重试'
+    pageError.value = e?.message || e?.status?.message || t('common.loadFailed')
   } finally {
     initialLoading.value = false
   }
@@ -235,11 +237,11 @@ const handleBackupDone = async () => {
 
 const handleScanQr = async () => {
   try {
-    const raw = await showScanQr('扫描二维码')
+    const raw = await showScanQr(t('home.scanPrompt'))
     const text = raw.trim()
 
     if (!text) {
-      await showAlert('未识别到有效内容')
+      await showAlert(t('home.scanNothing'))
       return
     }
 
@@ -263,7 +265,7 @@ const handleScanQr = async () => {
 
     // 2. Otherwise treat as wallet address (send flow)
     if (walletStore.isWatchOnly) {
-      await showAlert('当前为观察钱包，无法发送')
+      await showAlert(t('home.watchOnlyCantSend'))
       return
     }
 
@@ -281,14 +283,14 @@ const handleScanQr = async () => {
     }
 
     if (!addr) {
-      await showAlert('未识别到有效地址')
+      await showAlert(t('home.scanNoAddress'))
       return
     }
 
     // Validate bech32 prefix
     const prefix = networkStore.bech32 || 'scash'
     if (!addr.startsWith(prefix + '1')) {
-      await showAlert('地址格式不正确，请扫描 ' + prefix + ' 开头的地址')
+      await showAlert(t('home.scanWrongPrefix', { prefix }))
       return
     }
 
@@ -301,14 +303,14 @@ const handleScanQr = async () => {
   <!-- Loading state: waiting for server to confirm wallet status -->
   <section v-if="initialLoading" class="flex flex-col items-center justify-center py-20 gap-4">
     <span class="material-symbols-outlined text-4xl text-primary animate-spin-fast">progress_activity</span>
-    <p class="text-on-surface-variant text-sm font-medium">正在加载钱包信息…</p>
+    <p class="text-on-surface-variant text-sm font-medium">{{ t('home.loadingWallet') }}</p>
   </section>
 
   <!-- Error banner -->
   <div v-else-if="pageError" class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-center gap-3">
     <span class="material-symbols-outlined text-error text-sm">error</span>
     <p class="text-error text-sm flex-1">{{ pageError }}</p>
-    <button class="text-error text-xs font-bold underline" @click="initHome">重试</button>
+    <button class="text-error text-xs font-bold underline" @click="initHome">{{ t('common.retry') }}</button>
   </div>
 
   <!-- No wallet state -->
@@ -321,15 +323,15 @@ const handleScanQr = async () => {
             <span class="material-symbols-outlined text-warning" style="font-variation-settings: 'FILL' 1;">mail</span>
           </div>
           <div class="flex-1">
-            <p class="text-xs font-bold text-warning uppercase tracking-wider mb-0.5">待入账红包</p>
+            <p class="text-xs font-bold text-warning uppercase tracking-wider mb-0.5">{{ t('home.pendingAirdropLabel') }}</p>
             <p class="text-xl font-bold font-headline text-on-surface flex items-center gap-1">
               {{ pendingAirdrop.amount }}
               <img src="/img/logo-128x128.png" class="w-5 h-5 object-contain" alt="SCASH" />
             </p>
           </div>
           <div class="text-right">
-            <p class="text-[10px] text-on-surface-variant font-medium">{{ pendingAirdrop.count }} 个红包</p>
-            <p class="text-[10px] text-on-surface-variant mt-0.5">创建钱包后自动入账</p>
+            <p class="text-[10px] text-on-surface-variant font-medium">{{ t('home.pendingAirdropCount', { count: pendingAirdrop.count }) }}</p>
+            <p class="text-[10px] text-on-surface-variant mt-0.5">{{ t('home.pendingAirdropHint') }}</p>
           </div>
         </div>
       </div>
@@ -344,10 +346,10 @@ const handleScanQr = async () => {
         </div>
       </div>
       <h1 class="font-headline text-2xl font-extrabold tracking-tight text-on-background mb-3">
-        欢迎使用 SCASH 钱包
+        {{ t('home.welcomeTitle') }}
       </h1>
       <p class="text-on-surface-variant font-medium leading-relaxed max-w-[280px] text-sm">
-        创建、导入或绑定钱包后即可开始使用
+        {{ t('home.welcomeDesc') }}
       </p>
     </header>
 
@@ -358,8 +360,8 @@ const handleScanQr = async () => {
           <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">add_card</span>
         </div>
         <div class="flex-1">
-          <h2 class="font-headline text-lg font-bold text-on-surface">创建钱包</h2>
-          <p class="text-on-surface-variant text-sm font-medium">生成全新的加密资产账户</p>
+          <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('home.createTitle') }}</h2>
+          <p class="text-on-surface-variant text-sm font-medium">{{ t('home.createDesc') }}</p>
         </div>
         <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
       </router-link>
@@ -369,8 +371,8 @@ const handleScanQr = async () => {
           <span class="material-symbols-outlined text-2xl">vpn_key</span>
         </div>
         <div class="flex-1">
-          <h2 class="font-headline text-lg font-bold text-on-surface">导入钱包</h2>
-          <p class="text-on-surface-variant text-sm font-medium">使用助记词或私钥恢复账户</p>
+          <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('home.importTitle') }}</h2>
+          <p class="text-on-surface-variant text-sm font-medium">{{ t('home.importDesc') }}</p>
         </div>
         <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
       </router-link>
@@ -380,8 +382,8 @@ const handleScanQr = async () => {
           <span class="material-symbols-outlined text-2xl">link</span>
         </div>
         <div class="flex-1">
-          <h2 class="font-headline text-lg font-bold text-on-surface">绑定钱包</h2>
-          <p class="text-on-surface-variant text-sm font-medium">绑定观察钱包，只能领取红包，无法发送</p>
+          <h2 class="font-headline text-lg font-bold text-on-surface">{{ t('home.bindTitle') }}</h2>
+          <p class="text-on-surface-variant text-sm font-medium">{{ t('home.bindDesc') }}</p>
         </div>
         <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
       </router-link>
@@ -389,8 +391,8 @@ const handleScanQr = async () => {
 
     <footer class="w-full flex flex-col items-center mt-8 mb-4">
       <p class="text-[11px] text-on-surface-variant/60 text-center leading-relaxed">
-        继续操作即表示您同意我们的<br/>
-        <span class="text-primary-dim font-bold">服务协议</span> 与 <span class="text-primary-dim font-bold">隐私政策</span>
+        {{ t('home.termsLine1') }}<br/>
+        <span class="text-primary-dim font-bold">{{ t('home.termsOfService') }}</span> {{ t('home.and') }} <span class="text-primary-dim font-bold">{{ t('home.privacyPolicy') }}</span>
       </p>
     </footer>
   </section>
@@ -405,11 +407,11 @@ const handleScanQr = async () => {
           <span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">key</span>
         </div>
         <div class="flex-1">
-          <h3 class="font-headline text-lg font-bold text-white mb-1">请尽快备份助记词</h3>
-          <p class="text-white/80 text-sm leading-relaxed mb-4">你尚未完成助记词备份，请尽快备份防止资产无法恢复。</p>
+          <h3 class="font-headline text-lg font-bold text-white mb-1">{{ t('home.backupTitle') }}</h3>
+          <p class="text-white/80 text-sm leading-relaxed mb-4">{{ t('home.backupDesc') }}</p>
           <div class="flex gap-3">
-            <button @click="handleBackupDone" class="px-5 py-2.5 bg-white text-primary rounded-full font-bold text-sm shadow-lg active:scale-[0.98] transition-transform">我已备份</button>
-            <router-link to="/wallet/recover" class="px-5 py-2.5 bg-white/20 backdrop-blur-md text-white rounded-full font-bold text-sm border border-white/30 active:scale-[0.98] transition-transform">去备份</router-link>
+            <button @click="handleBackupDone" class="px-5 py-2.5 bg-white text-primary rounded-full font-bold text-sm shadow-lg active:scale-[0.98] transition-transform">{{ t('home.backupDone') }}</button>
+            <router-link to="/wallet/recover" class="px-5 py-2.5 bg-white/20 backdrop-blur-md text-white rounded-full font-bold text-sm border border-white/30 active:scale-[0.98] transition-transform">{{ t('home.backupGo') }}</router-link>
           </div>
         </div>
       </div>
@@ -427,7 +429,7 @@ const handleScanQr = async () => {
               alt="avatar"
               class="w-7 h-7 rounded-full object-cover border border-outline-variant/30 shadow-sm"
             />
-            <p class="text-on-surface-variant text-sm font-medium">总余额</p>
+            <p class="text-on-surface-variant text-sm font-medium">{{ t('home.totalBalance') }}</p>
           </div>
           <button
             id="btnRefresh"
@@ -450,12 +452,12 @@ const handleScanQr = async () => {
           <span class="material-symbols-outlined text-lg">wallet</span>
         </div>
         <div class="overflow-hidden">
-          <p class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">我的钱包地址</p>
+          <p class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">{{ t('home.myAddress') }}</p>
           <p class="!text-[8px] mono text-on-surface break-all leading-relaxed">{{ address }}</p>
         </div>
       </div>
       <div class="flex-shrink-0 flex items-center gap-2">
-        <span v-if="isWatchOnly" class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background: #f4f7f2; border: 1px dashed #c0392b; color: #c0392b;">观察钱包</span>
+        <span v-if="isWatchOnly" class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background: #f4f7f2; border: 1px dashed #c0392b; color: #c0392b;">{{ t('home.watchOnlyBadge') }}</span>
         <CopyButton :text="address" />
       </div>
     </section>
@@ -465,7 +467,7 @@ const handleScanQr = async () => {
       <div class="bg-surface-container-low rounded-lg p-4 flex flex-col gap-1">
         <div class="flex items-center gap-1.5 text-on-surface-variant mb-1">
           <span class="material-symbols-outlined text-sm">check_circle</span>
-          <span class="text-[11px] font-bold font-headline uppercase tracking-tight">已确认 (链上)</span>
+          <span class="text-[11px] font-bold font-headline uppercase tracking-tight">{{ t('home.confirmed') }}</span>
         </div>
         <p class="text-sm font-bold text-on-surface flex items-center gap-1">
           {{ walletStore.confirmedSats !== undefined ? satsToScashTrimmed(walletStore.confirmedSats) : '0' }}
@@ -475,7 +477,7 @@ const handleScanQr = async () => {
       <div class="bg-surface-container-low rounded-lg p-4 flex flex-col gap-1 border border-primary/5">
         <div class="flex items-center gap-1.5 text-primary mb-1">
           <span class="material-symbols-outlined text-sm">pending</span>
-          <span class="text-[11px] font-bold font-headline uppercase tracking-tight">未确认 (内存池)</span>
+          <span class="text-[11px] font-bold font-headline uppercase tracking-tight">{{ t('home.unconfirmed') }}</span>
         </div>
         <p class="text-sm font-bold text-primary flex items-center gap-1">
           {{ walletStore.unconfirmedSats !== undefined ? satsToScashTrimmed(walletStore.unconfirmedSats) : '0' }}
@@ -486,29 +488,29 @@ const handleScanQr = async () => {
 
     <!-- Action buttons -->
     <nav class="grid grid-cols-4 gap-3 mt-6">
-      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert('当前为观察钱包，无法发送') : $router.push('/wallet/send')">
+      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert(t('home.watchOnlyCantSend')) : $router.push('/wallet/send')">
         <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-gradient-to-br from-primary to-primary-container text-white shadow-lg shadow-primary/20 group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">send</span>
         </div>
-        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">发送</span>
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">{{ t('home.actions.send') }}</span>
       </a>
       <router-link to="/wallet/receive" class="flex flex-col items-center gap-2 group">
         <div class="w-14 h-14 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm group-active:scale-90 transition-all duration-300">
           <span class="material-symbols-outlined text-2xl">download</span>
         </div>
-        <span class="text-xs font-bold text-on-surface">接收</span>
+        <span class="text-xs font-bold text-on-surface">{{ t('home.actions.receive') }}</span>
       </router-link>
-      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert('当前为观察钱包，无法刻字上链') : $router.push('/wallet/inscribe')">
+      <a class="flex flex-col items-center gap-2 group" :class="isWatchOnly ? 'cursor-pointer' : ''" @click.prevent="isWatchOnly ? showAlert(t('home.watchOnlyCantInscribe')) : $router.push('/wallet/inscribe')">
         <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface-container-lowest text-primary shadow-sm group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">edit_note</span>
         </div>
-        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">刻字上链</span>
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">{{ t('home.actions.inscribe') }}</span>
       </a>
       <a class="flex flex-col items-center gap-2 cursor-pointer" @click.prevent="handleScanQr">
         <div class="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300" :class="isWatchOnly ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface-container-lowest text-primary shadow-sm group-active:scale-90'">
           <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
         </div>
-        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">扫码</span>
+        <span class="text-xs font-bold" :class="isWatchOnly ? 'text-on-surface-variant/40' : 'text-on-surface'">{{ t('home.actions.scan') }}</span>
       </a>
     </nav>
 
@@ -516,8 +518,8 @@ const handleScanQr = async () => {
     <div v-if="priceStore.chartData.length > 1" class="mt-4">
       <div class="flex justify-between items-end mb-2">
         <div>
-          <h2 class="text-base font-headline font-bold text-on-surface">SCASH 7日走势</h2>
-          <p class="text-xs text-on-surface-variant font-medium">市场价格：${{ priceStore.currentPrice.toFixed(3) }}</p>
+          <h2 class="text-base font-headline font-bold text-on-surface">{{ t('home.chartTitle') }}</h2>
+          <p class="text-xs text-on-surface-variant font-medium">{{ t('home.chartMarketPrice', { price: priceStore.currentPrice.toFixed(3) }) }}</p>
         </div>
         <div class="text-right">
           <span class="font-bold font-headline text-lg" :class="priceStore.change7d >= 0 ? 'text-green-700' : 'text-red-600'">

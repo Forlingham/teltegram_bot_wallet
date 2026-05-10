@@ -2,15 +2,17 @@
 import { onMounted, computed } from 'vue'
 import { useRedpacketStore, useWalletStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 
 const redpacketStore = useRedpacketStore()
 const walletStore = useWalletStore()
 const { showAlert } = useTelegram()
+const { t } = useI18n()
 const isWatchOnly = computed(() => walletStore.isWatchOnly)
 
 function handleCreateClick() {
   if (isWatchOnly.value) {
-    showAlert('当前为观察钱包，无法发红包')
+    showAlert(t('redpacket.watchOnlyCantCreate'))
   }
 }
 
@@ -54,7 +56,7 @@ onMounted(() => {
           <div class="bg-white/20 p-3 rounded-full backdrop-blur-md">
             <span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">featured_seasonal_and_gifts</span>
           </div>
-          <span class="text-2xl font-headline font-extrabold tracking-tight">发红包</span>
+          <span class="text-2xl font-headline font-extrabold tracking-tight">{{ t('redpacket.send') }}</span>
         </div>
         <span class="material-symbols-outlined text-white/80">chevron_right</span>
       </router-link>
@@ -63,7 +65,7 @@ onMounted(() => {
           <div class="bg-on-surface-variant/10 p-3 rounded-full">
             <span class="material-symbols-outlined text-on-surface-variant/40 text-3xl" style="font-variation-settings: 'FILL' 1;">featured_seasonal_and_gifts</span>
           </div>
-          <span class="text-2xl font-headline font-extrabold tracking-tight text-on-surface-variant/40">发红包</span>
+          <span class="text-2xl font-headline font-extrabold tracking-tight text-on-surface-variant/40">{{ t('redpacket.send') }}</span>
         </div>
         <span class="material-symbols-outlined text-on-surface-variant/30">chevron_right</span>
       </div>
@@ -75,23 +77,23 @@ onMounted(() => {
           <span class="material-symbols-outlined text-[#FBC02D]" style="font-variation-settings: 'FILL' 1;">confirmation_number</span>
         </div>
         <div class="flex-1">
-          <p class="text-on-surface-variant text-sm font-semibold leading-snug">红包封面功能还在开发中</p>
-          <p class="text-on-surface-variant/60 text-xs mt-0.5">敬请期待更多个性化定制选项</p>
+          <p class="text-on-surface-variant text-sm font-semibold leading-snug">{{ t('redpacket.coverSoon') }}</p>
+          <p class="text-on-surface-variant/60 text-xs mt-0.5">{{ t('redpacket.coverSoonSub') }}</p>
         </div>
       </div>
     </section>
 
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-base font-headline font-bold text-on-background">🏆 红包发送排行榜</h2>
+        <h2 class="text-base font-headline font-bold text-on-background">{{ t('redpacket.leaderboardTitle') }}</h2>
         <div class="flex items-center gap-2">
           <span v-if="redpacketStore.loading" class="material-symbols-outlined text-primary text-lg animate-spin">refresh</span>
-          <span class="text-primary text-[10px] font-bold uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">实时</span>
+          <span class="text-primary text-[10px] font-bold uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">{{ t('redpacket.leaderboardLive') }}</span>
         </div>
       </div>
       <div class="space-y-1.5">
-        <div v-if="redpacketStore.loading && redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">加载中…</div>
-        <div v-else-if="redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">暂无发送记录</div>
+        <div v-if="redpacketStore.loading && redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">{{ t('redpacket.leaderboardLoading') }}</div>
+        <div v-else-if="redpacketStore.leaderboard.length === 0" class="text-center py-6 text-on-surface-variant text-sm">{{ t('redpacket.leaderboardEmpty') }}</div>
         <template v-else>
           <div
             v-for="item in redpacketStore.leaderboard"
@@ -106,7 +108,7 @@ onMounted(() => {
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="text-on-background text-sm font-bold font-headline truncate">{{ item.displayName }}</h3>
-              <p class="text-on-surface-variant text-[11px]">发送 {{ item.totalCount }} 次</p>
+              <p class="text-on-surface-variant text-[11px]">{{ t('redpacket.leaderboardSentCount', { count: item.totalCount }) }}</p>
             </div>
             <div class="text-right flex-shrink-0">
               <p class="text-primary font-headline font-extrabold text-sm">{{ formatAmount(item.totalAmount) }}</p>

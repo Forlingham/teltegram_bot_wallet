@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { useCrypto } from '@/composables/useCrypto'
 import { useWalletStore } from '@/stores'
 import { api } from '@/api'
+import { useI18n } from '@/i18n'
 
 const router = useRouter()
 const { validateMnemonic, deriveAddress, encryptMnemonic } = useCrypto()
 const walletStore = useWalletStore()
+const { t } = useI18n()
 
 const mnemonic = ref('')
 const password = ref('')
@@ -20,15 +22,15 @@ const handleSubmit = async () => {
   const mn = mnemonic.value.trim().replace(/\s+/g, ' ')
 
   if (!validateMnemonic(mn)) {
-    errorMsg.value = '助记词格式不正确，请检查'
+    errorMsg.value = t('import.errorInvalid')
     return
   }
   if (password.value.length < 8) {
-    errorMsg.value = '密码长度不能少于8位'
+    errorMsg.value = t('import.errorTooShort')
     return
   }
   if (password.value !== confirm.value) {
-    errorMsg.value = '两次密码输入不一致'
+    errorMsg.value = t('import.errorMismatch')
     return
   }
 
@@ -57,7 +59,7 @@ const handleSubmit = async () => {
     await walletStore.fetchHome()
     router.push('/wallet')
   } catch (e: any) {
-    errorMsg.value = e.message || '导入失败'
+    errorMsg.value = e.message || t('import.errorImportFailed')
     loading.value = false
   }
 }
@@ -76,18 +78,18 @@ const handleSubmit = async () => {
         <div class="h-1 w-12 bg-surface-container-highest rounded-full"></div>
       </div>
       <h1 class="font-headline text-[2.75rem] font-extrabold leading-[1.1] tracking-tight text-on-background">
-        导入钱包
+        {{ t('import.title') }}
       </h1>
       <p class="font-body text-on-surface-variant leading-relaxed text-sm">
-        输入你的12个助记词，设置密码加密后导入。明文助记词仅在前端使用，上传服务器的密码是经过你的密码加密的。
+        {{ t('import.description') }}
       </p>
     </header>
 
     <section class="flex flex-col gap-8">
       <div class="space-y-4">
         <div class="flex items-center justify-between px-1">
-          <label class="font-headline font-bold text-lg tracking-tight">助记词</label>
-          <span class="font-label text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full">12 Words</span>
+          <label class="font-headline font-bold text-lg tracking-tight">{{ t('import.mnemonicLabel') }}</label>
+          <span class="font-label text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full">{{ t('import.mnemonicBadge') }}</span>
         </div>
         <div class="relative group">
           <textarea v-model="mnemonic" class="w-full min-h-[160px] bg-surface-container-lowest rounded-lg p-5 font-body text-on-surface border-none focus:ring-2 focus:ring-primary/20 ambient-shadow transition-all resize-none placeholder:text-outline-variant" placeholder="word1 word2 word3 ..."></textarea>
@@ -98,14 +100,14 @@ const handleSubmit = async () => {
       <div class="space-y-4">
         <div class="flex items-center gap-2 px-1">
           <span class="material-symbols-outlined text-primary text-xl">lock</span>
-          <label class="font-headline font-bold text-lg tracking-tight">设置钱包密码</label>
+          <label class="font-headline font-bold text-lg tracking-tight">{{ t('import.labelPassword') }}</label>
         </div>
         <div class="space-y-3">
           <div class="relative">
-            <input v-model="password" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" placeholder="请输入密码 (不少于8位)" type="password" autocomplete="off" />
+            <input v-model="password" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" :placeholder="t('import.placeholderPassword')" type="password" autocomplete="off" />
           </div>
           <div class="relative">
-            <input v-model="confirm" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" placeholder="再次输入密码确认" type="password" autocomplete="off" />
+            <input v-model="confirm" class="w-full bg-surface-container-low h-14 px-5 rounded-lg border-none font-body focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60" :placeholder="t('import.placeholderConfirm')" type="password" autocomplete="off" />
           </div>
         </div>
       </div>
@@ -113,8 +115,7 @@ const handleSubmit = async () => {
       <div class="bg-surface-container-low/50 rounded-lg p-5 flex gap-4 items-start">
         <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
         <p class="text-xs font-label text-on-surface-variant leading-relaxed">
-          <span class="font-bold text-on-surface">安全提示：</span>
-          请确保周围环境安全。导入成功后，我们将为您创建高强度的本地加密存储环境。
+          {{ t('import.securityNote') }}
         </p>
       </div>
     </section>
@@ -123,10 +124,10 @@ const handleSubmit = async () => {
       <button :disabled="loading" @click="handleSubmit" class="w-full h-16 primary-gradient rounded-full flex items-center justify-center gap-2 text-on-primary font-headline font-bold text-lg ambient-shadow active:scale-[0.98] transition-transform duration-200 group disabled:opacity-60 disabled:cursor-not-allowed">
         <template v-if="loading">
           <span class="material-symbols-outlined text-xl animate-spin-fast">progress_activity</span>
-          <span>导入中…</span>
+          <span>{{ t('import.submitting') }}</span>
         </template>
         <template v-else>
-          导入钱包
+          {{ t('import.submit') }}
           <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
         </template>
       </button>

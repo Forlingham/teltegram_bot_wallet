@@ -22,6 +22,9 @@ function isSessionError(msg: string): boolean {
     m.includes('invalid token') ||
     m.includes('unauthorized') ||
     m.includes('请重新打开') ||
+    // Russian
+    m.includes('сессия истекла') ||
+    m.includes('данные входа устарели') ||
     (m.includes('replay') && (m.includes('init') || m.includes('auth') || m.includes('session')))
   )
 }
@@ -63,6 +66,7 @@ import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
 import { api } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface PacketUser {
   username?: string
@@ -100,6 +104,7 @@ const router = useRouter()
 const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
+const { t } = useI18n()
 
 const packetHash = ref(resolvePacketHash())
 const loading = ref(true)
@@ -157,9 +162,9 @@ function getAvatar(user?: PacketUser | null, fallback?: string): string {
 }
 
 function getSenderName(): string {
-  if (!packet.value) return '神秘好友'
+  if (!packet.value) return t('redpacketClaim.unknownSender')
   const p = packet.value
-  return p.senderUsername || p.sender?.username || (p.senderTelegramId ? '#' + p.senderTelegramId : '神秘好友')
+  return p.senderUsername || p.sender?.username || (p.senderTelegramId ? '#' + p.senderTelegramId : t('redpacketClaim.unknownSender'))
 }
 
 const remainingCount = computed(() => {
@@ -183,12 +188,21 @@ const remainingAmount = computed(() => {
 const claimedCount = computed(() => claims.value.length)
 const hasWallet = computed(() => walletStore.hasWallet)
 
+/** Localized label for the current packet status. */
+const statusLabel = computed(() => {
+  const p = packet.value
+  if (!p) return ''
+  if (p.status === 'EXPIRED') return t('redpacketClaim.statusExpired')
+  if (p.status === 'COMPLETED' || (p.remainingCount ?? 0) <= 0) return t('redpacketClaim.statusCompleted')
+  return t('redpacketClaim.statusEnded')
+})
+
 async function loadPacket() {
   if (!packetHash.value) {
     packetHash.value = resolvePacketHash()
   }
   if (!packetHash.value) {
-    error.value = '红包参数缺失，请通过分享链接打开'
+    error.value = t('redpacketClaim.missingHash')
     loading.value = false
     return
   }
@@ -222,7 +236,7 @@ async function loadPacket() {
       canClaim.value = false
     }
   } catch (e: any) {
-    error.value = e?.message || '红包不存在或已过期'
+    error.value = e?.message || t('redpacketClaim.loadFailed')
   } finally {
     loading.value = false
   }
@@ -235,13 +249,13 @@ async function claimPacket() {
   // If session was previously detected as expired and retries exhausted,
   // show a friendly hint without sending any network request.
   if (sessionExpired.value && sessionRetryCount.value >= MAX_SESSION_RETRIES) {
-    openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+    openFatalModal(t('redpacketClaim.sessionExpiredTitle'), t('redpacketClaim.sessionExpiredBody'))
     return
   }
 
   // Anti-automation: block if headless/automation environment detected
   if (autoDetected.value) {
-    await showAlert('请在 Telegram 官方客户端中打开领取')
+    await showAlert(t('redpacketClaim.notInTelegram'))
     return
   }
 
@@ -251,7 +265,7 @@ async function claimPacket() {
     if (!initData) {
       sessionExpired.value = true
       sessionRetryCount.value = MAX_SESSION_RETRIES // No initData = no recovery possible
-      openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+      openFatalModal(t('redpacketClaim.sessionExpiredTitle'), t('redpacketClaim.sessionExpiredBody'))
       return
     }
 
@@ -279,10 +293,10 @@ async function claimPacket() {
       sessionRetryCount.value++
       if (sessionRetryCount.value >= MAX_SESSION_RETRIES) {
         sessionExpired.value = true
-        openFatalModal('登录状态已过期', '你的登录状态已过期，请重新打开 SCASH 钱包后继续使用。')
+        openFatalModal(t('redpacketClaim.sessionExpiredTitle'), t('redpacketClaim.sessionExpiredBody'))
       } else {
         // First failure: show a transient alert, allow retry
-        await showAlert('会话验证失败，请再试一次')
+        await showAlert(t('redpacketClaim.sessionRetryAlert'))
       }
       return
     }
@@ -294,7 +308,7 @@ async function claimPacket() {
     // After refreshing state, if the envelope is still closed,
     // it means something truly unexpected happened — show the error.
     if (!envelopeOpen.value) {
-      await showAlert(msg || '领取失败，请稍后重试')
+      await showAlert(msg || t('redpacketClaim.genericClaimFail'))
     }
   } finally {
     claiming.value = false
@@ -350,7 +364,7 @@ onMounted(() => {
     loadPacket()
     priceStore.fetchPrice().catch(() => {})
   } else {
-    error.value = '红包参数缺失，请通过分享链接打开'
+    error.value = t('redpacketClaim.missingHash')
     loading.value = false
   }
 })
@@ -358,8 +372,8 @@ onMounted(() => {
 
 <template>
   <div class="claim-page" :class="{ 'dark-mode': textTone === 'DARK' }">
-    <button class="close-btn" @click="handleClose" title="关闭">×</button>
-    <button class="home-btn" @click="goHome" title="回到首页">首页</button>
+    <button class="close-btn" @click="handleClose" :title="t('redpacketClaim.closeTitle')">×</button>
+    <button class="home-btn" @click="goHome" :title="t('redpacketClaim.homeTitle')">{{ t('redpacketClaim.homeTitle') }}</button>
 
     <!-- Loading -->
     <div v-if="loading" class="fullscreen-center">
@@ -381,7 +395,7 @@ onMounted(() => {
     <!-- Error -->
     <div v-else-if="error" class="fullscreen-center">
       <div style="color: #fca5a5; font-size: 14px; text-align: center; padding: 0 24px;">{{ error }}</div>
-      <router-link to="/wallet/redpacket" class="btn-brand" style="margin-top: 20px; display: inline-block; text-decoration: none;">返回红包</router-link>
+      <router-link to="/wallet/redpacket" class="btn-brand" style="margin-top: 20px; display: inline-block; text-decoration: none;">{{ t('redpacketClaim.backToList') }}</router-link>
     </div>
 
     <!-- Content -->
@@ -394,8 +408,8 @@ onMounted(() => {
             <div class="env-letter">
               <div class="letter-header">
                 <img :src="getAvatar(packet.sender, getSenderName())" alt="Avatar" class="sender-avatar" />
-                <p class="sender-label">来自 @{{ getSenderName() }} 的红包</p>
-                <h2 class="message-text">{{ packet.message || '恭喜发财，大吉大利' }}</h2>
+                <p class="sender-label">{{ t('redpacketClaim.senderLabel', { name: getSenderName() }) }}</p>
+                <h2 class="message-text">{{ packet.message || t('redpacketClaim.defaultMessage') }}</h2>
               </div>
               <div class="letter-body">
                 <!-- Claimed amount -->
@@ -415,14 +429,12 @@ onMounted(() => {
                 </template>
                 <!-- Expired/completed -->
                 <template v-else>
-                  <span class="status-text">
-                    {{ packet.status === 'EXPIRED' ? '红包已过期' : packet.status === 'COMPLETED' || (packet.remainingCount ?? 0) <= 0 ? '红包已被抢完' : '红包已结束' }}
-                  </span>
+                  <span class="status-text">{{ statusLabel }}</span>
                 </template>
-                <div v-if="alreadyClaimed" class="claimed-badge">你已领取</div>
+                <div v-if="alreadyClaimed" class="claimed-badge">{{ t('redpacketClaim.claimedBadge') }}</div>
               </div>
               <div class="letter-footer">
-                总金额 {{ packet.totalAmount || '0' }} SCASH · 共 {{ packet.count || 0 }} 个
+                {{ t('redpacketClaim.footerTotal', { amount: packet.totalAmount || '0', count: packet.count || 0 }) }}
               </div>
             </div>
             <div class="env-front">
@@ -432,7 +444,7 @@ onMounted(() => {
               <div class="sender-info" :class="{ 'opacity-0': envelopeOpen }">
                 <img :src="getAvatar(packet.sender, getSenderName())" alt="Avatar" class="flap-avatar" />
                 <span class="flap-name" :class="textTone === 'DARK' ? 'text-dark' : 'text-light'">@{{ getSenderName() }}</span>
-                <span class="flap-sub" :class="textTone === 'DARK' ? 'text-dark-muted' : 'text-light-muted'">给你发了一个红包</span>
+                <span class="flap-sub" :class="textTone === 'DARK' ? 'text-dark-muted' : 'text-light-muted'">{{ t('redpacketClaim.flapSub') }}</span>
               </div>
             </div>
             <!-- Bait elements: same appearance, wrong position, invisible but occupy DOM -->
@@ -467,7 +479,7 @@ onMounted(() => {
         <!-- Scroll hint -->
         <div v-if="claims.length > 0" class="scroll-hint">
           <span class="material-symbols-outlined">expand_more</span>
-          <span>下滑查看领取详情</span>
+          <span>{{ t('redpacketClaim.scrollHint') }}</span>
         </div>
 
         <!-- Wallet guide for users without a wallet -->
@@ -477,10 +489,10 @@ onMounted(() => {
               <span class="material-symbols-outlined">account_balance_wallet</span>
             </div>
             <div class="wallet-guide-content">
-              <p class="wallet-guide-title">当前账号未创建、绑定钱包！</p>
-              <p class="wallet-guide-desc">只有创建、绑定钱包后，领取到的scash才会到你的地址中。</p>
+              <p class="wallet-guide-title">{{ t('redpacketClaim.noWalletTitle') }}</p>
+              <p class="wallet-guide-desc">{{ t('redpacketClaim.noWalletDesc') }}</p>
             </div>
-            <button class="wallet-guide-btn" @click="goHome">去创建</button>
+            <button class="wallet-guide-btn" @click="goHome">{{ t('redpacketClaim.noWalletCta') }}</button>
           </div>
         </div>
       </section>
@@ -491,30 +503,30 @@ onMounted(() => {
         <div class="status-bar">
           <div class="status-item">
             <span class="status-num">{{ claimedCount }}</span>
-            <span class="status-label">已领取</span>
+            <span class="status-label">{{ t('redpacketClaim.claimedCount') }}</span>
           </div>
           <div class="status-divider"></div>
           <div class="status-item">
             <span class="status-num">{{ remainingCount }}</span>
-            <span class="status-label">剩余个数</span>
+            <span class="status-label">{{ t('redpacketClaim.remainingCount') }}</span>
           </div>
           <div class="status-divider"></div>
           <div class="status-item">
             <span class="status-num">{{ remainingAmount }}</span>
-            <span class="status-label">剩余金额</span>
+            <span class="status-label">{{ t('redpacketClaim.remainingAmount') }}</span>
           </div>
         </div>
 
         <!-- Claim list -->
         <div class="claim-list">
           <div class="claim-list-header">
-            <span>领取记录</span>
-            <span>{{ claims.length }} 人</span>
+            <span>{{ t('redpacketClaim.claimListTitle') }}</span>
+            <span>{{ t('redpacketClaim.claimListPeople', { count: claims.length }) }}</span>
           </div>
           <div v-for="(c, i) in claims" :key="i" class="claim-row">
             <div class="claim-user">
               <img class="claim-avatar" :src="getAvatar(c.user, c.user?.username)" alt="avatar" />
-              <div class="claim-name">{{ c.user?.username ? '@' + c.user.username : c.user?.telegramId ? '#' + c.user.telegramId : '匿名用户' }}</div>
+              <div class="claim-name">{{ c.user?.username ? '@' + c.user.username : c.user?.telegramId ? '#' + c.user.telegramId : t('redpacketClaim.anonymousUser') }}</div>
             </div>
             <div class="claim-amount">{{ c.amount || '0' }} SCASH</div>
           </div>
@@ -540,7 +552,7 @@ onMounted(() => {
               class="w-full h-12 primary-gradient text-white rounded-full font-bold active:scale-[0.98] transition-transform"
               @click="closeApp()"
             >
-              我知道了
+              {{ t('common.gotIt') }}
             </button>
           </div>
         </div>

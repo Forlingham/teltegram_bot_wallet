@@ -9,6 +9,7 @@ import * as bitcoin from 'bitcoinjs-lib'
 import { Buffer } from 'buffer'
 import { useNetworkStore } from '@/stores/network'
 import { createDapOutputs, estimateDapCost } from '@/utils/scashDap'
+import { t } from '@/i18n'
 
 // @noble/secp256k1 v2.x: enable deterministic k generation (RFC6979)
 secp.etc.hmacSha256Sync = (key: Uint8Array, ...msgs: Uint8Array[]) => {
@@ -28,9 +29,9 @@ export function buildDapOutputs(message: string): { outputs: DapOutput[]; totalS
 }
 
 function hexToBytes(hex: string): Uint8Array {
-  if (!hex || typeof hex !== 'string') throw new Error('助记词数据格式错误')
+  if (!hex || typeof hex !== 'string') throw new Error(t('crypto.mnemonicFormat'))
   const parts = hex.match(/.{2}/g)
-  if (!parts) throw new Error('助记词数据格式错误')
+  if (!parts) throw new Error(t('crypto.mnemonicFormat'))
   return new Uint8Array(parts.map((b) => parseInt(b, 16)))
 }
 
@@ -51,7 +52,7 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
 }
 
 function toBytes(input: unknown): Uint8Array {
-  if (!input) throw new Error('交易签名结果为空')
+  if (!input) throw new Error(t('crypto.emptySignature'))
   if (input instanceof Uint8Array) return input
   if (Array.isArray(input)) return new Uint8Array(input)
   if (typeof input === 'string') {
@@ -63,7 +64,7 @@ function toBytes(input: unknown): Uint8Array {
   if (typeof (input as any).toCompactRawBytes === 'function') return (input as any).toCompactRawBytes()
   if (typeof (input as any).toRawBytes === 'function') return (input as any).toRawBytes()
   if ((input as any).buffer instanceof ArrayBuffer) return new Uint8Array((input as any).buffer, (input as any).byteOffset || 0, (input as any).byteLength || (input as any).length || 0)
-  throw new Error('交易签名数据类型异常')
+  throw new Error(t('crypto.badSignatureType'))
 }
 
 export function getScashNetwork() {
@@ -93,7 +94,7 @@ export function useCrypto() {
     const root = HDKey.fromMasterSeed(seed)
     const child = root.derive("m/84'/0'/0'/0/0")
     const pubKey = child.publicKey
-    if (!pubKey) throw new Error('钱包地址派生失败')
+    if (!pubKey) throw new Error(t('crypto.deriveAddressFailed'))
     const hash = ripemd160(sha256(pubKey))
     const words = bech32.toWords(hash)
     words.unshift(0)
@@ -106,7 +107,7 @@ export function useCrypto() {
     const child = root.derive("m/84'/0'/0'/0/0")
     const privateKey = child.privateKey
     const publicKey = child.publicKey
-    if (!privateKey || !publicKey) throw new Error('钱包密钥派生失败')
+    if (!privateKey || !publicKey) throw new Error(t('crypto.deriveKeyFailed'))
     return { privateKey, publicKey }
   }
 
@@ -168,7 +169,7 @@ export function useCrypto() {
       } catch {}
     }
 
-    throw new Error('钱包密码错误或数据损坏')
+    throw new Error(t('crypto.wrongPasswordOrCorrupt'))
   }
 
   async function buildTransaction(
@@ -199,7 +200,7 @@ export function useCrypto() {
     }
 
     if (totalInputSat < outputsTotalSat + feeSat) {
-      throw new Error('UTXO 余额不足（含手续费）')
+      throw new Error(t('crypto.insufficientUtxo'))
     }
 
     for (const output of outputs) {

@@ -1,6 +1,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useTelegram } from '@/composables/useTelegram'
 import router from '@/router'
+import { t } from '@/i18n'
 
 const BASE_URL = ''
 const REQUEST_TIMEOUT_MS = 30000
@@ -8,19 +9,29 @@ const REQUEST_TIMEOUT_MS = 30000
 /**
  * Check if an error message indicates a session/auth expiry (as opposed to
  * a business-level "expired" such as "red packet expired").
+ *
+ * We match against localized session-error copy across all supported locales
+ * plus the canonical English server phrases so the detection works regardless
+ * of which locale produced the message.
  */
 function isSessionExpiredError(msg: string): boolean {
   const m = msg.toLowerCase()
   return (
+    // English (server + translated)
     m.includes('initdata expired') ||
-    m.includes('会话已过期') ||
-    m.includes('登录信息已过期') ||
     m.includes('session expired') ||
     m.includes('session has expired') ||
     m.includes('token expired') ||
     m.includes('token has expired') ||
     m.includes('invalid session') ||
     m.includes('invalid token') ||
+    // Chinese
+    m.includes('会话已过期') ||
+    m.includes('登录信息已过期') ||
+    m.includes('登录状态已过期') ||
+    // Russian (lowercase Cyrillic)
+    m.includes('сессия истекла') ||
+    m.includes('данные входа устарели') ||
     // Telegram initData replay attack detection
     (m.includes('replay') && (m.includes('init') || m.includes('auth') || m.includes('session')))
   )
@@ -63,7 +74,7 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
     const controller = new AbortController()
     const timer = setTimeout(() => {
       controller.abort()
-      reject(new Error('请求超时，请检查网络后重试'))
+      reject(new Error(t('api.timeout')))
     }, timeoutMs)
 
     fetch(url, { ...options, signal: controller.signal })
@@ -74,21 +85,21 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
 }
 
 /**
- * Map HTTP / network errors to user-friendly Chinese messages.
+ * Map HTTP / network errors to localised user-friendly messages.
  */
 function getFriendlyErrorMessage(status: number, rawMessage: string): string {
-  if (status === 0) return '网络连接失败，请检查网络后重试'
+  if (status === 0) return t('api.network0')
   if (status >= 500) {
-    if (status === 502) return '节点服务异常，请稍后重试'
-    if (status === 503) return '服务器繁忙，请稍后重试'
-    if (status === 504) return '网关超时，请稍后重试'
-    return '服务器内部错误，请稍后重试'
+    if (status === 502) return t('api.bad502')
+    if (status === 503) return t('api.busy503')
+    if (status === 504) return t('api.gateway504')
+    return t('api.server500')
   }
   return rawMessage
 }
 
 /**
- * Translate common blockchain node (RPC) errors to Chinese.
+ * Translate common blockchain node (RPC) errors to the current locale.
  */
 function translateNodeError(rawMessage: string): string | null {
   if (!rawMessage) return null
@@ -96,9 +107,9 @@ function translateNodeError(rawMessage: string): string | null {
 
   // Mempool chain limits
   if (m.includes('too-long-mempool-chain')) {
-    if (m.includes('too many descendants')) return '该笔交易的前置交易在内存池中排队过多，请稍后重试'
-    if (m.includes('too many ancestors')) return '交易依赖链过长，请稍后重试'
-    return '交易链过长，请稍后重试'
+    if (m.includes('too many descendants')) return t('api.nodeMempoolDesc')
+    if (m.includes('too many ancestors')) return t('api.nodeMempoolAnc')
+    return t('api.nodeMempoolTooLong')
   }
 
   // Fee issues
@@ -108,12 +119,12 @@ function translateNodeError(rawMessage: string): string | null {
     m.includes('min relay fee not met') ||
     m.includes('insufficient priority')
   ) {
-    return '链上手续费不足，请提高手续费后重试'
+    return t('api.nodeLowFee')
   }
 
   // Double spend / input already spent
-  if (m.includes('bad-txns-inputs-missingorspent')) return '交易输入已被花费，请刷新余额后重试'
-  if (m.includes('txn-mempool-conflict')) return '检测到双花冲突，请刷新后重试'
+  if (m.includes('bad-txns-inputs-missingorspent')) return t('api.nodeDoubleSpent')
+  if (m.includes('txn-mempool-conflict')) return t('api.nodeConflict')
 
   // Already known / confirmed
   if (
@@ -122,7 +133,7 @@ function translateNodeError(rawMessage: string): string | null {
     m.includes('already in block chain') ||
     m.includes('txn-already-known')
   ) {
-    return '交易已提交，请稍后查询确认状态'
+    return t('api.nodeAlreadyKnown')
   }
 
   // Script / signature errors
@@ -130,7 +141,7 @@ function translateNodeError(rawMessage: string): string | null {
     m.includes('non-mandatory-script-verify-flag') ||
     m.includes('mandatory-script-verify-flag')
   ) {
-    return '交易签名验证失败，请检查钱包密码或数据是否完整'
+    return t('api.nodeScriptVerify')
   }
 
   // RPC connectivity / node overload
@@ -141,11 +152,11 @@ function translateNodeError(rawMessage: string): string | null {
       m.includes('etimedout') ||
       m.includes('enotfound')
     ) {
-      return '节点连接失败，请稍后重试'
+      return t('api.nodeRpcRefused')
     }
-    if (m.includes('work queue depth exceeded')) return '节点繁忙，请稍后重试'
-    if (m.includes('method not found')) return '节点不支持该操作'
-    if (m.includes('internal error')) return '节点内部错误，请稍后重试'
+    if (m.includes('work queue depth exceeded')) return t('api.nodeQueue')
+    if (m.includes('method not found')) return t('api.nodeMethod')
+    if (m.includes('internal error')) return t('api.nodeInternal')
   }
 
   return null
@@ -175,7 +186,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       const { getInitData } = useTelegram()
       const initData = getInitData()
       if (!initData) {
-        const err: ApiError = { status: 401, message: '登录状态已过期，请关闭并重新打开 Mini App' }
+        const err: ApiError = { status: 401, message: t('api.sessionExpired') }
         throw err
       }
 
@@ -199,7 +210,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         // throw a clear session error instead of a cryptic message.
         const retryMsg = retryErr?.message || ''
         if (isSessionExpiredError(retryMsg) || retryMsg.includes('重新打开') || retryMsg.includes('无法获取 Telegram')) {
-          const err: ApiError = { status: 401, message: '登录状态已过期，请关闭并重新打开 Mini App' }
+          const err: ApiError = { status: 401, message: t('api.sessionExpired') }
           throw err
         }
         throw retryErr
@@ -210,19 +221,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     try {
       json = await res.json()
     } catch {
-      const err: ApiError = { status: res.status, message: getFriendlyErrorMessage(res.status, '请求失败') }
+      const err: ApiError = { status: res.status, message: getFriendlyErrorMessage(res.status, t('api.generic')) }
       throw err
     }
 
     if (!res.ok || !json.success) {
-      const errMsg = json.error?.message || '请求失败'
+      const errMsg = json.error?.message || t('api.generic')
       if (isSessionExpiredError(errMsg)) {
-        const err: ApiError = { status: res.status, message: '会话已过期，请关闭并重新打开 Mini App' }
+        const err: ApiError = { status: res.status, message: t('api.sessionExpired') }
         throw err
       }
       // Wallet was unbound/deleted on another device — reset and redirect
       if (handleWalletGone(path, res.status, errMsg)) {
-        const err: ApiError = { status: res.status, message: '钱包已在其他设备上解除绑定' }
+        const err: ApiError = { status: res.status, message: t('api.walletGone') }
         throw err
       }
       const friendly = translateNodeError(errMsg) || getFriendlyErrorMessage(res.status, errMsg)
@@ -242,16 +253,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (nodeErr) {
       throw { status: 0, message: nodeErr } as ApiError
     }
-    // Keep Chinese messages as-is (e.g. session expired, timeout)
-    if (/[\u4e00-\u9fa5]/.test(msg)) {
+    // Keep pre-localized messages (Chinese / Cyrillic) as-is (e.g. session expired, timeout).
+    if (/[\u4e00-\u9fa5\u0400-\u04FF]/.test(msg)) {
       throw { status: 0, message: msg } as ApiError
     }
     // Network-level errors (TypeError: Failed to fetch, etc.)
     if (e instanceof TypeError || msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to')) {
-      throw { status: 0, message: '网络连接失败，请检查网络后重试' } as ApiError
+      throw { status: 0, message: t('api.network0') } as ApiError
     }
     // Fallback: do not expose raw English errors to users
-    throw { status: 0, message: '请求失败，请稍后重试' } as ApiError
+    throw { status: 0, message: t('api.generic') } as ApiError
   }
 }
 

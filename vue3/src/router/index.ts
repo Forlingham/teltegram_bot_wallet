@@ -15,6 +15,7 @@ import RedpacketPage from '@/views/RedpacketPage.vue'
 import CreateRedpacketPage from '@/views/redpacket/CreatePage.vue'
 import ClaimPage from '@/views/redpacket/ClaimPage.vue'
 import AboutPage from '@/views/AboutPage.vue'
+import { t } from '@/i18n'
 
 const mainRoutes: RouteRecordRaw[] = [
   {
@@ -25,79 +26,79 @@ const mainRoutes: RouteRecordRaw[] = [
     path: '/wallet',
     name: 'home',
     component: HomePage,
-    meta: { activeNav: 'home', title: 'SCASH 钱包' },
+    meta: { activeNav: 'home', titleKey: 'route.home' },
   },
   {
     path: '/wallet/create',
     name: 'wallet-create',
     component: CreatePage,
-    meta: { title: '创建钱包' },
+    meta: { titleKey: 'route.walletCreate' },
   },
   {
     path: '/wallet/import',
     name: 'wallet-import',
     component: ImportPage,
-    meta: { title: '导入钱包' },
+    meta: { titleKey: 'route.walletImport' },
   },
   {
     path: '/wallet/bind',
     name: 'wallet-bind',
     component: BindPage,
-    meta: { title: '绑定钱包' },
+    meta: { titleKey: 'route.walletBind' },
   },
   {
     path: '/wallet/send',
     name: 'wallet-send',
     component: SendPage,
-    meta: { requireFullWallet: true, title: '发送' },
+    meta: { requireFullWallet: true, titleKey: 'route.walletSend' },
   },
   {
     path: '/wallet/receive',
     name: 'wallet-receive',
     component: ReceivePage,
-    meta: { title: '接收' },
+    meta: { titleKey: 'route.walletReceive' },
   },
   {
     path: '/wallet/inscribe',
     name: 'wallet-inscribe',
     component: InscribePage,
-    meta: { requireFullWallet: true, title: '刻字上链' },
+    meta: { requireFullWallet: true, titleKey: 'route.walletInscribe' },
   },
   {
     path: '/wallet/recover',
     name: 'wallet-recover',
     component: RecoverPage,
-    meta: { requireFullWallet: true, title: '备份助记词' },
+    meta: { requireFullWallet: true, titleKey: 'route.walletRecover' },
   },
   {
     path: '/wallet/settings',
     name: 'wallet-settings',
     component: SettingsPage,
-    meta: { requireAnyWallet: true, title: '设置' },
+    meta: { requireAnyWallet: true, titleKey: 'route.walletSettings' },
   },
   {
     path: '/wallet/history',
     name: 'wallet-history',
     component: HistoryPage,
-    meta: { activeNav: 'history', title: '交易记录' },
+    meta: { activeNav: 'history', titleKey: 'route.walletHistory' },
   },
   {
     path: '/wallet/redpacket',
     name: 'wallet-redpacket',
     component: RedpacketPage,
-    meta: { activeNav: 'redpacket', requireAnyWallet: true, title: '红包' },
+    meta: { activeNav: 'redpacket', requireAnyWallet: true, titleKey: 'route.walletRedpacket' },
   },
   {
     path: '/wallet/redpacket/create',
     name: 'wallet-redpacket-create',
     component: CreateRedpacketPage,
-    meta: { requireFullWallet: true, title: '发红包' },
+    meta: { requireFullWallet: true, titleKey: 'route.walletRedpacketCreate' },
   },
   {
     path: '/wallet/about',
     name: 'wallet-about',
     component: AboutPage,
-    meta: { activeNav: 'about', title: '关于' },
+    meta: { activeNav: 'about', titleKey: 'route.walletAbout' },
   },
 ]
 
@@ -106,7 +107,7 @@ const claimRoutes: RouteRecordRaw[] = [
     path: '/open',
     name: 'redpacket-claim',
     component: ClaimPage,
-    meta: { layout: 'claim', backAsClose: true, title: '领取红包' },
+    meta: { layout: 'claim', backAsClose: true, titleKey: 'route.redpacketClaim' },
   },
 ]
 
@@ -119,8 +120,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const title = (to.meta.title as string) || 'SCASH 钱包'
-  document.title = title
+  const key = (to.meta.titleKey as string | undefined) || 'route.home'
+  document.title = t(key)
 })
 
 export default router

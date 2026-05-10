@@ -5,15 +5,23 @@ import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import { useAuthStore, useWalletStore, useNetworkStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const networkStore = useNetworkStore()
 const { setupBackButton, hideBackButton } = useTelegram()
+const { t, locale } = useI18n()
 
 const showBottomNav = computed(() => route.meta.layout !== 'claim')
 const activeNav = computed(() => (route.meta.activeNav as string) || '')
+
+const headerTitle = computed(() => {
+  const key = (route.meta.titleKey as string | undefined) || 'route.home'
+  void locale.value
+  return t(key)
+})
 
 onMounted(async () => {
   // Initialize network config from server
@@ -38,9 +46,9 @@ onMounted(async () => {
       const permitted = await walletStore.checkPermission(requireFull, requireAny)
       if (!permitted) {
         if (requireFull && walletStore.isWatchOnly) {
-          alert('观察钱包仅支持接收，无法进行发送或签名操作')
+          alert(t('permission.watchOnlyOnly'))
         } else {
-          alert('该操作需要先创建钱包')
+          alert(t('permission.needWallet'))
         }
         window.location.href = '/wallet'
         return
@@ -66,7 +74,7 @@ watch(() => route.path, () => {
 
 <template>
   <div class="min-h-screen bg-surface text-on-surface flex flex-col">
-    <AppHeader :title="(route.meta.title as string) || 'SCASH 钱包'" :show-settings="activeNav === 'home'" />
+    <AppHeader :title="headerTitle" :show-settings="activeNav === 'home'" />
     <main class="flex-1 px-4 py-4 space-y-6 max-w-lg mx-auto w-full" :class="{ 'pb-24': showBottomNav }">
       <RouterView />
     </main>

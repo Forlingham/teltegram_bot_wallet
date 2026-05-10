@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useWalletStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
+import { useI18n } from '@/i18n'
 
 defineProps<{
   active?: string
@@ -8,16 +10,21 @@ defineProps<{
 
 const walletStore = useWalletStore()
 const { showAlert } = useTelegram()
+const { t, locale } = useI18n()
 
-const navItems = [
-  { key: 'home', icon: 'home', label: '首页', to: '/wallet', requireWallet: false },
-  { key: 'redpacket', icon: 'card_giftcard', label: '红包', to: '/wallet/redpacket', requireWallet: true },
-  { key: 'history', icon: 'history', label: '记录', to: '/wallet/history', requireWallet: false },
-  { key: 'about', icon: 'info', label: '关于', to: '/wallet/about', requireWallet: false },
-]
+// Recompute when the locale changes so labels stay reactive.
+const navItems = computed(() => {
+  void locale.value
+  return [
+    { key: 'home', icon: 'home', label: t('nav.home'), to: '/wallet', requireWallet: false },
+    { key: 'redpacket', icon: 'card_giftcard', label: t('nav.redpacket'), to: '/wallet/redpacket', requireWallet: true },
+    { key: 'history', icon: 'history', label: t('nav.history'), to: '/wallet/history', requireWallet: false },
+    { key: 'about', icon: 'info', label: t('nav.about'), to: '/wallet/about', requireWallet: false },
+  ]
+})
 
 function handleDisabledClick() {
-  showAlert('请先创建或导入钱包')
+  showAlert(t('header.needWalletForSettings'))
 }
 </script>
 
