@@ -73,6 +73,12 @@ try {
   app.use(router)
   app.use(createI18n())
   app.mount('#app')
+  // Notify the inline boot-error capture in index.html that the app
+  // mounted successfully — it will stop buffering errors and never
+  // render the error screen, even if benign async errors happen later.
+  if (typeof (window as any).__scashBootOk === 'function') {
+    ;(window as any).__scashBootOk()
+  }
   removeLoader()
 } catch (e) {
   showFatalBootError(e)
