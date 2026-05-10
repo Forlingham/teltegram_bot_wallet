@@ -15,6 +15,56 @@
       import { Buffer } from 'buffer';
       window.Buffer = Buffer;
     </script>
+    <!--
+      Global boot-error capture.
+      Registers window.onerror + unhandledrejection BEFORE any module
+      script loads so ANY crash during the module graph evaluation
+      (imports, top-level await, plugin install, mount) surfaces visibly
+      inside the preloader instead of leaving the spinner stuck forever.
+    -->
+    <script>
+      (function () {
+        var shown = false;
+        function showBootError(label, err) {
+          if (shown) return;
+          shown = true;
+          try {
+            var loader = document.getElementById('app-loading');
+            if (!loader) return;
+            var text = loader.querySelector('.app-loading-text');
+            if (text) {
+              text.textContent = 'Boot failed (' + label + ') — please reopen the Mini App';
+              text.style.color = '#c0392b';
+            }
+            var pre = document.createElement('pre');
+            pre.textContent = (err && (err.stack || err.message)) || String(err);
+            pre.style.cssText = 'max-width:90vw;max-height:50vh;overflow:auto;margin-top:12px;padding:8px;background:rgba(0,0,0,0.04);border-radius:6px;font-size:10px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:monospace;text-align:left;';
+            loader.appendChild(pre);
+          } catch (_) {}
+        }
+        window.addEventListener('error', function (ev) {
+          // Script load errors also dispatch "error" but with ev.error === null;
+          // fall back to ev.message / ev.filename so we still see something.
+          var err = ev.error || new Error((ev.message || 'Script error') + ' @ ' + (ev.filename || '?') + ':' + (ev.lineno || '?') + ':' + (ev.colno || '?'));
+          showBootError('error', err);
+        }, true);
+        window.addEventListener('unhandledrejection', function (ev) {
+          showBootError('promise', ev.reason);
+        });
+        // Safety net: if after 15s the Vue app still hasn't removed the
+        // preloader, show a hint so the user at least knows to reload.
+        setTimeout(function () {
+          var loader = document.getElementById('app-loading');
+          if (loader && !loader.classList.contains('fade-out') && !shown) {
+            var text = loader.querySelector('.app-loading-text');
+            if (text) {
+              text.textContent = 'Still loading… if this persists, please reopen the Mini App';
+              text.style.color = '#c0392b';
+            }
+          }
+        }, 15000);
+      })();
+    </script>
     <style>
       /* Pre-Vue loading screen */
       #app-loading {
