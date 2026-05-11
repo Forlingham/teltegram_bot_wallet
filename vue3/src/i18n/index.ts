@@ -36,6 +36,7 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
 import en from './locales/en'
+import zhCN from './locales/zh-CN'
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
@@ -45,17 +46,18 @@ import {
 
 const STORAGE_KEY = 'SCASH_LOCALE'
 
-// Only English is bundled up-front; others load on demand.
+// English and Chinese are bundled synchronously (main user languages).
+// Russian is loaded on demand to keep the initial bundle smaller.
 const MESSAGES: Record<Locale, Messages | null> = {
   en,
-  'zh-CN': null,
+  'zh-CN': zhCN,
   ru: null,
 }
 
 // Loader promises, so concurrent t() calls don't trigger duplicate imports.
 const LOADERS: Record<Locale, (() => Promise<Messages>) | null> = {
   en: null, // already loaded synchronously
-  'zh-CN': () => import('./locales/zh-CN').then((m) => m.default),
+  'zh-CN': null, // already loaded synchronously
   ru: () => import('./locales/ru').then((m) => m.default),
 }
 
