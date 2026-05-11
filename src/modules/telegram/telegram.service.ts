@@ -39,6 +39,9 @@ export class TelegramService implements OnModuleInit {
     process.once('SIGTERM', () => bot.stop('SIGTERM'));
   }
 
+  /**
+   * Get the Mini App domain URL (used for web_app buttons in private chat).
+   */
   private getMiniAppUrl(): string {
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
     return isProduction
@@ -46,26 +49,47 @@ export class TelegramService implements OnModuleInit {
       : this.configService.get<string>('MINIAPP_URL', 'https://ttt.scash.network');
   }
 
+  /**
+   * Get the Mini App direct link (used for url buttons in group chats).
+   * Format: https://t.me/bot_username/app_shortname
+   * Falls back to MINIAPP_URL if MINIAPP_DIRECT_LINK is not configured.
+   */
+  private getMiniAppDirectLink(): string {
+    return this.configService.get<string>('MINIAPP_DIRECT_LINK') || this.getMiniAppUrl();
+  }
+
   private isPrivateChat(ctx: Context): boolean {
     return ctx.chat?.type === 'private';
+  }
+
+  /**
+   * Build an inline keyboard button that opens the Mini App.
+   * - In private chats: use web_app button (native Mini App experience).
+   * - In groups/supergroups/channels: use url button with t.me direct link
+   *   (web_app buttons are not allowed outside private chats).
+   */
+  private buildMiniAppButton(text: string, isPrivate: boolean, startParam?: string): { text: string; web_app?: { url: string }; url?: string } {
+    if (isPrivate) {
+      return { text, web_app: { url: this.getMiniAppUrl() } };
+    }
+    const directLink = this.getMiniAppDirectLink();
+    const url = startParam ? `${directLink}?startapp=${startParam}` : directLink;
+    return { text, url };
   }
 
   private registerCommands() {
     if (!this.bot) return;
 
-    const miniAppUrl = this.getMiniAppUrl();
-
     this.bot.start(async (ctx) => {
-      if (!this.isPrivateChat(ctx)) return;
-      
       try {
         const telegramId = ctx.from.id.toString();
+        const isPrivate = this.isPrivateChat(ctx);
         const t = await this.i18n.getTranslationsForUser(telegramId);
 
         ctx.reply(t.bot.start.welcome, {
           reply_markup: {
             inline_keyboard: [
-              [{ text: t.bot.start.openWallet, web_app: { url: miniAppUrl } }],
+              [this.buildMiniAppButton(t.bot.start.openWallet, isPrivate)],
             ],
           },
         });
@@ -75,10 +99,9 @@ export class TelegramService implements OnModuleInit {
     });
 
     this.bot.command('balance', async (ctx) => {
-      if (!this.isPrivateChat(ctx)) return;
-      
       try {
         const telegramId = ctx.from.id.toString();
+        const isPrivate = this.isPrivateChat(ctx);
         const t = await this.i18n.getTranslationsForUser(telegramId);
         
         const user = await this.prisma.user.findUnique({
@@ -95,7 +118,7 @@ export class TelegramService implements OnModuleInit {
           ctx.reply(t.bot.balance.noWallet, {
             reply_markup: {
               inline_keyboard: [
-                [{ text: t.bot.balance.createWallet, web_app: { url: miniAppUrl } }],
+                [this.buildMiniAppButton(t.bot.balance.createWallet, isPrivate)],
               ],
             },
           });
@@ -126,14 +149,13 @@ export class TelegramService implements OnModuleInit {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: t.bot.balance.openDetails, web_app: { url: miniAppUrl } }],
+                [this.buildMiniAppButton(t.bot.balance.openDetails, isPrivate)],
               ],
             },
           }
         );
       } catch (error) {
         this.logger.error(`Error in /balance command: ${error instanceof Error ? error.message : String(error)}`);
-        // Fallback error message (can't easily get i18n here since we might have failed fetching user)
         ctx.reply('❌ Error').catch(() => {});
       }
     });
@@ -151,12 +173,12 @@ export class TelegramService implements OnModuleInit {
       const t = await this.i18n.getTranslationsForUser(telegramId);
       const senderName = senderUsername ? `@${senderUsername}` : 'Someone';
       const message = t.bot.notify.claimSuccess(senderName, amount, packetMessage);
-      const miniAppUrl = this.getMiniAppUrl();
 
+      // Notifications are always sent to private chat (bot → user DM)
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: t.bot.notify.viewWallet, web_app: { url: miniAppUrl } }],
+            [this.buildMiniAppButton(t.bot.notify.viewWallet, true)],
           ],
         },
       });
@@ -178,12 +200,12 @@ export class TelegramService implements OnModuleInit {
       const t = await this.i18n.getTranslationsForUser(telegramId);
       const shortHash = packetHash.slice(0, 8);
       const message = t.bot.notify.packetCompleted(shortHash, totalAmount, claimCount);
-      const miniAppUrl = this.getMiniAppUrl();
 
+      // Notifications are always sent to private chat (bot → user DM)
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: t.bot.notify.viewDetails, web_app: { url: miniAppUrl } }],
+            [this.buildMiniAppButton(t.bot.notify.viewDetails, true)],
           ],
         },
       });
