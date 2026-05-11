@@ -69,7 +69,7 @@ export class TelegramService implements OnModuleInit {
    * - In groups/supergroups/channels: use url button with t.me direct link
    *   (web_app buttons are not allowed outside private chats).
    */
-  private buildMiniAppButton(text: string, isPrivate: boolean, startParam?: string): { text: string; web_app?: { url: string }; url?: string } {
+  private buildMiniAppButton(text: string, isPrivate: boolean, startParam?: string): any {
     if (isPrivate) {
       return { text, web_app: { url: this.getMiniAppUrl() } };
     }
