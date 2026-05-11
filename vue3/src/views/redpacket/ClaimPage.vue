@@ -65,8 +65,9 @@ import { useRouter } from 'vue-router'
 import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, setLocale, type Locale } from '@/i18n'
 
 interface PacketUser {
   username?: string
@@ -104,7 +105,8 @@ const router = useRouter()
 const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
-const { t } = useI18n()
+const authStore = useAuthStore()
+const { t, locale } = useI18n()
 
 const packetHash = ref(resolvePacketHash())
 const loading = ref(true)
@@ -358,7 +360,10 @@ function initAntiAutomation() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Ensure session is established (also syncs locale from Telegram on cached-token path)
+  await authStore.ensureSession().catch(() => {})
+
   initAntiAutomation()
   if (packetHash.value) {
     loadPacket()

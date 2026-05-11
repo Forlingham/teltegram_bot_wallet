@@ -36,6 +36,8 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
 import en from './locales/en'
+import zhCN from './locales/zh-CN'
+import ru from './locales/ru'
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
@@ -45,38 +47,12 @@ import {
 
 const STORAGE_KEY = 'SCASH_LOCALE'
 
-// Only English is bundled up-front; others load on demand.
-const MESSAGES: Record<Locale, Messages | null> = {
+// All locale dictionaries are bundled synchronously for instant rendering
+// without any language flash.
+const MESSAGES: Record<Locale, Messages> = {
   en,
-  'zh-CN': null,
-  ru: null,
-}
-
-// Loader promises, so concurrent t() calls don't trigger duplicate imports.
-const LOADERS: Record<Locale, (() => Promise<Messages>) | null> = {
-  en: null, // already loaded synchronously
-  'zh-CN': () => import('./locales/zh-CN').then((m) => m.default),
-  ru: () => import('./locales/ru').then((m) => m.default),
-}
-
-const loadPromises: Partial<Record<Locale, Promise<void>>> = {}
-
-function loadLocaleMessages(l: Locale): Promise<void> {
-  if (MESSAGES[l]) return Promise.resolve()
-  if (loadPromises[l]) return loadPromises[l]!
-  const loader = LOADERS[l]
-  if (!loader) return Promise.resolve()
-  const p = loader()
-    .then((m) => {
-      MESSAGES[l] = m
-    })
-    .catch((err) => {
-      // If a non-English chunk fails to load, leave MESSAGES[l] as null;
-      // the English fallback inside t() will keep the UI usable.
-      console.error('[i18n] Failed to load locale', l, err)
-    })
-  loadPromises[l] = p
-  return p
+  'zh-CN': zhCN,
+  ru,
 }
 
 function isSupported(code: string | undefined | null): code is Locale {
@@ -141,14 +117,6 @@ function resolveInitialLocale(): Locale {
 // A plain ref — no watchers, no effects, no side effects at module load.
 const locale = ref<Locale>(resolveInitialLocale())
 
-// Kick off loading of the initial locale, but DO NOT await it — the module
-// must remain synchronously importable. t() will fall back to English
-// until the dictionary arrives, then flips automatically via the reactive
-// locale ref.
-if (locale.value !== 'en') {
-  loadLocaleMessages(locale.value)
-}
-
 // Apply initial side-effects lazily from the first plugin install so that
 // module evaluation itself never touches document.
 let htmlLangApplied = false
@@ -164,8 +132,7 @@ function applyHtmlLangOnce() {
 
 // ---- Message resolution ----
 
-function resolveKey(msgs: Messages | null, key: string): string | undefined {
-  if (!msgs) return undefined
+function resolveKey(msgs: Messages, key: string): string | undefined {
   const parts = key.split('.')
   let cur: any = msgs
   for (const part of parts) {
@@ -214,20 +181,15 @@ export function useI18n(): {
 
 export function setLocale(l: Locale) {
   if (!isSupported(l)) return
-  // Ensure the dictionary is loaded before flipping the reactive locale;
-  // otherwise users briefly see English strings after clicking a language
-  // they haven't used before.
-  loadLocaleMessages(l).then(() => {
-    locale.value = l
-    try {
-      localStorage.setItem(STORAGE_KEY, l)
-    } catch {}
-    try {
-      if (typeof document !== 'undefined') {
-        document.documentElement.lang = l
-      }
-    } catch {}
-  })
+  locale.value = l
+  try {
+    localStorage.setItem(STORAGE_KEY, l)
+  } catch {}
+  try {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = l
+    }
+  } catch {}
 }
 
 /**
