@@ -25,7 +25,8 @@ export class TelegramService implements OnModuleInit {
 
     this.bot = new Telegraf(token);
     this.registerCommands();
-    
+
+    // Global error handler — prevents unhandled errors from crashing the process
     this.bot.catch((err, ctx) => {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Bot error for ${ctx.updateType}: ${message}`);
@@ -77,6 +78,19 @@ export class TelegramService implements OnModuleInit {
     return { text, url };
   }
 
+  /**
+   * Safely reply to a context. Catches and logs any Telegram API error
+   * so it never becomes an unhandled rejection that could crash the process.
+   */
+  private async safeReply(ctx: Context, ...args: Parameters<Context['reply']>): Promise<void> {
+    try {
+      await ctx.reply(...args);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to reply in chat ${ctx.chat?.id}: ${msg}`);
+    }
+  }
+
   private registerCommands() {
     if (!this.bot) return;
 
@@ -86,7 +100,7 @@ export class TelegramService implements OnModuleInit {
         const isPrivate = this.isPrivateChat(ctx);
         const t = await this.i18n.getTranslationsForUser(telegramId);
 
-        ctx.reply(t.bot.start.welcome, {
+        await this.safeReply(ctx, t.bot.start.welcome, {
           reply_markup: {
             inline_keyboard: [
               [this.buildMiniAppButton(t.bot.start.openWallet, isPrivate)],
@@ -103,19 +117,19 @@ export class TelegramService implements OnModuleInit {
         const telegramId = ctx.from.id.toString();
         const isPrivate = this.isPrivateChat(ctx);
         const t = await this.i18n.getTranslationsForUser(telegramId);
-        
+
         const user = await this.prisma.user.findUnique({
           where: { telegramId },
           include: { wallet: true },
         });
 
         if (!user) {
-          ctx.reply(t.bot.balance.startFirst);
+          await this.safeReply(ctx, t.bot.balance.startFirst);
           return;
         }
 
         if (!user.wallet) {
-          ctx.reply(t.bot.balance.noWallet, {
+          await this.safeReply(ctx, t.bot.balance.noWallet, {
             reply_markup: {
               inline_keyboard: [
                 [this.buildMiniAppButton(t.bot.balance.createWallet, isPrivate)],
@@ -140,7 +154,7 @@ export class TelegramService implements OnModuleInit {
         const address = user.wallet.address;
         const shortAddress = `${address.slice(0, 8)}...${address.slice(-6)}`;
 
-        ctx.reply(
+        await this.safeReply(ctx,
           `${t.bot.balance.title}\n\n` +
           `${t.bot.balance.address}: \`${shortAddress}\`\n` +
           `${t.bot.balance.balance}: ${balance} SCASH\n` +
@@ -156,7 +170,8 @@ export class TelegramService implements OnModuleInit {
         );
       } catch (error) {
         this.logger.error(`Error in /balance command: ${error instanceof Error ? error.message : String(error)}`);
-        ctx.reply('❌ Error').catch(() => {});
+        // Last-resort error reply — also protected
+        await this.safeReply(ctx, '❌ Error');
       }
     });
   }
