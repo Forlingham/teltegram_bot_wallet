@@ -65,6 +65,7 @@ import { useRouter } from 'vue-router'
 import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api'
 import { useI18n, setLocale, type Locale } from '@/i18n'
 
@@ -104,6 +105,7 @@ const router = useRouter()
 const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
+const authStore = useAuthStore()
 const { t, locale } = useI18n()
 
 const packetHash = ref(resolvePacketHash())
@@ -358,21 +360,11 @@ function initAntiAutomation() {
   }
 }
 
-onMounted(() => {
-  // Detect locale from Telegram WebApp (handles timing issue where SDK
-  // wasn't ready when the i18n module first evaluated resolveInitialLocale)
-  const tg = getWebApp()
-  const tgLangCode = tg?.initDataUnsafe?.user?.language_code
-  if (tgLangCode) {
-    const lower = tgLangCode.toLowerCase()
-    let detected: Locale | null = null
-    if (lower.startsWith('zh')) detected = 'zh-CN'
-    else if (lower.startsWith('ru')) detected = 'ru'
-    else if (lower.startsWith('en')) detected = 'en'
-    if (detected && detected !== locale.value) {
-      setLocale(detected)
-    }
-  }
+onMounted(async () => {
+  // Ensure session is established and locale is synced from Telegram/server
+  // before rendering content. This fixes the issue where the claim page
+  // shows the wrong language when opened directly via a red packet link.
+  await authStore.ensureSession().catch(() => {})
 
   initAntiAutomation()
   if (packetHash.value) {
