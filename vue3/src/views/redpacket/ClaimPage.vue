@@ -67,7 +67,7 @@ import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api'
-import { useI18n, setLocale, type Locale } from '@/i18n'
+import { useI18n, setLocale, waitLocaleReady, type Locale } from '@/i18n'
 
 interface PacketUser {
   username?: string
@@ -361,9 +361,13 @@ function initAntiAutomation() {
 }
 
 onMounted(async () => {
-  // Ensure session is established and locale is synced from Telegram/server
-  // before rendering content. This fixes the issue where the claim page
-  // shows the wrong language when opened directly via a red packet link.
+  // Wait for the locale dictionary to be loaded before rendering content.
+  // The i18n module kicks off an async import for non-English locales at
+  // module load time, but the chunk may not have arrived yet when onMounted
+  // fires. Without this await, t() falls back to English strings briefly.
+  await waitLocaleReady()
+
+  // Ensure session is established (also syncs locale from Telegram on cached-token path)
   await authStore.ensureSession().catch(() => {})
 
   initAntiAutomation()

@@ -246,5 +246,14 @@ export function createI18n() {
   }
 }
 
+/**
+ * Wait until the current locale's dictionary has been loaded.
+ * Useful for pages that open directly (e.g. claim page via deep link)
+ * and must not flash English before the correct language is ready.
+ */
+export function waitLocaleReady(): Promise<void> {
+  return loadLocaleMessages(locale.value)
+}
+
 export { SUPPORTED_LOCALES, DEFAULT_LOCALE, LOCALE_LABELS } from './types'
 export type { Locale, Messages } from './types'
