@@ -103,7 +103,6 @@ interface RedPacket {
 
 const router = useRouter()
 const { getWebApp, getInitData, showAlert, close: closeApp, hapticImpact, hapticNotification } = useTelegram()
-const { hapticImpact, hapticNotification } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
 const authStore = useAuthStore()
