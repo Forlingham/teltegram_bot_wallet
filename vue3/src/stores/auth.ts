@@ -94,35 +94,6 @@ export const useAuthStore = defineStore('auth', () => {
     return { token: data.sessionToken, expiresAt: data.expiresAt, language: data.user.language ?? null }
   }
 
-  /**
-   * Sync locale from Telegram language_code when no explicit server preference
-   * is available (i.e. cached token path, no doLogin call).
-   * On the cached-token path we don't call doLogin, so the server's language
-   * preference isn't available. Use Telegram's language_code as the source of
-   * truth to ensure the UI matches the user's Telegram language setting.
-   */
-  function syncLocaleFromTelegram() {
-    try {
-      const tgUser = getTgUser()
-      const langCode = tgUser?.language_code
-      if (!langCode) return
-
-      const lower = langCode.toLowerCase()
-      let detected: string | null = null
-      if (lower.startsWith('zh')) detected = 'zh-CN'
-      else if (lower.startsWith('ru')) detected = 'ru'
-      else if (lower.startsWith('en')) detected = 'en'
-
-      if (detected) {
-        import('@/i18n').then(({ setLocale, locale }) => {
-          if (locale.value !== detected) {
-            setLocale(detected as any)
-          }
-        })
-      }
-    } catch {}
-  }
-
   async function ensureSession(): Promise<string> {
     if (ensureSessionPromise) return ensureSessionPromise
 
@@ -138,13 +109,9 @@ export const useAuthStore = defineStore('auth', () => {
             localStorage.setItem(TG_USER_KEY, tgUserId)
             sessionToken.value = userToken
             currentTgUserId.value = tgUserId
-            // Sync locale from Telegram language_code even on cached token path.
-            // This ensures the claim page shows the correct language on first open.
-            syncLocaleFromTelegram()
             return userToken
           }
         } else if (sessionToken.value && !shouldRefreshSession()) {
-          syncLocaleFromTelegram()
           return sessionToken.value
         }
 

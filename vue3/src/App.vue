@@ -5,7 +5,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import { useAuthStore, useWalletStore, useNetworkStore, usePriceStore } from '@/stores'
 import { useTelegram } from '@/composables/useTelegram'
-import { useI18n, waitLocaleReady } from '@/i18n'
+import { useI18n } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -124,12 +124,7 @@ async function handleBgError(e: any) {
 
 // Non-blocking init: let Vue render immediately with persisted data,
 // then refresh in background.
-onMounted(async () => {
-  // Wait for the locale dictionary chunk to finish loading before any
-  // meaningful rendering. The loading state / skeleton is already visible,
-  // so the user won't notice the brief await on fast connections.
-  await waitLocaleReady()
-
+onMounted(() => {
   networkStore.fetchEnv().catch(() => {})
 
   // Restore session & user info in background (non-blocking)
