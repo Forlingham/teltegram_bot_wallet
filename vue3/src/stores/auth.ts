@@ -59,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
     return Date.now() >= expiresAt - SESSION_REFRESH_BUFFER_SECONDS * 1000
   }
 
-  async function doLogin(): Promise<{ token: string; expiresAt: string }> {
+  async function doLogin(): Promise<{ token: string; expiresAt: string; language: string | null }> {
     const initData = getInitData()
     if (!initData) {
       throw new Error(t('api.cantGetTg'))
@@ -90,8 +90,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
       throw new Error(errMsg)
     }
-    const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string } }
-    return { token: data.sessionToken, expiresAt: data.expiresAt }
+    const data = loginJson.data as { sessionToken: string; expiresAt: string; user: { id: number; telegramId: string; language?: string | null } }
+    return { token: data.sessionToken, expiresAt: data.expiresAt, language: data.user.language ?? null }
   }
 
   async function ensureSession(): Promise<string> {
@@ -116,7 +116,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         // 2. Token is missing or near expiry — proactively refresh with initData
-        const { token, expiresAt } = await doLogin()
+        const { token, expiresAt, language } = await doLogin()
 
         if (tgUserId) {
           setTokenForUser(tgUserId, token)
@@ -125,6 +125,12 @@ export const useAuthStore = defineStore('auth', () => {
           sessionToken.value = token
         }
         setSessionExpiresAt(expiresAt)
+
+        // Sync locale from server preference (if user set one)
+        if (language) {
+          const { setLocale } = await import('@/i18n')
+          setLocale(language as any)
+        }
 
         // 3. Update in-memory user info if available from login response
         // (login response currently only returns user.id and telegramId)

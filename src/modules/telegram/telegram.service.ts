@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { PrismaService } from '../../prisma/prisma.service';
+import { I18nService } from '../i18n/i18n.service';
 import { satoshiToScash, scashToSatoshi } from '../../common/utils/money.util';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class TelegramService implements OnModuleInit {
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(I18nService) private readonly i18n: I18nService,
   ) {}
 
   onModuleInit() {
@@ -23,7 +25,8 @@ export class TelegramService implements OnModuleInit {
 
     this.bot = new Telegraf(token);
     this.registerCommands();
-    
+
+    // Global error handler — prevents unhandled errors from crashing the process
     this.bot.catch((err, ctx) => {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Bot error for ${ctx.updateType}: ${message}`);
@@ -37,6 +40,9 @@ export class TelegramService implements OnModuleInit {
     process.once('SIGTERM', () => bot.stop('SIGTERM'));
   }
 
+  /**
+   * Get the Mini App domain URL (used for web_app buttons in private chat).
+   */
   private getMiniAppUrl(): string {
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
     return isProduction
@@ -44,67 +50,92 @@ export class TelegramService implements OnModuleInit {
       : this.configService.get<string>('MINIAPP_URL', 'https://ttt.scash.network');
   }
 
+  /**
+   * Get the Mini App direct link (used for url buttons in group chats).
+   * Format: https://t.me/bot_username/app_shortname
+   * Falls back to MINIAPP_URL if MINIAPP_DIRECT_LINK is not configured.
+   */
+  private getMiniAppDirectLink(): string {
+    return this.configService.get<string>('MINIAPP_DIRECT_LINK') || this.getMiniAppUrl();
+  }
+
   private isPrivateChat(ctx: Context): boolean {
     return ctx.chat?.type === 'private';
+  }
+
+  /**
+   * Build an inline keyboard button that opens the Mini App.
+   * - In private chats: use web_app button (native Mini App experience).
+   * - In groups/supergroups/channels: use url button with t.me direct link
+   *   (web_app buttons are not allowed outside private chats).
+   */
+  private buildMiniAppButton(text: string, isPrivate: boolean, startParam?: string): any {
+    if (isPrivate) {
+      return { text, web_app: { url: this.getMiniAppUrl() } };
+    }
+    const directLink = this.getMiniAppDirectLink();
+    const url = startParam ? `${directLink}?startapp=${startParam}` : directLink;
+    return { text, url };
+  }
+
+  /**
+   * Safely reply to a context. Catches and logs any Telegram API error
+   * so it never becomes an unhandled rejection that could crash the process.
+   */
+  private async safeReply(ctx: Context, ...args: Parameters<Context['reply']>): Promise<void> {
+    try {
+      await ctx.reply(...args);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to reply in chat ${ctx.chat?.id}: ${msg}`);
+    }
   }
 
   private registerCommands() {
     if (!this.bot) return;
 
-    const miniAppUrl = this.getMiniAppUrl();
-
-    this.bot.start((ctx) => {
-      if (!this.isPrivateChat(ctx)) return;
-      
+    this.bot.start(async (ctx) => {
       try {
-        ctx.reply(
-          '🎉 欢迎使用 SCASH 红包钱包！\n\n' +
-          '这是一个基于 Scash 区块链的红包钱包，你可以：\n' +
-          '• 发送和接收 SCASH 红包\n' +
-          '• 管理你的钱包\n' +
-          '• 查看交易记录\n\n' +
-          '点击下方按钮打开钱包 👇',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💰 打开钱包', web_app: { url: miniAppUrl } }],
-              ],
-            },
-          }
-        );
+        const telegramId = ctx.from.id.toString();
+        const isPrivate = this.isPrivateChat(ctx);
+        const t = await this.i18n.getTranslationsForUser(telegramId);
+
+        await this.safeReply(ctx, t.bot.start.welcome, {
+          reply_markup: {
+            inline_keyboard: [
+              [this.buildMiniAppButton(t.bot.start.openWallet, isPrivate)],
+            ],
+          },
+        });
       } catch (error) {
         this.logger.error(`Error in /start command: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
     this.bot.command('balance', async (ctx) => {
-      if (!this.isPrivateChat(ctx)) return;
-      
       try {
         const telegramId = ctx.from.id.toString();
-        
+        const isPrivate = this.isPrivateChat(ctx);
+        const t = await this.i18n.getTranslationsForUser(telegramId);
+
         const user = await this.prisma.user.findUnique({
           where: { telegramId },
           include: { wallet: true },
         });
 
         if (!user) {
-          ctx.reply('❌ 请先使用 /start 命令开始');
+          await this.safeReply(ctx, t.bot.balance.startFirst);
           return;
         }
 
         if (!user.wallet) {
-          ctx.reply(
-            '❌ 你还没有钱包\n\n' +
-            '点击下方按钮创建钱包 👇',
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '💰 创建钱包', web_app: { url: miniAppUrl } }],
-                ],
-              },
-            }
-          );
+          await this.safeReply(ctx, t.bot.balance.noWallet, {
+            reply_markup: {
+              inline_keyboard: [
+                [this.buildMiniAppButton(t.bot.balance.createWallet, isPrivate)],
+              ],
+            },
+          });
           return;
         }
 
@@ -123,23 +154,24 @@ export class TelegramService implements OnModuleInit {
         const address = user.wallet.address;
         const shortAddress = `${address.slice(0, 8)}...${address.slice(-6)}`;
 
-        ctx.reply(
-          `💰 钱包余额\n\n` +
-          `地址: \`${shortAddress}\`\n` +
-          `余额: ${balance} SCASH\n` +
-          `UTXO 数量: ${utxos.length}`,
+        await this.safeReply(ctx,
+          `${t.bot.balance.title}\n\n` +
+          `${t.bot.balance.address}: \`${shortAddress}\`\n` +
+          `${t.bot.balance.balance}: ${balance} SCASH\n` +
+          `${t.bot.balance.utxoCount}: ${utxos.length}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📱 打开钱包详情', web_app: { url: miniAppUrl } }],
+                [this.buildMiniAppButton(t.bot.balance.openDetails, isPrivate)],
               ],
             },
           }
         );
       } catch (error) {
         this.logger.error(`Error in /balance command: ${error instanceof Error ? error.message : String(error)}`);
-        ctx.reply('❌ 查询余额失败，请稍后重试').catch(() => {});
+        // Last-resort error reply — also protected
+        await this.safeReply(ctx, '❌ Error');
       }
     });
   }
@@ -153,20 +185,15 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
 
     try {
+      const t = await this.i18n.getTranslationsForUser(telegramId);
       const senderName = senderUsername ? `@${senderUsername}` : 'Someone';
-      const message = packetMessage
-        ? `🧧 恭喜！你领取了 ${senderName} 的红包\n\n` +
-          `💰 金额: ${amount} SCASH\n` +
-          `📝 祝福: ${packetMessage}`
-        : `🧧 恭喜！你领取了 ${senderName} 的红包\n\n` +
-          `💰 金额: ${amount} SCASH`;
+      const message = t.bot.notify.claimSuccess(senderName, amount, packetMessage);
 
-      const miniAppUrl = this.getMiniAppUrl();
-
+      // Notifications are always sent to private chat (bot → user DM)
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📱 查看钱包', web_app: { url: miniAppUrl } }],
+            [this.buildMiniAppButton(t.bot.notify.viewWallet, true)],
           ],
         },
       });
@@ -185,18 +212,15 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
 
     try {
+      const t = await this.i18n.getTranslationsForUser(telegramId);
       const shortHash = packetHash.slice(0, 8);
-      const message = `🎊 你的红包已被领完！\n\n` +
-        `📦 红包ID: ${shortHash}...\n` +
-        `💰 总金额: ${totalAmount} SCASH\n` +
-        `👥 领取人数: ${claimCount} 人`;
+      const message = t.bot.notify.packetCompleted(shortHash, totalAmount, claimCount);
 
-      const miniAppUrl = this.getMiniAppUrl();
-
+      // Notifications are always sent to private chat (bot → user DM)
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📱 查看详情', web_app: { url: miniAppUrl } }],
+            [this.buildMiniAppButton(t.bot.notify.viewDetails, true)],
           ],
         },
       });

@@ -20,6 +20,7 @@ import {
 } from './auth.utils';
 import { ConfigService } from '@nestjs/config';
 import { ParsedTelegramInitData, TelegramUser } from './types/telegram-user.type';
+import { I18nService } from '../i18n/i18n.service';
 
 export interface LoginResult {
   sessionToken: string;
@@ -31,6 +32,7 @@ export interface LoginResult {
     firstName: string | null;
     lastName: string | null;
     photoUrl: string | null;
+    language: string | null;
   };
 }
 
@@ -71,6 +73,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         photoUrl: user.photoUrl,
+        language: user.language,
       },
     };
   }
@@ -123,6 +126,7 @@ export class AuthService {
     firstName: string | null;
     lastName: string | null;
     photoUrl: string | null;
+    language: string | null;
   }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -131,6 +135,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         photoUrl: true,
+        language: true,
       },
     });
 
@@ -139,6 +144,22 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  /**
+   * Update the user's language preference.
+   */
+  async updateLanguage(userId: number, language: string): Promise<{ language: string }> {
+    if (!I18nService.isSupportedLanguage(language)) {
+      throw new BadRequestException(`Unsupported language: ${language}. Supported: zh-CN, en, ru`);
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { language },
+    });
+
+    return { language };
   }
 
   /**
@@ -227,6 +248,8 @@ export class AuthService {
   }
 
   private upsertUser(user: TelegramUser) {
+    const inferredLanguage = I18nService.mapTelegramLanguageCode(user.language_code);
+
     return this.prisma.user.upsert({
       where: { telegramId: String(user.id) },
       create: {
@@ -235,6 +258,7 @@ export class AuthService {
         firstName: user.first_name ?? null,
         lastName: user.last_name ?? null,
         photoUrl: user.photo_url ?? null,
+        language: inferredLanguage,
       },
       update: {
         username: user.username ?? null,
@@ -242,6 +266,15 @@ export class AuthService {
         lastName: user.last_name ?? null,
         photoUrl: user.photo_url ?? null,
       },
+    }).then(async (dbUser) => {
+      // Backfill: if existing user has no language set, infer from Telegram language_code
+      if (!dbUser.language && inferredLanguage) {
+        return this.prisma.user.update({
+          where: { id: dbUser.id },
+          data: { language: inferredLanguage },
+        });
+      }
+      return dbUser;
     });
   }
 }

@@ -8,6 +8,7 @@ export const envValidationSchema = Joi.object({
 
   TELEGRAM_BOT_TOKEN: Joi.string().required(),
   MINIAPP_URL: Joi.string().uri().required(),
+  MINIAPP_DIRECT_LINK: Joi.string().uri().optional(),
 
   SCASH_RPC_URL: Joi.string().uri().required(),
   SCASH_RPC_USER: Joi.string().required(),

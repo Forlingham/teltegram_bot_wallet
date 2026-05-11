@@ -36,6 +36,8 @@ const languageOptions = computed(() =>
 function handleLanguageSelect(code: Locale) {
   setLocale(code)
   showLanguageModal.value = false
+  // Sync language preference to backend (fire-and-forget)
+  api.post('/api/auth/language', { language: code }).catch(() => {})
 }
 
 onMounted(async () => {
