@@ -66,7 +66,7 @@ import { useTelegram } from '@/composables/useTelegram'
 import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
 import { api } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, setLocale, type Locale } from '@/i18n'
 
 interface PacketUser {
   username?: string
@@ -104,7 +104,7 @@ const router = useRouter()
 const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const packetHash = ref(resolvePacketHash())
 const loading = ref(true)
@@ -359,6 +359,21 @@ function initAntiAutomation() {
 }
 
 onMounted(() => {
+  // Detect locale from Telegram WebApp (handles timing issue where SDK
+  // wasn't ready when the i18n module first evaluated resolveInitialLocale)
+  const tg = getWebApp()
+  const tgLangCode = tg?.initDataUnsafe?.user?.language_code
+  if (tgLangCode) {
+    const lower = tgLangCode.toLowerCase()
+    let detected: Locale | null = null
+    if (lower.startsWith('zh')) detected = 'zh-CN'
+    else if (lower.startsWith('ru')) detected = 'ru'
+    else if (lower.startsWith('en')) detected = 'en'
+    if (detected && detected !== locale.value) {
+      setLocale(detected)
+    }
+  }
+
   initAntiAutomation()
   if (packetHash.value) {
     loadPacket()
