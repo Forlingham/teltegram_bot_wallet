@@ -247,9 +247,11 @@ const handleScanQr = async () => {
 
     // 1. Check if it's a redpacket link
     // Formats:
-    //   https://t.me/SCASH_Wallet_bot/open1?startapp=rp_HASH
-    //   https://t.me/scash_red_envelope_bot/open1?startapp=rp_HASH
-    const rpMatch = text.match(/https:\/\/t\.me\/[^/]+\/open1\?startapp=(rp_[a-zA-Z0-9]+)/)
+    //   https://t.me/SCASH_Wallet_bot/open1?startapp=rp_HASH       (中文)
+    //   https://t.me/SCASH_Wallet_bot/en_open1?startapp=rp_HASH    (English)
+    //   https://t.me/SCASH_Wallet_bot/rn_open1?startapp=rp_HASH    (Русский)
+    //   https://t.me/scash_red_envelope_bot/open1?startapp=rp_HASH (dev)
+    const rpMatch = text.match(/https:\/\/t\.me\/[^/]+\/(?:en_|rn_)?open1\?startapp=(rp_[a-zA-Z0-9]+)/)
     if (rpMatch) {
       const packetHash = rpMatch[1].slice(3) // remove "rp_" prefix
       router.push(`/open?packet=${encodeURIComponent(packetHash)}`)

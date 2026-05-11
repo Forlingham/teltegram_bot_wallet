@@ -223,7 +223,8 @@ async function handlePasswordConfirm(password: string) {
     const broadcastResult = await api.post<{ txid: string }>('/api/wallet/broadcast', { hex })
 
     const botUsername = networkStore.appEnv === 'production' ? 'SCASH_Wallet_bot' : 'scash_red_envelope_bot'
-    const shareUrl = `https://t.me/${botUsername}/open1?startapp=${encodeURIComponent('rp_' + packetHash)}`
+    const botPath = locale.value === 'en' ? 'en_open1' : locale.value === 'ru' ? 'rn_open1' : 'open1'
+    const shareUrl = `https://t.me/${botUsername}/${botPath}?startapp=${encodeURIComponent('rp_' + packetHash)}`
 
     await api.post('/api/redpacket/create', {
       type: redpacketType.value,
