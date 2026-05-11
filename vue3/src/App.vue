@@ -272,7 +272,7 @@ watch(() => route.path, () => {
 
     <!-- Main layout: standard wallet app shell -->
     <template v-else>
-      <AppHeader :title="pageTitle" :show-settings="showSettings" />
+      <AppHeader :title="pageTitle" :show-settings="showSettings" :fullscreen="isAppFullscreen" />
       <main class="flex-1 px-4 py-4 space-y-6 max-w-lg mx-auto w-full" :class="{ 'pb-24': showBottomNav }">
         <RouterView />
       </main>
