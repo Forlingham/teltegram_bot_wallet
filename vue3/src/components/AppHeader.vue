@@ -37,6 +37,20 @@ function handleDisabledSettings() {
           <img alt="SCASH" class="w-full h-full object-cover" src="/img/logo-256x256.png" />
         </div>
         <span class="font-headline font-bold text-base text-purple-700 truncate">{{ title || t('appName') }}</span>
+        <button
+          v-if="showSettings && !walletStore.hasWallet"
+          class="w-10 h-10 flex items-center justify-center rounded-full text-slate-300 cursor-not-allowed"
+          @click="handleDisabledSettings"
+        >
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+        <router-link
+          v-else-if="showSettings"
+          to="/wallet/settings"
+          class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-purple-50 transition-colors active:scale-95 duration-200"
+        >
+          <span class="material-symbols-outlined">settings</span>
+        </router-link>
       </div>
     </template>
 
