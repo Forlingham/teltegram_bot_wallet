@@ -19,13 +19,17 @@ function handleDisabledSettings() {
 
 <template>
   <!--
-    全屏模式下（移动端），header 只使用 safe-area-top（设备刘海高度）作为顶部 padding，
-    这样 logo/标题/设置按钮 和 Telegram 的系统按钮（关闭/更多）处于同一行。
-    非全屏模式下（桌面端），--safe-area-top 和 --content-safe-top 都为 0，无额外间距。
+    全屏模式下（移动端）：
+    - paddingTop 使用 --safe-area-top（设备刘海高度），使 header 和 Telegram 系统按钮同一行
+    - paddingRight 使用 --content-safe-right 避开 Telegram 右上角按钮（关闭/更多菜单）
+    非全屏模式下（桌面端），所有安全区变量为 0，无额外间距。
   -->
   <header
     class="sticky top-0 w-full z-50 glass-header shadow-sm shadow-purple-500/5 flex justify-between items-center px-6 py-2"
-    :style="{ paddingTop: 'calc(0.5rem + var(--safe-area-top, 0px))' }"
+    :style="{
+      paddingTop: 'calc(0.5rem + var(--safe-area-top, 0px))',
+      paddingRight: 'calc(1.5rem + var(--content-safe-right, 0px))',
+    }"
   >
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden bg-surface-container">

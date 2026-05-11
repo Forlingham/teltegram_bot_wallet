@@ -70,6 +70,7 @@ const isAppFullscreen = ref(false)
 const safeTop = ref(0)
 const safeBottom = ref(0)
 const contentSafeTop = ref(0)
+const contentSafeRight = ref(0)
 
 function updateSafeAreaVars() {
   const sa = getSafeAreaInset()
@@ -77,6 +78,7 @@ function updateSafeAreaVars() {
   safeTop.value = sa.top
   safeBottom.value = sa.bottom
   contentSafeTop.value = csa.top
+  contentSafeRight.value = csa.right
 }
 
 function onSafeAreaChanged() {
@@ -259,6 +261,7 @@ watch(() => route.path, () => {
       '--safe-area-top': safeTop + 'px',
       '--safe-area-bottom': safeBottom + 'px',
       '--content-safe-top': contentSafeTop + 'px',
+      '--content-safe-right': contentSafeRight + 'px',
       '--total-safe-top': (safeTop + contentSafeTop) + 'px',
     }"
   >
