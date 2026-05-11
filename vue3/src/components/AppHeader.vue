@@ -29,6 +29,7 @@ function handleDisabledSettings() {
     class="sticky top-0 w-full z-50 glass-header shadow-sm shadow-purple-500/5 flex justify-between items-center px-6 py-2"
     :style="{
       paddingTop: 'calc(0.5rem + var(--safe-area-top, 0px))',
+      paddingLeft: fullscreen ? 'calc(1.5rem + 70px)' : '1.5rem',
       paddingRight: fullscreen ? 'calc(1.5rem + 100px)' : '1.5rem',
     }"
   >
