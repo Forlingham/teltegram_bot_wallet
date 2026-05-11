@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Inject, Post, UseGuards } from '@nestjs/common';
 import { AUTH_SESSION_HEADER } from './auth.constants';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
+import { UpdateLanguageDto } from './dto/update-language.dto';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './auth.decorator';
@@ -35,6 +36,7 @@ export class AuthController {
     firstName: string | null;
     lastName: string | null;
     photoUrl: string | null;
+    language: string | null;
   }> {
     const profile = await this.authService.getProfileById(user.userId);
 
@@ -45,6 +47,16 @@ export class AuthController {
       firstName: profile.firstName,
       lastName: profile.lastName,
       photoUrl: profile.photoUrl,
+      language: profile.language,
     };
+  }
+
+  @Post('language')
+  @UseGuards(AuthGuard)
+  async updateLanguage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: UpdateLanguageDto,
+  ): Promise<{ language: string }> {
+    return this.authService.updateLanguage(user.userId, body.language);
   }
 }

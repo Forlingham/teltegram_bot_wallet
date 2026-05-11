@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { PrismaService } from '../../prisma/prisma.service';
+import { I18nService } from '../i18n/i18n.service';
 import { satoshiToScash, scashToSatoshi } from '../../common/utils/money.util';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class TelegramService implements OnModuleInit {
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(I18nService) private readonly i18n: I18nService,
   ) {}
 
   onModuleInit() {
@@ -53,25 +55,20 @@ export class TelegramService implements OnModuleInit {
 
     const miniAppUrl = this.getMiniAppUrl();
 
-    this.bot.start((ctx) => {
+    this.bot.start(async (ctx) => {
       if (!this.isPrivateChat(ctx)) return;
       
       try {
-        ctx.reply(
-          '🎉 欢迎使用 SCASH 红包钱包！\n\n' +
-          '这是一个基于 Scash 区块链的红包钱包，你可以：\n' +
-          '• 发送和接收 SCASH 红包\n' +
-          '• 管理你的钱包\n' +
-          '• 查看交易记录\n\n' +
-          '点击下方按钮打开钱包 👇',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💰 打开钱包', web_app: { url: miniAppUrl } }],
-              ],
-            },
-          }
-        );
+        const telegramId = ctx.from.id.toString();
+        const t = await this.i18n.getTranslationsForUser(telegramId);
+
+        ctx.reply(t.bot.start.welcome, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: t.bot.start.openWallet, web_app: { url: miniAppUrl } }],
+            ],
+          },
+        });
       } catch (error) {
         this.logger.error(`Error in /start command: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -82,6 +79,7 @@ export class TelegramService implements OnModuleInit {
       
       try {
         const telegramId = ctx.from.id.toString();
+        const t = await this.i18n.getTranslationsForUser(telegramId);
         
         const user = await this.prisma.user.findUnique({
           where: { telegramId },
@@ -89,22 +87,18 @@ export class TelegramService implements OnModuleInit {
         });
 
         if (!user) {
-          ctx.reply('❌ 请先使用 /start 命令开始');
+          ctx.reply(t.bot.balance.startFirst);
           return;
         }
 
         if (!user.wallet) {
-          ctx.reply(
-            '❌ 你还没有钱包\n\n' +
-            '点击下方按钮创建钱包 👇',
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '💰 创建钱包', web_app: { url: miniAppUrl } }],
-                ],
-              },
-            }
-          );
+          ctx.reply(t.bot.balance.noWallet, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: t.bot.balance.createWallet, web_app: { url: miniAppUrl } }],
+              ],
+            },
+          });
           return;
         }
 
@@ -124,22 +118,23 @@ export class TelegramService implements OnModuleInit {
         const shortAddress = `${address.slice(0, 8)}...${address.slice(-6)}`;
 
         ctx.reply(
-          `💰 钱包余额\n\n` +
-          `地址: \`${shortAddress}\`\n` +
-          `余额: ${balance} SCASH\n` +
-          `UTXO 数量: ${utxos.length}`,
+          `${t.bot.balance.title}\n\n` +
+          `${t.bot.balance.address}: \`${shortAddress}\`\n` +
+          `${t.bot.balance.balance}: ${balance} SCASH\n` +
+          `${t.bot.balance.utxoCount}: ${utxos.length}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📱 打开钱包详情', web_app: { url: miniAppUrl } }],
+                [{ text: t.bot.balance.openDetails, web_app: { url: miniAppUrl } }],
               ],
             },
           }
         );
       } catch (error) {
         this.logger.error(`Error in /balance command: ${error instanceof Error ? error.message : String(error)}`);
-        ctx.reply('❌ 查询余额失败，请稍后重试').catch(() => {});
+        // Fallback error message (can't easily get i18n here since we might have failed fetching user)
+        ctx.reply('❌ Error').catch(() => {});
       }
     });
   }
@@ -153,20 +148,15 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
 
     try {
+      const t = await this.i18n.getTranslationsForUser(telegramId);
       const senderName = senderUsername ? `@${senderUsername}` : 'Someone';
-      const message = packetMessage
-        ? `🧧 恭喜！你领取了 ${senderName} 的红包\n\n` +
-          `💰 金额: ${amount} SCASH\n` +
-          `📝 祝福: ${packetMessage}`
-        : `🧧 恭喜！你领取了 ${senderName} 的红包\n\n` +
-          `💰 金额: ${amount} SCASH`;
-
+      const message = t.bot.notify.claimSuccess(senderName, amount, packetMessage);
       const miniAppUrl = this.getMiniAppUrl();
 
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📱 查看钱包', web_app: { url: miniAppUrl } }],
+            [{ text: t.bot.notify.viewWallet, web_app: { url: miniAppUrl } }],
           ],
         },
       });
@@ -185,18 +175,15 @@ export class TelegramService implements OnModuleInit {
     if (!this.bot) return;
 
     try {
+      const t = await this.i18n.getTranslationsForUser(telegramId);
       const shortHash = packetHash.slice(0, 8);
-      const message = `🎊 你的红包已被领完！\n\n` +
-        `📦 红包ID: ${shortHash}...\n` +
-        `💰 总金额: ${totalAmount} SCASH\n` +
-        `👥 领取人数: ${claimCount} 人`;
-
+      const message = t.bot.notify.packetCompleted(shortHash, totalAmount, claimCount);
       const miniAppUrl = this.getMiniAppUrl();
 
       await this.bot.telegram.sendMessage(telegramId, message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📱 查看详情', web_app: { url: miniAppUrl } }],
+            [{ text: t.bot.notify.viewDetails, web_app: { url: miniAppUrl } }],
           ],
         },
       });
