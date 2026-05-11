@@ -44,6 +44,7 @@ const { setupBackButton, hideBackButton, showAlert, close: closeApp,
   disableVerticalSwipes,
   isMobilePlatform, requestFullscreen, getWebApp,
   getSafeAreaInset, getContentSafeAreaInset,
+  setupSettingsButton,
 } = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
@@ -69,6 +70,7 @@ const isAppFullscreen = ref(false)
 const safeTop = ref(0)
 const safeBottom = ref(0)
 const contentSafeTop = ref(0)
+const contentSafeRight = ref(0)
 
 function updateSafeAreaVars() {
   const sa = getSafeAreaInset()
@@ -76,6 +78,7 @@ function updateSafeAreaVars() {
   safeTop.value = sa.top
   safeBottom.value = sa.bottom
   contentSafeTop.value = csa.top
+  contentSafeRight.value = csa.right
 }
 
 function onSafeAreaChanged() {
@@ -130,6 +133,11 @@ onMounted(() => {
   // Restore session & user info in background (non-blocking)
   authStore.ensureSession().catch(handleBgError)
   authStore.handleUserSwitch().catch(() => {})
+
+  // Setup SettingsButton — 右上角菜单中的"设置"入口
+  setupSettingsButton(() => {
+    router.push('/wallet/settings')
+  })
 
   // Main layout init is handled here; claim layout init is deferred
   // to the route watcher below (route may not be resolved yet at mount time).
@@ -253,6 +261,7 @@ watch(() => route.path, () => {
       '--safe-area-top': safeTop + 'px',
       '--safe-area-bottom': safeBottom + 'px',
       '--content-safe-top': contentSafeTop + 'px',
+      '--content-safe-right': contentSafeRight + 'px',
       '--total-safe-top': (safeTop + contentSafeTop) + 'px',
     }"
   >
@@ -263,7 +272,7 @@ watch(() => route.path, () => {
 
     <!-- Main layout: standard wallet app shell -->
     <template v-else>
-      <AppHeader :title="pageTitle" :show-settings="showSettings" />
+      <AppHeader :title="pageTitle" :show-settings="showSettings" :fullscreen="isAppFullscreen" />
       <main class="flex-1 px-4 py-4 space-y-6 max-w-lg mx-auto w-full" :class="{ 'pb-24': showBottomNav }">
         <RouterView />
       </main>

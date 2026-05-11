@@ -102,7 +102,7 @@ interface RedPacket {
 }
 
 const router = useRouter()
-const { getWebApp, getInitData, showAlert, close: closeApp } = useTelegram()
+const { getWebApp, getInitData, showAlert, close: closeApp, hapticImpact, hapticNotification } = useTelegram()
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
 const authStore = useAuthStore()
@@ -279,6 +279,10 @@ async function claimPacket() {
     // Success — reset session error state
     sessionExpired.value = false
     sessionRetryCount.value = 0
+
+    // 领取成功 — 触发振动反馈
+    hapticNotification('success')
+    hapticImpact('heavy')
 
     claimedAmount.value = result.amount || '0'
     alreadyClaimed.value = true

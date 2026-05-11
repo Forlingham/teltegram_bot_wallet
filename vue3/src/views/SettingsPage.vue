@@ -11,7 +11,7 @@ import { useI18n, LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from '@/i18n'
 const router = useRouter()
 const walletStore = useWalletStore()
 const { decryptMnemonic, encryptMnemonic, deriveAddress } = useCrypto()
-const { showAlert } = useTelegram()
+const { showAlert, addToHomeScreen } = useTelegram()
 const { t, locale, setLocale } = useI18n()
 
 const isWatchOnly = ref(false)
@@ -38,6 +38,13 @@ function handleLanguageSelect(code: Locale) {
   showLanguageModal.value = false
   // Sync language preference to backend (fire-and-forget)
   api.post('/api/auth/language', { language: code }).catch(() => {})
+}
+
+function handleAddToHomeScreen() {
+  const ok = addToHomeScreen()
+  if (!ok) {
+    showAlert(t('settings.addToHomeScreenUnavailable'))
+  }
 }
 
 onMounted(async () => {
@@ -230,6 +237,20 @@ const submitNewPassword = async () => {
           <span class="text-sm text-on-surface-variant font-medium">{{ currentLanguageLabel }}</span>
           <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
         </div>
+      </button>
+
+      <!-- Add to Home Screen -->
+      <button @click="handleAddToHomeScreen" class="group flex items-center justify-between p-5 rounded-lg bg-surface-container-lowest active:scale-[0.98] transition-all ambient-shadow text-left w-full">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-sm bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+            <span class="material-symbols-outlined">add_to_home_screen</span>
+          </div>
+          <div>
+            <p class="text-[15px] font-semibold text-on-surface">{{ t('settings.addToHomeScreen') }}</p>
+            <p class="text-xs text-on-surface-variant">{{ t('settings.addToHomeScreenDesc') }}</p>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
       </button>
 
       <button v-if="walletStore.hasWallet" @click="handleUnbind" class="group mt-4 flex items-center justify-between p-5 rounded-lg bg-error/5 active:scale-[0.98] transition-all border border-error/10 text-left w-full">
