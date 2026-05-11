@@ -46,6 +46,22 @@ export interface TelegramWebApp {
     hide: () => void
     onClick: (fn: () => void) => void
   }
+  // Bot API 7.0+ — SettingsButton
+  SettingsButton?: {
+    isVisible?: boolean
+    show: () => void
+    hide: () => void
+    onClick: (fn: () => void) => void
+    offClick: (fn: () => void) => void
+  }
+  // Bot API 8.0+ — HapticFeedback
+  HapticFeedback?: {
+    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
+    notificationOccurred: (type: 'error' | 'success' | 'warning') => void
+    selectionChanged: () => void
+  }
+  // Bot API 8.0+ — Add to Home Screen
+  addToHomeScreen?: () => void
   showScanQrPopup: (params: { text?: string }) => void
   closeScanQrPopup: () => void
   onEvent: (event: string, fn: (data: unknown) => void) => void
@@ -314,6 +330,95 @@ export function useTelegram() {
     return getWebApp()?.contentSafeAreaInset ?? { top: 0, bottom: 0, left: 0, right: 0 }
   }
 
+  // ---- Bot API 7.0+ — SettingsButton ----
+
+  /**
+   * Show the SettingsButton in the top-right menu.
+   * When clicked, navigates to the provided callback.
+   */
+  function setupSettingsButton(handler: () => void): void {
+    const tg = getWebApp()
+    if (!tg?.SettingsButton) {
+      console.warn('[Telegram] SettingsButton not available in this client version')
+      return
+    }
+    tg.SettingsButton.show()
+    tg.SettingsButton.onClick(handler)
+  }
+
+  /**
+   * Hide the SettingsButton and remove the click handler.
+   */
+  function hideSettingsButton(handler?: () => void): void {
+    const tg = getWebApp()
+    if (!tg?.SettingsButton) return
+    if (handler) {
+      tg.SettingsButton.offClick(handler)
+    }
+    tg.SettingsButton.hide()
+  }
+
+  // ---- Bot API 8.0+ — Add to Home Screen ----
+
+  /**
+   * Prompt the user to add the Mini App to their phone's home screen.
+   * Returns true if the method is available, false otherwise.
+   */
+  function addToHomeScreen(): boolean {
+    const tg = getWebApp()
+    if (tg?.addToHomeScreen) {
+      try {
+        tg.addToHomeScreen()
+        return true
+      } catch (e) {
+        console.warn('[Telegram] addToHomeScreen failed:', e)
+        return false
+      }
+    }
+    console.warn('[Telegram] addToHomeScreen not available in this client version')
+    return false
+  }
+
+  // ---- Bot API 6.1+ — HapticFeedback ----
+
+  /**
+   * Trigger an impact haptic feedback.
+   * @param style - 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'
+   */
+  function hapticImpact(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'medium'): void {
+    const tg = getWebApp()
+    try {
+      tg?.HapticFeedback?.impactOccurred(style)
+    } catch (e) {
+      console.warn('[Telegram] hapticImpact failed:', e)
+    }
+  }
+
+  /**
+   * Trigger a notification haptic feedback.
+   * @param type - 'error' | 'success' | 'warning'
+   */
+  function hapticNotification(type: 'error' | 'success' | 'warning' = 'success'): void {
+    const tg = getWebApp()
+    try {
+      tg?.HapticFeedback?.notificationOccurred(type)
+    } catch (e) {
+      console.warn('[Telegram] hapticNotification failed:', e)
+    }
+  }
+
+  /**
+   * Trigger a selection change haptic feedback.
+   */
+  function hapticSelection(): void {
+    const tg = getWebApp()
+    try {
+      tg?.HapticFeedback?.selectionChanged()
+    } catch (e) {
+      console.warn('[Telegram] hapticSelection failed:', e)
+    }
+  }
+
   return {
     getWebApp,
     getTgUser,
@@ -340,5 +445,14 @@ export function useTelegram() {
     isFullscreen,
     getSafeAreaInset,
     getContentSafeAreaInset,
+    // SettingsButton
+    setupSettingsButton,
+    hideSettingsButton,
+    // Add to Home Screen
+    addToHomeScreen,
+    // HapticFeedback
+    hapticImpact,
+    hapticNotification,
+    hapticSelection,
   }
 }

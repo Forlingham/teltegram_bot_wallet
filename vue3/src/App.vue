@@ -44,6 +44,7 @@ const { setupBackButton, hideBackButton, showAlert, close: closeApp,
   disableVerticalSwipes,
   isMobilePlatform, requestFullscreen, getWebApp,
   getSafeAreaInset, getContentSafeAreaInset,
+  setupSettingsButton,
 } = useTelegram()
 
 const isClaimLayout = computed(() => route.meta.layout === 'claim')
@@ -130,6 +131,11 @@ onMounted(() => {
   // Restore session & user info in background (non-blocking)
   authStore.ensureSession().catch(handleBgError)
   authStore.handleUserSwitch().catch(() => {})
+
+  // Setup SettingsButton — 右上角菜单中的"设置"入口
+  setupSettingsButton(() => {
+    router.push('/wallet/settings')
+  })
 
   // Main layout init is handled here; claim layout init is deferred
   // to the route watcher below (route may not be resolved yet at mount time).
