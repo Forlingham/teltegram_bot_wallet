@@ -18,7 +18,15 @@ function handleDisabledSettings() {
 </script>
 
 <template>
-  <header class="sticky top-0 w-full z-50 glass-header shadow-sm shadow-purple-500/5 flex justify-between items-center px-6 py-2" :style="{ paddingTop: 'calc(0.5rem + var(--total-safe-top, 0px))' }">
+  <!--
+    全屏模式下（移动端），header 只使用 safe-area-top（设备刘海高度）作为顶部 padding，
+    这样 logo/标题/设置按钮 和 Telegram 的系统按钮（关闭/更多）处于同一行。
+    非全屏模式下（桌面端），--safe-area-top 和 --content-safe-top 都为 0，无额外间距。
+  -->
+  <header
+    class="sticky top-0 w-full z-50 glass-header shadow-sm shadow-purple-500/5 flex justify-between items-center px-6 py-2"
+    :style="{ paddingTop: 'calc(0.5rem + var(--safe-area-top, 0px))' }"
+  >
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden bg-surface-container">
         <img alt="SCASH" class="w-full h-full object-cover" src="/img/logo-256x256.png" />
