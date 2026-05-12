@@ -130,6 +130,23 @@ export const useAuthStore = defineStore('auth', () => {
         if (language) {
           const { setLocale } = await import('@/i18n')
           setLocale(language as any)
+        } else {
+          // First-time user: server has no language preference yet.
+          // Send the locally-detected locale to the backend so it's persisted.
+          // Use raw fetch instead of api.post to avoid deadlock (api.post calls
+          // ensureSession internally, which is still in-flight at this point).
+          const i18n = await import('@/i18n')
+          const currentLocale = i18n.useI18n().locale.value
+          if (currentLocale) {
+            fetch('/api/auth/language', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-session-token': token,
+              },
+              body: JSON.stringify({ language: currentLocale }),
+            }).catch(() => {})
+          }
         }
 
         // 3. Update in-memory user info if available from login response
