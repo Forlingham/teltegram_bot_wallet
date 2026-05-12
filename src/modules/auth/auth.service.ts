@@ -189,7 +189,11 @@ export class AuthService {
 
     const age = Math.floor(Date.now() / 1000) - authDate;
     const maxAge = customMaxAge ?? TELEGRAM_AUTH_MAX_AGE_SECONDS;
-    if (age < 0 || age > maxAge) {
+    // Allow a small clock skew (up to 60s into the future) between the
+    // Telegram client and our server. Negative age means the client clock
+    // is slightly ahead of the server, which is normal.
+    const CLOCK_SKEW_TOLERANCE = 60;
+    if (age < -CLOCK_SKEW_TOLERANCE || age > maxAge) {
       throw new UnauthorizedException('initData expired');
     }
 
