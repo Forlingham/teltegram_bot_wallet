@@ -76,12 +76,15 @@ export const useAuthStore = defineStore('auth', () => {
       const lowerMsg = errMsg.toLowerCase()
       // Detect initData expiry / replay — these are unrecoverable without
       // the user closing and re-opening the Mini App.
+      // Only match precise initData-related error patterns to avoid false
+      // positives from general "session expired" or other messages.
       if (
         lowerMsg.includes('replay') ||
         lowerMsg.includes('initdata expired') ||
-        lowerMsg.includes('expired') ||
+        lowerMsg.includes('initdata') ||
         lowerMsg.includes('init_data') ||
-        lowerMsg.includes('authorization')
+        lowerMsg.includes('data is outdated') ||
+        lowerMsg.includes('auth_date')
       ) {
         throw new Error(t('api.loginExpired'))
       }
