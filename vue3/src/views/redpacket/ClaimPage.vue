@@ -67,7 +67,7 @@ import { usePriceStore } from '@/stores/price'
 import { useWalletStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api'
-import { useI18n, setLocale, type Locale } from '@/i18n'
+import { useI18n } from '@/i18n'
 
 interface PacketUser {
   username?: string
@@ -106,7 +106,7 @@ const { getWebApp, getInitData, showAlert, close: closeApp, hapticImpact, haptic
 const priceStore = usePriceStore()
 const walletStore = useWalletStore()
 const authStore = useAuthStore()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const packetHash = ref(resolvePacketHash())
 const loading = ref(true)
