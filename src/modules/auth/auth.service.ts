@@ -234,16 +234,22 @@ export class AuthService {
       },
     });
 
+    const expiresAt = new Date(now.getTime() + AUTH_NONCE_TTL_SECONDS * 1000);
+
     try {
-      await this.prisma.authNonce.create({
-        data: {
-          nonce,
-          expiresAt: new Date(now.getTime() + AUTH_NONCE_TTL_SECONDS * 1000),
-        },
+      await this.prisma.authNonce.upsert({
+        where: { nonce },
+        create: { nonce, expiresAt },
+        update: { expiresAt },
       });
-    } catch {
-      this.logger.warn('Replay detected for Telegram nonce');
-      throw new UnauthorizedException('Replay detected');
+    } catch (e: any) {
+      // Only treat as replay if it's a unique constraint violation that
+      // upsert couldn't handle (shouldn't happen, but guard defensively).
+      if (e?.code === 'P2002') {
+        this.logger.warn('Replay detected for Telegram nonce');
+        throw new UnauthorizedException('Replay detected');
+      }
+      throw e;
     }
   }
 
